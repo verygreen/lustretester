@@ -250,7 +250,12 @@ if __name__ == "__main__":
 
     while True:
         managerthread.join(1)
+        if workItem.TestingDone or workItem.BuildError or workItem.InitialTestingError:
+            break
 
     logger.info("All done, bailing out")
+
+    string = vars(workItem)
+    pprint(string)
 
     sys.stdout.flush()
