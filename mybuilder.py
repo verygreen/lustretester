@@ -29,7 +29,8 @@ class Builder(object):
         return logger
 
     def run_daemon(self, in_cond, in_queue, out_cond, out_queue):
-        self.logger = self.setup_custom_logger("builder-%s.log" % (threading.current_thread().name))
+        self.name = threading.current_thread().name
+        self.logger = self.setup_custom_logger("builder-%s.log" % (self.name))
         self.logger.info("Started daemon")
         while True:
             in_cond.acquire()
@@ -43,6 +44,7 @@ class Builder(object):
             workitem = job[1]
             self.logger.info("Got build job for id " + str(workitem.buildnr))
             result = self.build_worker(builddata, workitem)
+            self.logger.info("Finished build job for id " + str(workitem.buildnr))
             out_cond.acquire()
             out_queue.put(workitem)
             out_cond.notify()
@@ -77,7 +79,7 @@ class Builder(object):
             self.put_error("Build dir already exists", workitem)
             return
 
-        command = "%s %s %s %s %s" % (self.command, outdir, ref, buildnr, self.fsinfo["testoutputowner"])
+        command = "%s %s %s %s %s %s" % (self.command, outdir, ref, buildnr, self.fsinfo["testoutputowner"], self.name)
         args = shlex.split(command)
 
         # XXX exception handling?

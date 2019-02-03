@@ -114,9 +114,10 @@ class Tester(object):
             priority = job[0] # Not really used here
             testinfo = job[1]
             workitem = job[2]
-            self.logger.info("Got job " + str(testinfo))
+            self.logger.info("Got job buildid " + str(workitem.buildnr) + " test " + str(testinfo) )
             result = self.test_worker(testinfo, workitem)
             self.collect_syslogs()
+            self.logger.info("Finished job buildid " + str(workitem.buildnr) + " test " + str(testinfo) )
             out_cond.acquire()
             out_queue.put(workitem)
             out_cond.notify()
@@ -220,7 +221,7 @@ class Tester(object):
         if testname is None:
             workitem.UpdateTestStatus(testinfo, "Invalid testinfo!", Failed=True)
             return
-        timeout = testinfo.get("timeout", 300)
+        timeout = testinfo.get("timeout", 900)
         fstype = testinfo.get("fstype", "ldiskfs")
         DNE = testinfo.get("DNE", False)
         serverkernel = artifactdir +"/kernel-%s-%s" % (serverdistro, self.serverarch)

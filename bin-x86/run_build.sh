@@ -22,6 +22,8 @@ log() {
 REF=$1
 BUILDNR=$2
 
+NCPUS=$(grep -c ^processor /proc/cpuinfo)
+
 if [ -z "$REF" -o -z "$BUILDNR" ] ; then
 	echo usage: $0 gerit_reference build_nr
 	exit 2
@@ -41,9 +43,11 @@ git reset --hard >/dev/null 2>&1
 RETVAL=$?
 
 if [ $RETVAL -ne 0 ] ; then
-        echo git checkout error!
+        log "git checkout error!"
         exit 10
 fi
+
+echo "${REF}" >${OUTDIR}/REF
 
 log "autogen.sh"
 sh autogen.sh >>${BUILDLOG} 2>&1
@@ -51,15 +55,16 @@ log "Configure"
 ./configure --with-linux=${KERNELDIR}  --with-zfs=/usr/local/src/zfs-0.7.11 --with-spl=/usr/local/src/spl-0.7.11 --with-zfs-devel=/usr/local --disable-shared >>${BUILDLOG} 2>&1
 RETVAL=$?
 if [ $RETVAL -ne 0 ] ; then
-        echo configure error!
+        echo "configure error!"
         exit 12
 fi
 
 log "building"
-make -j8 >>${BUILDLOG} 2>&1
+make -j${NCPUS} >>${BUILDLOG} 2>&1
 RETVAL=$?
 if [ $RETVAL -ne 0 ] ; then
-        echo build error!
+        log "build error!"
+	make -j8 >/dev/null 2>${OUTDIR}/build${EXTRANAME}.stderr
         exit 14
 fi
 
