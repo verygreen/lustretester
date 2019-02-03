@@ -29,7 +29,7 @@ class Builder(object):
         return logger
 
     def run_daemon(self, in_cond, in_queue, out_cond, out_queue):
-        self.logger = self.setup_custom_logger("builder-%d.log" % (threading.current_thread().ident))
+        self.logger = self.setup_custom_logger("builder-%s.log" % (threading.current_thread().name))
         self.logger.info("Started daemon")
         while True:
             in_cond.acquire()
@@ -110,5 +110,6 @@ class Builder(object):
         os.chown(outdir, 0, -1)
 
         workitem.BuildDone = True
+        workitem.BuildMessage = "Success"
 
         return outs
