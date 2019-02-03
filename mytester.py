@@ -70,7 +70,7 @@ class Node(object):
         self.outs += outs
         self.errs += errs
 
-    def returncode():
+    def returncode(self):
         self.process.poll()
         return self.process.returncode
 
