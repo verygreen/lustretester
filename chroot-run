@@ -1,0 +1,2 @@
+OUTDIR=/tmp/out
+systemd-nspawn -q --read-only --bind=${OUTDIR}:/tmp/out --bind-ro=/home/green/build-and-test/bin-x86:/home/green/bin --tmpfs=/home/green/git/lustre-release:mode=777,size=3G -D /exports/centos7-base -u green /home/green/bin/run_build.sh refs/changes/47/34147/2 3

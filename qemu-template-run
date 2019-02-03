@@ -1,0 +1,72 @@
+#!/bin/bash
+
+LOCATION=$(cd $(dirname $0)/..; echo $PWD)
+
+NAME=$1
+HOMEDATA=$2
+RUNDIR=$3
+MAC=
+HOMEDEV=
+SWAPDEV=
+KERNEL=
+INITRD=
+EXPORT=
+NFSSERVER=
+
+if [ ! -f "$HOMEDATA" -o -z "$NAME" ] ; then
+	echo "Usage $0 VMNAME lustrebuild.tar.xz LOGDIR"
+	exit 1
+fi
+
+if [ ! -f vmcfg/${NAME}.env ] ; then
+	echo "Unknown vm name $NAME"
+	exit 1
+fi
+
+. ${LOCATION}/vmcfg/"${NAME}.env"
+
+EXTRADEV=
+if [ -e "$MDT1DEV" ] ; then
+	EXTRADEV+="-drive file=${MDT1DEV},format=raw,if=none,id=drive-virtio-disk2,cache=none -device virtio-blk-pci,scsi=off,bus=pci.0,addr=0x7,drive=drive-virtio-disk2,id=virtio-disk2,write-cache=on "
+fi
+if [ -e "$MDT2DEV" ] ; then
+	EXTRADEV+="-drive file=${MDT2DEV},format=raw,if=none,id=drive-virtio-disk3,cache=none -device virtio-blk-pci,scsi=off,bus=pci.0,addr=0x8,drive=drive-virtio-disk3,id=virtio-disk3,write-cache=on "
+fi
+if [ -e "$OST1DEV" ] ; then
+	EXTRADEV+="-drive file=${OST1DEV},format=raw,if=none,id=drive-virtio-disk4,cache=none -device virtio-blk-pci,scsi=off,bus=pci.0,addr=0x9,drive=drive-virtio-disk4,id=virtio-disk4,write-cache=on "
+fi
+if [ -e "$OST2DEV" ] ; then
+	EXTRADEV+="-drive file=${OST2DEV},format=raw,if=none,id=drive-virtio-disk5,cache=none -device virtio-blk-pci,scsi=off,bus=pci.0,addr=0xa,drive=drive-virtio-disk5,id=virtio-disk5,write-cache=on "
+fi
+
+if [ ! -e "$HOMEDEV" -o ! -e "$SWAPDEV" ] ; then
+	echo "HOMEDEV and SWAPDEV must be present for all VMs"
+	exit 1
+fi
+
+if [ -z "$NFSSERVER" -o -z "$EXPORT" ] ; then
+	echo "NFSSERVER and EXPORT must be present for all VMs"
+	exit 1
+fi
+
+if [ ! -f "$KERNEL" -o ! -f "$INITRD" ] ; then
+	echo "KERNEL and INITRD must be present for all VMs"
+	exit 1
+fi
+
+if [ ! -d "$RUNDIR" ] ; then
+	echo "RUNDIR must be a directory and exist for all test runs"
+	exit 1
+fi
+
+VMPREP=/tmp/vmprep.$$
+mkdir $VMPREP || exit 2
+mkswap -f -L SWAP "${SWAPDEV}" || exit 3
+mkfs.ext4 -F "${HOMEDEV}" || exit 4
+mount "${HOMEDEV}" $VMPREP -t ext4 || exit 5
+tar -C "${VMPREP}"/ -a -x -f ${HOMEDATA} || exit 7
+umount "${VMPREP}" || exit 8
+rmdir "${VMPREP}" || exit 9
+
+echo "Starting Qemu for $NAME"
+qemu-system-x86_64 -nographic -nodefaults -nic bridge,model=virtio,mac=${MAC},br=br0 -name guest=${NAME},debug-threads=on -machine pc-i440fx-1.6,accel=kvm,usb=off,dump-guest-core=off -m 4078 -realtime mlock=off -smp 8,sockets=1,cores=4,threads=2 -rtc base=utc -serial stdio -serial file:"${RUNDIR}"/"${NAME}"-console.txt -drive file="${HOMEDEV}",format=raw,if=none,id=drive-virtio-disk0,cache=none -device virtio-blk-pci,scsi=off,bus=pci.0,addr=0x5,drive=drive-virtio-disk0,id=virtio-disk0,write-cache=on -drive file="${SWAPDEV}",format=raw,if=none,id=drive-virtio-disk1,cache=none ${EXTRADEV} -device virtio-blk-pci,scsi=off,bus=pci.0,addr=0x6,drive=drive-virtio-disk1,id=virtio-disk1,write-cache=on $EXTRADEVS -msg timestamp=on -kernel "${KERNEL}" -initrd "${INITRD}" -append "rd.shell root=nfs:${NFSSERVER}:${EXPORT} ro crashkernel=128M panic=1 nomodeset ipmtu=9000 noibrs noibpb nopti console=ttyS1"

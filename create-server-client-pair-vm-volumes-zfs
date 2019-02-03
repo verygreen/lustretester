@@ -1,0 +1,7 @@
+zfs create -V 1G zstorage/${NAME}-server-swap
+zfs create -V 1G zstorage/${NAME}-server-mdt1
+zfs create -V 1G zstorage/${NAME}-server-mdt2
+zfs create -V 2G zstorage/${NAME}-server-ost1
+zfs create -V 2G zstorage/${NAME}-server-ost2
+zfs create -V 1G zstorage/${NAME}-client-swap
+

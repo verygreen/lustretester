@@ -1,0 +1,9 @@
+{
+    "review.whamcloud.com": {
+        "gerrit/http": {
+            "username": "lgerritjanitor",
+            "password": "iCZ3jSrU8DoySqJLvLw/yIt91/NLXbqYc21VfL9rTw"
+        }
+    }
+}
+

@@ -1,0 +1,9 @@
+to have crashdump stop the VM on finish, edit usr/lib/kdump/kdump-lib-initramfs.sh
+and change FINAL_ACTION to poweroff from reboot
+
+change StrictHostKeyChecking to no in /etc/ssh/ssh_config
+
+add this to rc.local:
+modprobe crc_t10dif
+mount -t ramfs none /etc/udev/rules.d
+

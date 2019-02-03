@@ -1,0 +1,7 @@
+{
+	"outputs":"/exports/testreports",
+	"crashdumps":"/tmp/kcrashes",
+	"syslogdir":"/tmp/syslogs",
+	"testoutputdir":"testresults",
+	"testoutputowner":"green"
+}
