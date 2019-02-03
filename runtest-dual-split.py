@@ -102,7 +102,8 @@ class GerritWorkItem(object):
                 item["Timeout"] = Crash
                 item["Failed"] = Failed
                 item["Finished"] = Finished
-                item["StatusMessage"] = message
+                if message is not None:
+                    item["StatusMessage"] = message
         if not updated:
             logger.error("Passed in testinfo that I cannot match " + str(testinfo))
             pprint(testinfo)
@@ -250,15 +251,19 @@ if __name__ == "__main__":
     managerthread.start()
 
     workItem = GerritWorkItem("refs/changes/47/34147/2", initialtestlist, testlist)
-    logger.info("Queued all jobs")
+    workItem.artifactsdir = "/exports/testreports/6"
+    workItem.BuildDone = True
+    workItem.buildnr = 6
+
     managing_condition.acquire()
     managing_queue.put(workItem)
     managing_condition.notify()
     managing_condition.release()
+    logger.info("Queued all jobs")
 
     while True:
         managerthread.join(1)
-        if workItem.TestingDone or workItem.BuildError or workItem.InitialTestingError:
+        if workItem.TestingDone or workItem.BuildError or (workItem.InitialTestingError and workItem.InitialTestingDone):
             break
 
     logger.info("All done, bailing out")
