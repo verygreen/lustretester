@@ -45,7 +45,7 @@ class Node(object):
                 time.sleep(1)
             else:
                 self.outs += string
-                pprint(string)
+                #pprint(string)
 
             self.process.poll()
             if self.process.returncode is not None:
@@ -275,12 +275,12 @@ class Tester(object):
         # Now we need to wait until both have booted and gave us login prompt
         if server.wait_for_login() is not None:
             client.terminate()
-            pprint(server.errs)
+            #pprint(server.errs)
             workitem.UpdateTestStatus(testinfo, "Server died with " + str(server.returncode()), Failed=True)
             return
         if client.wait_for_login() is not None:
             server.terminate()
-            pprint(client.errs)
+            #pprint(client.errs)
             workitem.UpdateTestStatus(testinfo, "Client died with " + str(client.returncode()), Failed=True)
             return
 
@@ -296,7 +296,7 @@ class Tester(object):
             self.testerrs += errs
             if setupprocess.returncode is not 0:
                 self.logger.warning("Failed to setup test environment")
-                workitem.UpdateTestStatus(testinfo, "Failed to setup test environment: " + errs, Failed=True)
+                workitem.UpdateTestStatus(testinfo, "Failed to setup test environment", Failed=True, TestStdOut=self.testouts, TestStdErr=self.testerrs)
                 server.terminate()
                 client.terminate()
                 return
@@ -363,7 +363,7 @@ class Tester(object):
             self.testerrs += errs
 
         self.logger.info("Job finished with code " + str(testprocess.returncode))
-        pprint(self.testerrs)
+        #pprint(self.testerrs)
 
         # Now kill the client and server
         server.terminate()
@@ -380,6 +380,6 @@ class Tester(object):
         # If self.error is set that means we already updated the errors state,
         # But we still want them to fall through here to collect the crashdumps
         if not self.error:
-            workitem.UpdateTestStatus(testinfo, "Success", Finished=True, Crash=self.CrashDetected)
+            workitem.UpdateTestStatus(testinfo, "Success", Finished=True, Crash=self.CrashDetected, TestStdOut=self.testouts, TestStdErr=self.testerrs)
 
         return self.testouts

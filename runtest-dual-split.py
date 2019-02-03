@@ -67,15 +67,15 @@ class GerritWorkItem(object):
         self.tests = testlist
 
     def UpdateTestStatus(self, testinfo, message, Failed=False, Crash=False,
-                         ResultsDir=None, Finished=False, Timeout=False):
+                         ResultsDir=None, Finished=False, Timeout=False,
+                         TestStdOut=None, TestStdErr=None):
         # Lock here and we are fine
         if self.InitialTestingStarted and not self.InitialTestingDone:
             worklist = self.initial_tests
         elif self.TestingStarted and not self.TestingDone:
             worklist = self.tests
         else:
-            logger.error("Weird state, huh?");
-            pprint(self)
+            logger.error("Weird state, huh?" + vars(self));
 
         updated = False
         for item in worklist:
@@ -104,6 +104,10 @@ class GerritWorkItem(object):
                 item["Finished"] = Finished
                 if message is not None:
                     item["StatusMessage"] = message
+                if TestStdOut is not None:
+                    item["TestStdOut"] = TestStdOut
+                if TestStdErr is not None:
+                    item["TestStdErr"] = TestStdErr
         if not updated:
             logger.error("Passed in testinfo that I cannot match " + str(testinfo))
             pprint(testinfo)
@@ -198,12 +202,12 @@ def run_workitem_manager():
 
         if workitem.InitialTestingDone and not workitem.TestingStarted:
             # Initial testing finished, now need to do real testing
-            workitem.InitialTestingStarted = True
+            workitem.TestingStarted = True
             testing_condition.acquire()
             # First 100 is second priority. perhaps sort by timeout instead?
             # could lead to prolonged struggling.
-            for testinfo in workitem.testlist:
-                testinfo['initial'] = False
+            for testinfo in workitem.tests:
+                #testinfo['initial'] = False
                 testing_queue.put([100, testinfo, workitem])
                 testing_condition.notify()
             testing_condition.release()
