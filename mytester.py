@@ -113,6 +113,7 @@ class Tester(object):
             workitem = job[2]
             self.logger.info("Got job " + str(testinfo))
             result = self.test_worker(testinfo, workitem)
+            self.collect_syslogs()
             out_cond.acquire()
             out_queue.put(workitem)
             out_cond.notify()
@@ -128,27 +129,24 @@ class Tester(object):
         self.clientnetname = workerinfo['clientname']
         self.serverarch = workerinfo.get('serverarch', "invalid")
         self.clientarch = workerinfo.get('clientarch', "invalid")
+        self.testresultsdir = ""
         self.fsinfo = fsinfo
         self.Busy = False
         self.daemon = threading.Thread(target=self.run_daemon, args=(in_cond, in_queue, out_cond, out_queue))
         self.daemon.daemon = True
         self.daemon.start()
 
+    def collect_syslogs(self):
+        for node in [self.servernetname, self.clientnetname]:
+            syslogfilename = self.fsinfo["syslogdir"] + "/" + node + ".syslog"
 
-    def collect_syslogs(self, node):
-        if node.returncode is None:
-            self.logger.warning("Collecting crashdump for still alive node " + node.name)
-
-        syslogfilename = self.fsinfo["syslogdir"] + "/" + node.name + ".syslog"
-
-        if not os.path.exists(syslogfilename):
-            self.logger.warning("Attempting to collect missing syslog for " + node.name)
-            return
-
-        shutil.copy(syslogfilename, self.testresultsdir + "/")
+            if not os.path.exists(syslogfilename):
+                self.logger.warning("Attempting to collect missing syslog for " + node)
+                return
+            shutil.copy(syslogfilename, self.testresultsdir + "/")
 
     def collect_crashdumps(self, node):
-        if node.returncode is None:
+        if node.returncode() is None:
             return # It's still alive, so no crashdumps
 
         crashdirname = self.fsinfo["crashdumps"] + "/" + node.name
@@ -328,6 +326,11 @@ class Tester(object):
             client.terminate()
             return "Testload error"
 
+
+        # XXX Up to this point, if there are any crashdumps, they would not
+        # be captured. This is probably fine because Lustre was not involved
+        # yet?
+
         # XXX add a loop here to preiodically test that our servers are alive
         # and also to ensure we don't need to abandon the test for whatever reason
         while testprocess.returncode is None: # XXX add a timer
@@ -358,7 +361,6 @@ class Tester(object):
             outs, errs = testprocess.communicate()
             self.testouts += outs
             self.testerrs += errs
-            return
 
         self.logger.info("Job finished with code " + str(testprocess.returncode))
         pprint(self.testerrs)
@@ -375,10 +377,9 @@ class Tester(object):
         self.collect_crashdumps(server)
         self.collect_crashdumps(client)
 
-        # Collect syslogs
-        self.collect_syslogs(server)
-        self.collect_syslogs(client)
-
-        workitem.UpdateTestStatus(testinfo, "Success", Finished=True)
+        # If self.error is set that means we already updated the errors state,
+        # But we still want them to fall through here to collect the crashdumps
+        if not self.error:
+            workitem.UpdateTestStatus(testinfo, "Success", Finished=True, Crash=self.CrashDetected)
 
         return self.testouts
