@@ -54,6 +54,8 @@ class Node(object):
                 self.errs += string
                 return "Process died"
             if "login:" in string:
+                # Restore old blocking behavior
+                fcntl.fcntl(fd, fcntl.F_SETFL, fl)
                 return None
         # Hm, the loop ended somehow?
         self.process.poll()
@@ -82,6 +84,7 @@ class Node(object):
         outs, errs = self.process.communicate()
         self.outs += outs
         self.errs += errs
+        return False
 
 class Tester(object):
     def setup_custom_logger(self, name):
@@ -335,7 +338,13 @@ class Tester(object):
         # and also to ensure we don't need to abandon the test for whatever reason
         while testprocess.returncode is None: # XXX add a timer
             try:
-                outs, errs = testprocess.communicate(timeout=10) # every 10 secs
+                # This is a very ugly workaround to the fact that when you call
+                # communicate with timeout, it polls(!!!) the FDs of the subprocess
+                # at an insane rate resulting in huge cpu hog. So only let it
+                # poll once per call and we do our sleeping ourselves.
+                # XXX - perhaps consider doing some sort of a manual select call?
+                time.sleep(5) # every 5 seconds, not ideal because that becomes our latency
+                outs, errs = testprocess.communicate(timeout=0.01) # cannot have 0 somehow
             except TimeoutExpired:
                 self.testouts += outs
                 self.testerrs += errs
