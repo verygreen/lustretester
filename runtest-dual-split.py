@@ -110,7 +110,7 @@ class GerritWorkItem(object):
 
         if Finished:
             for item in worklist:
-                if item.get("Finished", False):
+                if not item.get("Finished", False):
                     return
             # All entires are finished, time to mark the set
             if not self.InitialTestingDone:
