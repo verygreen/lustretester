@@ -199,7 +199,7 @@ def run_workitem_manager():
         if workitem.InitialTestingDone and not workitem.TestingStarted:
             # Initial testing finished, now need to do real testing
             workitem.InitialTestingStarted = True
-            testing_condtion.acquire()
+            testing_condition.acquire()
             # First 100 is second priority. perhaps sort by timeout instead?
             # could lead to prolonged struggling.
             for testinfo in workitem.testlist:
