@@ -912,12 +912,12 @@ def run_workitem_manager():
             with open(LAST_BUILD_ID, 'wb') as input:
                 input.write('%d' % current_build)
 
+            # Mark all earlier revs as aborted first before we add ourselves in
+            find_and_abort_duplicates(workitem)
             # Initial workitem save
             save_WorkItem(workitem)
             WorkList.append(workitem)
             logger.info("Got new ref " + workitem.ref + " assigned buildid " + str(workitem.buildnr))
-            # Also mark all earlier revs as aborted:
-            find_and_abort_duplicates(workitem)
             build_condition.acquire()
             build_queue.put([{}, workitem])
             build_condition.notify()
