@@ -1,5 +1,7 @@
 [
 	{"name":"oleg1","servername":"oleg1-server", "serverrun":"./qemu-template-run-ssq", "serverarch":"x86_64", "clientname":"oleg1-client", "clientrun":"./qemu-template-run-ssq","clientarch":"x86_64"},
 	{"name":"oleg2","servername":"oleg2-server", "serverrun":"./qemu-template-run-ssq", "serverarch":"x86_64", "clientname":"oleg2-client", "clientrun":"./qemu-template-run-ssq","clientarch":"x86_64"},
-	{"name":"oleg3","servername":"oleg3-server", "serverrun":"./qemu-template-run-ssq", "serverarch":"x86_64", "clientname":"oleg3-client", "clientrun":"./qemu-template-run-ssq","clientarch":"x86_64"}
+	{"name":"oleg3","servername":"oleg3-server", "serverrun":"./qemu-template-run-ssq", "serverarch":"x86_64", "clientname":"oleg3-client", "clientrun":"./qemu-template-run-ssq","clientarch":"x86_64"},
+	{"name":"oleg4","servername":"oleg4-server", "serverrun":"./qemu-template-run-ssq", "serverarch":"x86_64", "clientname":"oleg4-client", "clientrun":"./qemu-template-run-ssq","clientarch":"x86_64"},
+	{"name":"oleg5","servername":"oleg5-server", "serverrun":"./qemu-template-run-ssq", "serverarch":"x86_64", "clientname":"oleg5-client", "clientrun":"./qemu-template-run-ssq","clientarch":"x86_64"}
 ]
