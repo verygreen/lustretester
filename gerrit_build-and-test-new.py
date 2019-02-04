@@ -101,7 +101,6 @@ testing_queue = Queue.PriorityQueue()
 testing_condition = threading.Condition()
 managing_queue = Queue.Queue()
 managing_condition = threading.Condition()
-managerthread = None
 reviewer = None
 
 fsconfig = {}
@@ -127,10 +126,21 @@ IGNORE_FILES = [ 'contrib/*', 'README', 'snmp/*', '*dkms*', '*spec*',
         'lnet/doc/*', 'lnet/klnds/gnilnd/*' ]
 LNET_ONLY_FILES = [ 'lnet/*' ]
 CODE_FILES = [ '*.[ch]' ]
+I_DONT_KNOW_HOW_TO_TEST_THESE = [
+        'contrib/lbuild/*', '*dkms*', '*spec*', 'debian/*', 'rpm/*',
+        'lustre/kernel_patches/which_patch' ]
 
 def match_fnmatch_list(item, list):
     for pattern in list:
         if fnmatch.fnmatch(item, pattern):
+            return True
+    return False
+
+def is_notknow_howto_test(filelist):
+    """ Returns true if there are any changed files that
+        are not noops, but we are not testing it """
+    for item in sorted(filelist):
+        if match_fnmatch_list(item, I_DONT_KNOW_HOW_TO_TEST_THESE):
             return True
     return False
 
@@ -203,35 +213,36 @@ def determine_testlist(filelist, trivial_requested):
                 test['DNE'] = True
                 initial.append(test)
 
-        for item in testlist:
-            if FullRun or LDiskfsOnly:
-                test = {}
-                test['test'] = item[0]
-                test['fstype'] = "ldiskfs"
-                test['timeout'] = item[1]
-                comprehensive.append(test)
-            if ZFSOnly or FullRun:
-                test = {}
-                test['test'] = item[0]
-                test['fstype'] = "zfs"
-                test['timeout'] = item[1]
-                test['DNE'] = True
-                comprehensive.append(test)
-            if ZFSOnly and not FullRun:
-                # Need to also do non-DNE run
-                test = {}
-                test['test'] = item[0]
-                test['fstype'] = "zfs"
-                test['timeout'] = item[1]
-                comprehensive.append(test)
-            if LDiskfsOnly and not FullRun:
-                # Need to capture DNE run for ldiskfs
-                test = {}
-                test['test'] = item[0]
-                test['fstype'] = "ldiskfs"
-                test['timeout'] = item[1]
-                test['DNE'] = True
-                comprehensive.append(test)
+        if not trivial_requested or GERRIT_CHANGE_NUMBER:
+            for item in testlist:
+                if FullRun or LDiskfsOnly:
+                    test = {}
+                    test['test'] = item[0]
+                    test['fstype'] = "ldiskfs"
+                    test['timeout'] = item[1]
+                    comprehensive.append(test)
+                if ZFSOnly or FullRun:
+                    test = {}
+                    test['test'] = item[0]
+                    test['fstype'] = "zfs"
+                    test['timeout'] = item[1]
+                    test['DNE'] = True
+                    comprehensive.append(test)
+                if ZFSOnly and not FullRun:
+                    # Need to also do non-DNE run
+                    test = {}
+                    test['test'] = item[0]
+                    test['fstype'] = "zfs"
+                    test['timeout'] = item[1]
+                    comprehensive.append(test)
+                if LDiskfsOnly and not FullRun:
+                    # Need to capture DNE run for ldiskfs
+                    test = {}
+                    test['test'] = item[0]
+                    test['fstype'] = "ldiskfs"
+                    test['timeout'] = item[1]
+                    test['DNE'] = True
+                    comprehensive.append(test)
 
     return (DoNothing, initial, comprehensive)
 
@@ -365,9 +376,12 @@ def add_review_comment(WorkItem):
         commit_message = ""
 
     if WorkItem.EmptyJob:
-        message = 'Cannot detect any useful changes in this patch\n'
-        if not is_trivial_requested(commit_message):
-            message += TrivialNagMessage
+        if is_notknow_howto_test(WorkItem.change['revisions'][str(WorkItem.current_revision)]['files']):
+            message = "This file contains changes that I don't know how to test or build. Skipping"
+        else:
+            message = 'Cannot detect any useful changes in this patch\n'
+            if not is_trivial_requested(commit_message):
+                message += TrivialNagMessage
     elif WorkItem.BuildDone and not WorkItem.InitialTestingStarted and not WorkItem.TestingStarted:
         # This is after initial build completion
         if WorkItem.BuildError:
@@ -917,6 +931,10 @@ if __name__ == "__main__":
 
     if GERRIT_CHANGE_NUMBER:
         reviewer.update_single_change(GERRIT_CHANGE_NUMBER)
+
+        while True:
+            # Just hang in here until interrupted
+            managerthread.join(1)
     else:
         reviewer.run()
 
