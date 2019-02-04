@@ -103,6 +103,7 @@ class Tester(object):
     def run_daemon(self, in_cond, in_queue, out_cond, out_queue):
         self.logger = self.setup_custom_logger("tester-%s.log" % (self.name))
         self.logger.info("Started daemon")
+        sleep_on_error = 30
         while True:
             in_cond.acquire()
             while in_queue.empty():
@@ -116,13 +117,24 @@ class Tester(object):
             workitem = job[2]
             self.logger.info("Got job buildid " + str(workitem.buildnr) + " test " + str(testinfo) )
             result = self.test_worker(testinfo, workitem)
-            self.collect_syslogs()
-            self.logger.info("Finished job buildid " + str(workitem.buildnr) + " test " + str(testinfo) )
-            out_cond.acquire()
-            out_queue.put(workitem)
-            out_cond.notify()
-            out_cond.release()
-            self.Busy = False
+            if result:
+                self.collect_syslogs()
+                self.logger.info("Finished job buildid " + str(workitem.buildnr) + " test " + str(testinfo) )
+                out_cond.acquire()
+                out_queue.put(workitem)
+                out_cond.notify()
+                out_cond.release()
+                self.Busy = False
+                sleep_on_error = 30 # Reset the backoff time after successful run
+            else:
+                # We had some problem with our VMs or whatnot, return
+                # the job to the pool for retrying and sleep for some time
+                in_cond.acquire()
+                in_queue.put([priority, testinfo, workitem])
+                in_cond.notify()
+                in_cond.release()
+                time.sleep(sleep_on_error)
+                sleep_on_error *= 2
 
 
     def __init__(self, workerinfo, fsinfo, in_cond, in_queue, out_cond, out_queue):
@@ -203,13 +215,14 @@ class Tester(object):
             except OSError:
                 pass # Not there, who cares
             try:
-                with open(self.fsinfo["syslogdir"] + "/" + nodename + ".syslog", 'ab') as f:
+                with open(self.fsinfo["syslogdir"] + "/" + nodename + ".syslog", 'wb') as f:
                     f.truncate(0)
             except:
                 pass # duh, no syslog file yet?
 
     def test_worker(self, testinfo, workitem,
                     clientdistro="centos7", serverdistro="centos7"):
+        """ Returns False if the test should be retried because had some unrelated problemi """
         self.init_new_run()
         artifactdir = workitem.artifactsdir
         outdir = workitem.testresultsdir
@@ -220,7 +233,7 @@ class Tester(object):
         testname = testinfo.get("test", None)
         if testname is None:
             workitem.UpdateTestStatus(testinfo, "Invalid testinfo!", Failed=True)
-            return
+            return True # No point in retrying an invalid test
         timeout = testinfo.get("timeout", 900)
         fstype = testinfo.get("fstype", "ldiskfs")
         DNE = testinfo.get("DNE", False)
@@ -244,6 +257,7 @@ class Tester(object):
            not os.path.exists(clientkernel) or not os.path.exists(clientinitrd):
             self.logger.error("Our build artifacts are missing?")
             workitem.UpdateTestStatus("Build artifacts missing", Failed=True)
+            return True # If we don't see 'em, nobody can see 'em
 
         # Make output test results dir:
         try:
@@ -253,9 +267,8 @@ class Tester(object):
             # Don't let them delete other files
             os.chmod(testresultsdir, 01755)
         except OSError:
-            self.logger.error("Huh, cannot create test results dir")
-            workitem.UpdateTestStatus("cannot create test results dir", Failed=True)
-            return
+            self.logger.error("Huh, cannot create test results dir: " + testresultsdir)
+            return False
 
         # To know where to copy syslogs and core files
         self.testresultsdir = testresultsdir
@@ -266,27 +279,23 @@ class Tester(object):
             server.process = Popen([self.serverruncommand, server.name, serverkernel, serverinitrd, serverbuild, testresultsdir], close_fds=True, stdin=PIPE, stdout=PIPE, stderr=PIPE, universal_newlines=True)
         except (OSError) as details:
             self.logger.warning("Failed to run server " + str(details))
-            workitem.UpdateTestStatus(testinfo, "Server startup error", Failed=True)
-            return
+            return False
 
         try:
             client.process = Popen([self.clientruncommand, client.name, clientkernel, clientinitrd, clientbuild, testresultsdir], close_fds=True, stdin=PIPE, stdout=PIPE, stderr=PIPE, universal_newlines=True)
         except (OSError) as details:
             self.logger.warning("Failed to run client " + str(details))
             server.terminate()
-            workitem.UpdateTestStatus(testinfo, "Client startup error", Failed=True)
-            return
+            return False
         # Now we need to wait until both have booted and gave us login prompt
         if server.wait_for_login() is not None:
             client.terminate()
             #pprint(server.errs)
-            workitem.UpdateTestStatus(testinfo, "Server died with " + str(server.returncode()), Failed=True)
-            return
+            return False
         if client.wait_for_login() is not None:
             server.terminate()
             #pprint(client.errs)
-            workitem.UpdateTestStatus(testinfo, "Client died with " + str(client.returncode()), Failed=True)
-            return
+            return False
 
         # Now mount NFS in VM
         try:
@@ -299,17 +308,15 @@ class Tester(object):
             self.testouts += outs
             self.testerrs += errs
             if setupprocess.returncode is not 0:
-                self.logger.warning("Failed to setup test environment")
-                workitem.UpdateTestStatus(testinfo, "Failed to setup test environment", Failed=True, TestStdOut=self.testouts, TestStdErr=self.testerrs)
+                self.logger.warning("Failed to setup test environment: " + self.testerrs + " " + TestStdOut=self.testouts)
                 server.terminate()
                 client.terminate()
-                return
+                return False
         except OSError:
             self.logger.warning("Failed to run test setup " + str(details))
-            workitem.UpdateTestStatus(testinfo, "Failed to run test setup " + str(details), Failed=True)
             server.terminate()
             client.terminate()
-            return "Testload error"
+            return False
 
         try:
             if DNE:
@@ -325,15 +332,14 @@ class Tester(object):
             testprocess = Popen(args, close_fds=True, stdin=PIPE, stdout=PIPE, stderr=PIPE, universal_newlines=True)
         except (OSError) as details:
             self.logger.warning("Failed to run test " + str(details))
-            workitem.UpdateTestStatus(testinfo, "Failed to run test " + str(details), Failed=True)
             server.terminate()
             client.terminate()
-            return "Testload error"
+            return False
 
 
         # XXX Up to this point, if there are any crashdumps, they would not
         # be captured. This is probably fine because Lustre was not involved
-        # yet?
+        # yet? From this point on all failures are assumed to be test-related
 
         # XXX add a loop here to preiodically test that our servers are alive
         # and also to ensure we don't need to abandon the test for whatever reason
@@ -392,4 +398,4 @@ class Tester(object):
         if not self.error:
             workitem.UpdateTestStatus(testinfo, "Success", Finished=True, Crash=self.CrashDetected, TestStdOut=self.testouts, TestStdErr=self.testerrs)
 
-        return self.testouts
+        return True
