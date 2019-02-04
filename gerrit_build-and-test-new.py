@@ -149,30 +149,37 @@ def is_notknow_howto_test(filelist):
 
 def populate_testlist_from_array(testlist, testarray, LDiskfsOnly, ZFSOnly, DNE=True, Force=False):
     for item in testarray:
+        def getemptytest(item):
+            test = {}
+            test['test'] = item[0]
+            test['timeout'] = item[1]
+            test['extraenv'] = item[2]
+            return test
+
         try:
             # See if this test is disabled
             if item[3] and not Force:
                 continue
         except IndexError:
             pass # No disabled element = we are all fine
-        test = {}
-        test['test'] = item[0]
-        test['timeout'] = item[1]
-        test['extraenv'] = item[2]
-        if LDiskfsOnly and DNE:
+        if LDiskfsOnly:
+            test = getemptytest(item)
             test['fstype'] = "ldiskfs"
-            test['DNE'] = True
+            test['DNE'] = DNE
             testlist.append(test)
         if ZFSOnly:
+            test = getemptytest(item)
             test['fstype'] = "zfs"
             testlist.append(test)
         if ZFSOnly and DNE and not LDiskfsOnly:
             # Need to also do DNE run
+            test = getemptytest(item)
             test['fstype'] = "zfs"
             test['DNE'] = True
             testlist.append(test)
-        if LDiskfsOnly and not ZFSOnly:
+        if LDiskfsOnly and not ZFSOnly and DNE:
             # Need to capture non-DNE run for ldiskfs
+            test = getemptytest(item)
             test['fstype'] = "ldiskfs"
             testlist.append(test)
 
@@ -189,6 +196,7 @@ def determine_testlist(filelist, trivial_requested):
     ZFSOnly = False
     LDiskfsOnly = False
     FullRun = False
+
     for item in sorted(filelist):
         # I wish there was a way to detect deleted files, but alas, not in our gerrit?
         if match_fnmatch_list(item, IGNORE_FILES):
@@ -1082,7 +1090,10 @@ if __name__ == "__main__":
 
             if not workitem.BuildDone:
                 # Need to clean up build dir
-                shutil.rmtree(self.artifactsdir)
+                try:
+                    shutil.rmtree(workitem.artifactsdir)
+                except OSError:
+                    pass # Ok if it's not there
             elif workitem.BuildError or workitem.InitialTestingError or workitem.TestingError:
                 pass # just insert for final notify
             elif workitem.InitialTestingStarted and not InitialTestingDone:
