@@ -51,6 +51,7 @@ import mybuilder
 import mytester
 from datetime import datetime
 import dateutil.parser
+import shutil
 import cPickle as pickle
 from pprint import pprint
 
@@ -884,7 +885,7 @@ def run_workitem_manager():
 
     try:
         with open(LAST_BUILD_ID, 'rb') as input:
-            current_build = f.read('%d')
+            current_build = input.read('%d')
     except:
         pass
     
