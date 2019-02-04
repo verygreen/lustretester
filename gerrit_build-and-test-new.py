@@ -33,16 +33,25 @@ Gerrit Universal Reviewer Daemon
 * POST reviews back to gerrit based on results
 """
 
-import base64
 import fnmatch
 import logging
 import json
 import os
+import sys
 import requests
 import subprocess
 import time
 import urllib
 from GerritWorkItem import GerritWorkItem
+import Queue
+import threading
+import pwd
+import re
+import mybuilder
+import mytester
+from datetime import datetime
+import dateutil.parser
+import cPickle as pickle
 from pprint import pprint
 
 def _getenv_list(key, default=None, sep=':'):
@@ -61,6 +70,10 @@ GERRIT_BRANCH = os.getenv('GERRIT_BRANCH', 'master')
 GERRIT_AUTH_PATH = os.getenv('GERRIT_AUTH_PATH', 'GERRIT_AUTH')
 GERRIT_CHANGE_NUMBER = os.getenv('GERRIT_CHANGE_NUMBER', None)
 
+SAVEDSTATE_DIR="savedstate"
+DONEWITH_DIR="donewith"
+LAST_BUILD_ID="LASTBUILD_ID"
+
 # GERRIT_AUTH should contain a single JSON dictionary of the form:
 # {
 #     "review.example.com": {
@@ -75,8 +88,12 @@ GERRIT_CHANGE_NUMBER = os.getenv('GERRIT_CHANGE_NUMBER', None)
 REVIEW_HISTORY_PATH = os.getenv('REVIEW_HISTORY_PATH', 'REVIEW_HISTORY')
 STYLE_LINK = os.getenv('STYLE_LINK',
         'http://wiki.lustre.org/Lustre_Coding_Style_Guidelines')
+TrivialNagMessage = 'It is recommended to add "Test-Parameters: trivial" directive to patches that do not change any running code to ease the load on the testing subsystem'
+TrivialIgnoredMessage = 'Even though "Test-Parameters: trivial" was detected, this deeply suspicious bot still run some testing'
 
 USE_CODE_REVIEW_SCORE = False
+
+IGNORE_OLDER_THAN_DAYS = 30
 
 build_queue = Queue.Queue()
 build_condition = threading.Condition()
@@ -84,13 +101,157 @@ testing_queue = Queue.PriorityQueue()
 testing_condition = threading.Condition()
 managing_queue = Queue.Queue()
 managing_condition = threading.Condition()
+managerthread = None
+reviewer = None
 
 fsconfig = {}
 
 distros = ["centos7"]
 architectures = ["x86_64"]
-initialtestlist=({'test':"runtests"},{'test':"runtests",'fstype':"zfs",'DNE':True,'timeout':600})
-testlist=({'test':"sanity", 'timeout':3600},{'test':"sanity",'fstype':"zfs",'DNE':True,'timeout':7200})
+#initialtestlist=({'test':"runtests"},{'test':"runtests",'fstype':"zfs",'DNE':True,'timeout':600})
+initialtestlist = [("runtests", 600)]
+#testlist=({'test':"sanity", 'timeout':3600},{'test':"sanity",'fstype':"zfs",'DNE':True,'timeout':7200})
+#testlist=[("sanity", 7200)]
+testlist=[]
+
+ZFS_ONLY_FILES = [ 'lustre/osd-zfs/*.[ch]', 'lustre/utils/libmount_utils_zfs.c', 'config/lustre-build-zfs.m4' ]
+LDISKFS_ONLY_FILES = [
+        'lustre/osd-ldiskfs/*.[ch]', 'lustre/utils/libmount_utils_ldiskfs.c',
+        'ldiskfs/kernel_patches/*', 'config/lustre-build-ldiskfs.m4' ]
+BUILD_ONLY_FILES = [ '*Makefile*', 'LUSTRE-VERSION-GEN', 'autogen.sh',
+        'lnet/klnds/o2iblnd/*' ]
+IGNORE_FILES = [ 'contrib/*', 'README', 'snmp/*', '*dkms*', '*spec*',
+        'debian/*', 'rpm/*', 'Documentation/*', 'ChangeLog', 'COPYING',
+        'MAINTAINERS', '*doxygen*', 'lustre-iokit/*', 'LICENSE',
+        '.gitignore', 'nodist', 'lustre/doc/*', 'lustre/kernel_patches/*',
+        'lnet/doc/*', 'lnet/klnds/gnilnd/*' ]
+LNET_ONLY_FILES = [ 'lnet/*' ]
+CODE_FILES = [ '*.[ch]' ]
+
+def match_fnmatch_list(item, list):
+    for pattern in list:
+        if fnmatch.fnmatch(item, pattern):
+            return True
+    return False
+
+def determine_testlist(filelist, trivial_requested):
+    """ Try to guess what tests to run based on the changes """
+    DoNothing = True
+    BuildOnly = False
+    LNetOnly = False
+    ZFSOnly = False
+    LDiskfsOnly = False
+    FullRun = False
+    for item in sorted(filelist):
+        # I wish there was a way to detect deleted files, but alas, not in our gerrit?
+        if match_fnmatch_list(item, IGNORE_FILES):
+            continue # with deletion would set BuildOnly
+        DoNothing = False
+        if match_fnmatch_list(item, BUILD_ONLY_FILES):
+            BuildOnly = True
+            continue
+        if match_fnmatch_list(item, ZFS_ONLY_FILES):
+            ZFSOnly = True
+            continue
+        if match_fnmatch_list(item, LDISKFS_ONLY_FILES):
+            LDiskfsOnly = True
+            continue
+        if match_fnmatch_list(item, LNET_ONLY_FILES):
+            LNetOnly = True
+            continue
+        # Otherwise unknown file = full test
+        # Need to be smarter here about individual test file changes I guess?
+        FullRun = True
+
+    if LDiskfsOnly and ZFSOnly:
+        FullRun = True
+
+    if LNetOnly and not FullRun and not LDiskfsOnly and not ZFSOnly:
+        LNetOnly = True
+
+    initial = []
+    comprehensive = []
+
+    if not DoNothing:
+        for item in initialtestlist:
+            if FullRun or LDiskfsOnly:
+                test = {}
+                test['test'] = item[0]
+                test['fstype'] = "ldiskfs"
+                test['timeout'] = item[1]
+                initial.append(test)
+            if ZFSOnly or FullRun:
+                test = {}
+                test['test'] = item[0]
+                test['fstype'] = "zfs"
+                test['timeout'] = item[1]
+                test['DNE'] = True
+                initial.append(test)
+            if ZFSOnly and not FullRun:
+                # Need to also do non-DNE run
+                test = {}
+                test['test'] = item[0]
+                test['fstype'] = "zfs"
+                test['timeout'] = item[1]
+                initial.append(test)
+            if LDiskfsOnly and not FullRun:
+                # Need to capture DNE run for ldiskfs
+                test = {}
+                test['test'] = item[0]
+                test['fstype'] = "ldiskfs"
+                test['timeout'] = item[1]
+                test['DNE'] = True
+                initial.append(test)
+
+        for item in testlist:
+            if FullRun or LDiskfsOnly:
+                test = {}
+                test['test'] = item[0]
+                test['fstype'] = "ldiskfs"
+                test['timeout'] = item[1]
+                comprehensive.append(test)
+            if ZFSOnly or FullRun:
+                test = {}
+                test['test'] = item[0]
+                test['fstype'] = "zfs"
+                test['timeout'] = item[1]
+                test['DNE'] = True
+                comprehensive.append(test)
+            if ZFSOnly and not FullRun:
+                # Need to also do non-DNE run
+                test = {}
+                test['test'] = item[0]
+                test['fstype'] = "zfs"
+                test['timeout'] = item[1]
+                comprehensive.append(test)
+            if LDiskfsOnly and not FullRun:
+                # Need to capture DNE run for ldiskfs
+                test = {}
+                test['test'] = item[0]
+                test['fstype'] = "ldiskfs"
+                test['timeout'] = item[1]
+                test['DNE'] = True
+                comprehensive.append(test)
+
+    return (DoNothing, initial, comprehensive)
+
+def is_trivial_requested(message):
+    trivial_re = re.compile("^Test-Parameters:.*trivial")
+    for line in message.splitlines():
+        if trivial_re.match(line):
+            return True
+
+def is_buildonly_requested(message):
+    trivial_re = re.compile("^Test-Parameters:.*forbuildonly")
+    for line in message.splitlines():
+        if trivial_re.match(line):
+            return True
+
+def is_testonly_requested(message):
+    trivial_re = re.compile("^Test-Parameters:.*fortestdonly")
+    for line in message.splitlines():
+        if trivial_re.match(line):
+            return True
 
 def parse_checkpatch_output(out, path_line_comments, warning_count):
     """
@@ -191,6 +352,87 @@ def review_input_and_score(path_line_comments, warning_count):
             'notify': 'NONE',
             }, score
 
+def add_review_comment(WorkItem):
+    """
+    Convert { PATH: { LINE: [COMMENT, ...] }, ... }, [11] to a gerrit
+    ReviewInput() and score
+    """
+    score = 0
+    review_comments = {}
+    try:
+        commit_message = WorkItem.change['revisions'][str(WorkItem.revision)]['commit']['message']
+    except:
+        commit_message = ""
+
+    if WorkItem.EmptyJob:
+        message = 'Cannot detect any useful changes in this patch\n'
+        if not is_trivial_requested(commit_message):
+            message += TrivialNagMessage
+    elif WorkItem.BuildDone and not WorkItem.InitialTestingStarted and not WorkItem.TestingStarted:
+        # This is after initial build completion
+        if WorkItem.BuildError:
+            message = 'Build failed\nInsert some useful info and URL here'
+            score = -1
+            review_comments = WorkItem.ReviewComments
+        else:
+            message = 'Build for x86_64 centos7 successful\n'
+            if WorkItem.initial_tests:
+                message += 'Commencing initial testing ADD TESTLIST HERE'
+            else:
+                message += 'This was detected as a build-only change, no further testing would be performed by this bot.\n'
+            if not is_trivial_requested(commit_message):
+                message += TrivialNagMessage
+                score = 1
+    elif WorkItem.InitialTestingDone and not WorkItem.TestingStarted:
+        # This is after initial tests
+        if WorkItem.InitialTestingError:
+            message = 'Initial testing failed\nINSERT USEFUL INFO AND LINKS HERE'
+            score = -1
+            review_comments = WorkItem.ReviewComments
+        else:
+            message = 'Initial testing succeeded\nINSERT TESTLIST\n'
+            if WorkItem.tests:
+                message += 'Commencing standard testing ADD TESTLIST'
+            else:
+                message += 'No additional testing was requested'
+                score = 1
+    elif WorkItem.TestingDone:
+        message = ""
+        if is_trivial_requested(commit_message):
+            message += TrivialIgnoredMessage
+        message += 'Testing has completed '
+        if WorkItem.TestingError:
+            message += 'with errors!\n'
+            message += 'ADD SOME USEFUL INFO HERE\n'
+            score = -1
+            review_comments = WorkItem.ReviewComments
+        else:
+            message += 'Successfully\n'
+        message += 'Add some useful links and info here'
+    else:
+        message = "Help, I don't know why I am here" + str(vars(WorkItem))
+
+    # Errors = notify owner, no errors - no need to spam people
+    if score < 0:
+        notify = 'OWNER'
+    else:
+        notify = 'NONE'
+
+    if USE_CODE_REVIEW_SCORE:
+        code_review_score = score
+    else:
+        code_review_score = 0
+
+    reviewer.post_review (WorkItem.change, WorkItem.revision, {
+        'message': (message),
+        'labels': {
+            'Code-Review': code_review_score
+            },
+        'comments': review_comments,
+        'notify': notify,
+        })
+
+
 
 def _now():
     """_"""
@@ -215,8 +457,8 @@ class Reviewer(object):
         self.history_mode = 'rw'
         self.history = {}
         self.timestamp = 0L
-        self.post_enabled = True
-        self.post_interval = 10
+        self.post_enabled = False # XXX
+        self.post_interval = 5
         self.update_interval = 300
         self.request_timeout = 60
 
@@ -342,45 +584,6 @@ class Reviewer(object):
         # Gerrit uses " )]}'" to guard against XSSI.
         return json.loads(res.content[5:])
 
-    def decode_patch(self, content):
-        """
-        Decode gerrit's idea of base64.
-
-        The base64 encoded patch returned by gerrit isn't always
-        padded correctly according to b64decode. Don't know why. Work
-        around this by appending more '=' characters or truncating the
-        content until it decodes. But do try the unmodified content
-        first.
-        """
-        for i in (0, 1, 2, 3, -1, -2, -3):
-            if i >= 0:
-                padded_content = content + (i * '=')
-            else:
-                padded_content = content[:i]
-
-            try:
-                return base64.b64decode(padded_content)
-            except TypeError as exc:
-                self._debug("decode_patch: len = %d, exception = %s",
-                           len(padded_content), str(exc))
-        else:
-            return ''
-
-    def get_patch(self, change, revision='current'):
-        """
-        GET and decode the (current) patch for change.
-        """
-        path = '/changes/' + change['id'] + '/revisions/' + revision + '/patch'
-        self._debug("get_patch: path = '%s'", path)
-        res = self._get(path)
-        if not res:
-            return ''
-
-        self._debug("get_patch: len(content) = %d, content = '%s...'",
-                   len(res.content), res.content[:20])
-
-        return self.decode_patch(res.content)
-
     def post_review(self, change, revision, review_input):
         """
         POST review_input for the given revision of change.
@@ -425,10 +628,17 @@ class Reviewer(object):
         if not current_revision:
             return False
 
+        # Reject too old ones
+        date_created = dateutil.parser.parse(change['revisions'][str(current_revision)]['created'])
+        if abs(datetime.now() - date_created).days > IGNORE_OLDER_THAN_DAYS:
+            self._debug("change_needs_review: Created too long ago")
+            return False
+
         # Have we already checked this revision?
         if self.in_history(change['id'], current_revision):
             self._debug("change_needs_review: already reviewed")
             return False
+
 
         return True
 
@@ -448,18 +658,29 @@ class Reviewer(object):
         if not current_revision:
             return
 
-        pprint(change['revisions'][str(current_revision)]['ref'])
-        pprint(change['revisions'][str(current_revision)]['files'])
-        workItem = GerritWorkItem(change, initialtestlist, testlist)
-        patch = self.get_patch(change, current_revision)
-        if not patch:
-            self._debug("review_change: no patch")
-            return
+        try:
+            commit_message = workitem.change['revisions'][str(workitem.revision)]['commit']['message']
+        except:
+            commit_message = ""
 
-        review_input, score = self.check_patch(patch)
-        self._debug("review_change: score = %d", score)
-        self.write_history(change['id'], current_revision, score)
-        self.post_review(change, current_revision, review_input)
+        (DoNothing, ilist, clist) = determine_testlist(change['revisions'][str(current_revision)]['files'], is_trivial_requested(commit_message))
+
+        # For testonly changes only do very minimal testing for now
+        if is_testonly_requested(commit_message):
+            clist = []
+        if is_buildonly_requested(commit_message):
+            clist = []
+            ilist = []
+        workItem = GerritWorkItem(change, ilist, clist, EmptyJob=DoNothing)
+        if DoNothing:
+            add_review_comment(workItem)
+        else:
+            managing_condition.acquire()
+            managing_queue.put(workItem)
+            managing_condition.notify()
+            managing_condition.release()
+
+        self.write_history(change['id'], current_revision, 0)
 
     def update(self):
         """
@@ -507,9 +728,150 @@ class Reviewer(object):
             self.update()
             time.sleep(self.update_interval)
 
+def save_WorkItem(workitem):
+    with open(SAVEDSTATE_DIR + "/" + str(workitem.buildnr) + ".pickle", "wb") as output:
+        pickle.dump(workitem, output, pickle.HIGHEST_PROTOCOL )
 
-def main():
-    """_"""
+def donewith_WorkItem(workitem):
+    try:
+        os.unlink(SAVEDSTATE_DIR + "/" + str(workitem.buildnr) + ".pickle")
+    except OSError:
+        pass
+    with open(DONEWITH_DIR + "/" + str(workitem.buildnr) + ".pickle", "wb") as output:
+        pickle.dump(workitem, output, pickle.HIGHEST_PROTOCOL)
+
+def run_workitem_manager():
+    current_build = 1
+
+    try:
+        with open(LAST_BUILD_ID, 'rb') as input:
+            current_build = f.read('%d')
+    except:
+        pass
+    
+    logger = logging.getLogger("WorkitemManager")
+
+    while os.path.exists(fsconfig["outputs"] + "/" + str(current_build)):
+        current_build += 1
+
+    while True:
+        managing_condition.acquire()
+        while managing_queue.empty():
+            managing_condition.wait()
+        workitem = managing_queue.get()
+        managing_condition.release()
+
+        teststr = vars(workitem)
+        pprint(teststr)
+
+        if workitem.buildnr is None:
+            # New item, we need to build it
+            workitem.buildnr = current_build
+            current_build += 1
+
+            with open(LAST_BUILD_ID, 'wb') as input:
+                f.write('%d' % current_build)
+
+            # Initial workitem save
+            save_WorkItem(workitem)
+            logger.info("Got new ref " + workitem.ref + " assigned buildid " + str(workitem.buildnr))
+            build_condition.acquire()
+            build_queue.put([{}, workitem])
+            build_condition.notify()
+            build_condition.release()
+            continue
+
+        save_WorkItem(workitem)
+        # We print all the updated state changes to gerrit here, and not above, but need to
+        # move it above if we want to also print the "Job picked up" sort of messages
+        add_review_comment(workitem)
+
+        if workitem.BuildDone and workitem.BuildError:
+            # We just failed the build
+            # report and don't return this item anywhere
+            logger.warning("ref " + workitem.ref + " build " + str(workitem.buildnr)  + " failed building")
+            donewith_WorkItem(workitem)
+            continue
+
+        if workitem.BuildDone and not workitem.initial_tests:
+            # Same as above, but no big tests
+            logger.info("ref " + workitem.ref + " build " + str(workitem.buildnr)  + " completed build, but no tests provided")
+            # XXX
+            donewith_WorkItem(workitem)
+            continue
+
+        if workitem.BuildDone and not workitem.InitialTestingStarted:
+            # Just finished building, need to do some initial testing
+            # Create the test output dir first
+            testresultsdir = workitem.artifactsdir + "/" + fsconfig["testoutputdir"]
+
+            # Let's see if this is a retest and create a new dir for that
+            if os.path.exists(testresultsdir):
+                retry = 1
+                while os.path.exists(testresultsdir + "-retry" + str(retry)):
+                    retry += 1
+                testresultsdir += "-retry" + str(retry)
+
+            try:
+                os.mkdir(testresultsdir)
+            except OSError:
+                logger.error("Huh, cannot create test results dir for ...")
+                sys.exit(1)
+
+            workitem.testresultsdir = testresultsdir
+            workitem.InitialTestingStarted = True
+            testing_condition.acquire()
+            # First 0 is priority - highest
+            for testinfo in workitem.initial_tests:
+                #testinfo['initial'] = True
+                testing_queue.put([0, testinfo, workitem])
+                testing_condition.notify()
+            testing_condition.release()
+            continue
+
+        if workitem.InitialTestingStarted and not workitem.InitialTestingDone:
+            # More than one initial test enqueued, just wait for more
+            # completions.
+            # XXX racy if some parallel thing updates the status?
+            continue
+
+        if workitem.InitialTestingDone and workitem.InitialTestingError:
+            # Need to report it and move on,
+            # Don't return the item anywhere
+            logger.warning("ref " + workitem.ref + " build " + str(workitem.buildnr)  + " failed initial testing")
+            donewith_WorkItem(workitem)
+            continue
+
+        if workitem.InitialTestingDone and not workitem.tests:
+            # Same as above, but no big tests
+            logger.info("ref " + workitem.ref + " build " + str(workitem.buildnr)  + " completed initial testing and no full tests provided")
+            # XXX
+            donewith_WorkItem(workitem)
+            continue
+
+        if workitem.InitialTestingDone and not workitem.TestingStarted:
+            # Initial testing finished, now need to do real testing
+            workitem.TestingStarted = True
+            testing_condition.acquire()
+            # First 100 is second priority. perhaps sort by timeout instead?
+            # could lead to prolonged struggling.
+            for testinfo in workitem.tests:
+                #testinfo['initial'] = False
+                testing_queue.put([100, testinfo, workitem])
+                testing_condition.notify()
+            testing_condition.release()
+            continue
+
+        if workitem.TestingDone:
+            # We don't really care if it's finished in error or not, that's
+            # for the reporting code to care about, but we are all done here
+            logger.info("All done testing ref " + workitem.ref + " build " + workitem.buildnr + "Success: " + str(not workitem.TestingError))
+            donewith_WorkItem(workitem)
+            continue
+
+#def main():
+#    """_"""
+if __name__ == "__main__":
     logging.basicConfig(format='%(asctime)s %(message)s', level=logging.DEBUG)
 
     # Start our working threads
@@ -521,7 +883,7 @@ def main():
     try:
         testoutputowner_uid = pwd.getpwnam(fsconfig.get("testoutputowner", "green")).pw_uid
     except:
-        logger.error("Cannot find uid of test output owner " + TOUTPUTOWNER)
+        print("Cannot find uid of test output owner " + fsconfig.get("testoutputowner", "green"))
         sys.exit(1)
 
     fsconfig["testoutputowneruid"] = testoutputowner_uid
@@ -529,7 +891,7 @@ def main():
     builders = []
     for distro in distros:
         for arch in architectures:
-            with open("./builders-" + distro + "-" + arch + ".json") as buildersfile:
+            with open("builders-" + distro + "-" + arch + ".json") as buildersfile:
                 buildersinfo = json.load(buildersfile)
                 for builderinfo in buildersinfo:
                     builders.append(mybuilder.Builder(builderinfo, fsconfig, build_condition, build_queue, managing_condition, managing_queue))
@@ -551,11 +913,11 @@ def main():
     reviewer = Reviewer(GERRIT_HOST, GERRIT_PROJECT, GERRIT_BRANCH,
                         username, password, REVIEW_HISTORY_PATH)
 
+    # XXX Add item loading here
+
     if GERRIT_CHANGE_NUMBER:
         reviewer.update_single_change(GERRIT_CHANGE_NUMBER)
     else:
         reviewer.run()
 
 
-if __name__ == "__main__":
-    main()
