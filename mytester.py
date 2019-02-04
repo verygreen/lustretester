@@ -308,7 +308,7 @@ class Tester(object):
             self.testouts += outs
             self.testerrs += errs
             if setupprocess.returncode is not 0:
-                self.logger.warning("Failed to setup test environment: " + self.testerrs + " " + TestStdOut=self.testouts)
+                self.logger.warning("Failed to setup test environment: " + self.testerrs + " " + self.testouts)
                 server.terminate()
                 client.terminate()
                 return False
