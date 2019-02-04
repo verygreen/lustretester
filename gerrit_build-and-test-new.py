@@ -72,6 +72,7 @@ GERRIT_CHANGE_NUMBER = os.getenv('GERRIT_CHANGE_NUMBER', None)
 
 SAVEDSTATE_DIR="savedstate"
 DONEWITH_DIR="donewith"
+FAILED_POSTS_DIR="failed_posts"
 LAST_BUILD_ID="LASTBUILD_ID"
 
 # GERRIT_AUTH should contain a single JSON dictionary of the form:
@@ -107,43 +108,7 @@ fsconfig = {}
 
 distros = ["centos7"]
 architectures = ["x86_64"]
-#initialtestlist=({'test':"runtests"},{'test':"runtests",'fstype':"zfs",'DNE':True,'timeout':600})
-initialtestlist = [("runtests", 600)]
-#testlist=({'test':"sanity", 'timeout':3600},{'test':"sanity",'fstype':"zfs",'DNE':True,'timeout':7200})
-testlist=[("sanity", 7200),
-        ("sanityn", -1),
-        ("sanity-pfl", -1),
-        ("sanity-flr", -1),
-        ("sanity-benchmark", -1),
-        ("racer", -1),
-        ("replay-single", -1),
-        ("conf-sanity", -1),
-        ("recovery-small", -1),
-        ("replay-ost-single", -1),
-        ("replay-dual", -1),
-        ("replay-vbr", -1),
-        ("insanity", -1),
-        ("sanity-quota", -1),
-        ("sanity-sec", -1),
-        ("sanity-gss", -1),
-        ("lustre-rsync-test", -1),
-        ("ost-pools", -1),
-        ("sanity-scrub", -1),
-        ("sanity-lfsck", -1),
-        ("sanity-hsm", -1)
-]
-# mostly depends on mpu-enabled write-disjoint and multiple clients ("metadata-updates", -1),
-
-ldiskfsonlytests = [
-        ("mmp", -1)
-        ]
-zfsonlytests = [
-        ]
-
-#testlist=[]
-lnettestlist = [
-        ("lnet-selftest", -1)
-        ]
+#initialtestlist = [("runtests", 600)]
 
 ZFS_ONLY_FILES = [ 'lustre/osd-zfs/*.[ch]', 'lustre/utils/libmount_utils_zfs.c', 'config/lustre-build-zfs.m4' ]
 LDISKFS_ONLY_FILES = [
@@ -161,6 +126,7 @@ CODE_FILES = [ '*.[ch]' ]
 I_DONT_KNOW_HOW_TO_TEST_THESE = [
         'contrib/lbuild/*', '*dkms*', '*spec*', 'debian/*', 'rpm/*',
         'lustre/kernel_patches/which_patch' ]
+TEST_SCRIPT_FILES = [ 'lustre/tests/*' ]
 
 
 # We store all job items here
@@ -180,9 +146,45 @@ def is_notknow_howto_test(filelist):
             return True
     return False
 
+def populate_testlist_from_array(testlist, testarray, LDiskfsOnly, ZFSOnly, DNE=True):
+    for item in testarray:
+        if LDiskfsOnly and DNE:
+            test = {}
+            test['test'] = item[0]
+            test['fstype'] = "ldiskfs"
+            test['DNE'] = True
+            test['timeout'] = item[1]
+            testlist.append(test)
+        if ZFSOnly:
+            test = {}
+            test['test'] = item[0]
+            test['fstype'] = "zfs"
+            test['timeout'] = item[1]
+            testlist.append(test)
+        if ZFSOnly and DNE and not LDiskfsOnly:
+            # Need to also do DNE run
+            test = {}
+            test['test'] = item[0]
+            test['fstype'] = "zfs"
+            test['timeout'] = item[1]
+            test['DNE'] = True
+            testlist.append(test)
+        if LDiskfsOnly and not ZFSOnly:
+            # Need to capture non-DNE run for ldiskfs
+            test = {}
+            test['test'] = item[0]
+            test['fstype'] = "ldiskfs"
+            test['timeout'] = item[1]
+            testlist.append(test)
+
+    return testlist
+
+
 def determine_testlist(filelist, trivial_requested):
     """ Try to guess what tests to run based on the changes """
     DoNothing = True
+    NonTestFilesToo = False
+    modified_test_files = []
     BuildOnly = False
     LNetOnly = False
     ZFSOnly = False
@@ -193,6 +195,10 @@ def determine_testlist(filelist, trivial_requested):
         if match_fnmatch_list(item, IGNORE_FILES):
             continue # with deletion would set BuildOnly
         DoNothing = False
+        if match_fnmatch_list(item, TEST_SCRIPT_FILES):
+            modified_test_files.append(os.path.basename(path).replace('.sh',''))
+        else:
+            NonTestFilesToo = True
         if match_fnmatch_list(item, BUILD_ONLY_FILES):
             BuildOnly = True
             continue
@@ -222,81 +228,66 @@ def determine_testlist(filelist, trivial_requested):
         FullRun = True
         LNetOnly = True
 
+
+    # Always reload testlists
+    with open("tests/initial.json", "r") as input:
+        initialtestlist = json.load(input)
+    with open("tests/comprehensive.json", "r") as input:
+        fulltestlist = json.load(input)
+    with open("tests/lnet.json", "r") as input:
+        lnettestlist = json.load(input)
+    with open("tests/zfs.json", "r") as input:
+        zfstestlist = json.load(input)
+    with open("tests/ldiskfs.json", "r") as input:
+        ldiskfstestlist = json.load(input)
+
     initial = []
     comprehensive = []
 
     if not DoNothing:
+        if not NonTestFilesToo and modified_test_files:
+            UnknownItems = False
+            foundtests = []
+            for item in modified_test_files:
+                for test in initialtestlist + fulltestlist + lnettestlist + zfstestlist + ldiskfstestlist:
+                    if item == test[0]:
+                        foundtests.append(test)
+                        break
+                UnknownItems = True
+            if not UnknownItems:
+                # We just populate out test list from the changed scripts
+                # we detected taht we run in all possible configs
+                populate_testlist_from_array(initial, foundtests, True, True)
+                # Also let's rutn off every other test
+                LNetOnly = False
+                ZFSOnly = False
+                LDiskfsOnly = False
+                trivial_requested = True
+            else:
+                # Hm, not sure what to do here? Probably run everything
+                # as requested?
+
+        # Careful, if initial test list was filled above, we presume it's
+        # comprehensive, revise this otherwise:
+        if not initial:
+            populate_testlist_from_array(initial, initialtestlist, LDiskfsOnly, ZFSOnly)
+
         if LNetOnly:
             # For items in this list we don't care about fs as it's supposed
             # to be fs-neutral Lnet-only stuff like lnet-selftest
-            for item in lnettestlist:
-                test = {}
-                test['test'] = item[0]
-                test['timeout'] = item[1]
-                test['fstype'] = "ldiskfs"
-                # Or just add it to initial?
-                comprehensive.append(test)
-        for item in initialtestlist:
-            if FullRun or LDiskfsOnly:
-                test = {}
-                test['test'] = item[0]
-                test['fstype'] = "ldiskfs"
-                test['DNE'] = True
-                test['timeout'] = item[1]
-                initial.append(test)
-            if ZFSOnly or FullRun:
-                test = {}
-                test['test'] = item[0]
-                test['fstype'] = "zfs"
-                test['timeout'] = item[1]
-                initial.append(test)
-            if ZFSOnly and not FullRun:
-                # Need to also do DNE run
-                test = {}
-                test['test'] = item[0]
-                test['fstype'] = "zfs"
-                test['DNE'] = True
-                test['timeout'] = item[1]
-                initial.append(test)
-            if LDiskfsOnly and not FullRun:
-                # Need to capture non-DNE run for ldiskfs
-                test = {}
-                test['test'] = item[0]
-                test['fstype'] = "ldiskfs"
-                test['timeout'] = item[1]
-                initial.append(test)
+            populate_testlist_from_array(comprehensive, lnettestlist, False, True, DNE=False)
+
+        if ZFSOnly:
+            # For items in this list we don't care about fs as it's supposed
+            # to be fs-neutral Lnet-only stuff like lnet-selftest
+            populate_testlist_from_array(comprehensive, zfstestlist, False, True)
+        if LDiskfsOnly:
+            # For items in this list we don't care about fs as it's supposed
+            # to be fs-neutral Lnet-only stuff like lnet-selftest
+            populate_testlist_from_array(comprehensive, ldiskfstestlist, True, False)
 
         if not trivial_requested or GERRIT_CHANGE_NUMBER:
-            for item in testlist:
-                if FullRun or LDiskfsOnly:
-                    test = {}
-                    test['test'] = item[0]
-                    test['fstype'] = "ldiskfs"
-                    test['DNE'] = True
-                    test['timeout'] = item[1]
-                    comprehensive.append(test)
-                if ZFSOnly or FullRun:
-                    test = {}
-                    test['test'] = item[0]
-                    test['fstype'] = "zfs"
-                    test['timeout'] = item[1]
-                    comprehensive.append(test)
-                if ZFSOnly and not FullRun:
-                    # Need to also do DNE run
-                    test = {}
-                    test['test'] = item[0]
-                    test['fstype'] = "zfs"
-                    test['timeout'] = item[1]
-                    test['DNE'] = True
-                    comprehensive.append(test)
-                if LDiskfsOnly and not FullRun:
-                    # Need to capture non-DNE run for ldiskfs
-                    test = {}
-                    test['test'] = item[0]
-                    test['fstype'] = "ldiskfs"
-                    test['timeout'] = item[1]
-                    comprehensive.append(test)
-
+            populate_testlist_from_array(comprehensive, fulltestlist, LDiskfsOnly, ZFSOnly)
     return (DoNothing, initial, comprehensive)
 
 def is_trivial_requested(message):
@@ -568,15 +559,19 @@ def add_review_comment(WorkItem):
     if not reviewer.post_review(WorkItem.change, WorkItem.revision, outputdict):
         # Ok, we had a failure posting this message, let's save it for
         # later processing
-        savefile = "failed_posts/" + str(WorkItem.change) + "." + str(WorkItem.revision)
+        savefile = FAILED_POSTS_DIR + "/" + str(WorkItem.change) + "." + str(WorkItem.revision)
         if os.path.exists(savefile + ".json"):
             attempt = 1
             while os.path.exists(savefile+ "-try" + str(attempt) + ".json"):
                 attempt += 1
             savefile = savefile+ "-try" + str(attempt) + ".json"
 
-        with open(savefile, "w") as outfile:
-            json.dump([WorkItem.change, outputdict], outfile, indent=4)
+        try:
+            with open(savefile, "w") as outfile:
+                json.dump({'change':WorkItem.change, 'output':outputdict}, outfile, indent=4)
+        except OSError:
+            # Only if we cannot save
+            pass
 
 def _now():
     """_"""
