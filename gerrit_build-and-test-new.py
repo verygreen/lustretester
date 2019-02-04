@@ -470,6 +470,7 @@ def add_review_comment(WorkItem):
         # This is one of those intermediate states like not
         # Fully complete testing round or whatnot, so don't do anything.
         #message = "Help, I don't know why I am here" + str(vars(WorkItem))
+        pass
 
     # Errors = notify owner, no errors - no need to spam people
     if score < 0:
