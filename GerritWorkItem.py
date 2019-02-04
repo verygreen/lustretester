@@ -61,7 +61,7 @@ class GerritWorkItem(object):
                         self.TestingError = True
 
                 item["Crash"] = Crash
-                item["Timeout"] = Crash
+                item["Timeout"] = Timeout
                 item["Failed"] = Failed
                 item["Finished"] = Finished
                 if message is not None:
