@@ -20,7 +20,7 @@
         ["sanity-scrub", -1, ""],
         ["sanity-lfsck", -1, ""],
         ["sanity-hsm", -1, ""],
-	["sanity-dom", -1, ""]
+	["sanity-dom", -1, ""],
 	["qos", -1, ""],
         ["acceptance-small", 600, "DEFAULT_SUITES=runtests", true],
 	["recovery-double-scale", -1, "", true],
