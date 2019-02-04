@@ -264,6 +264,39 @@ def is_testonly_requested(message):
         if trivial_re.match(line):
             return True
 
+def requested_tests_string(tests):
+    testlist = ""
+
+    for test in tests:
+        testlist += test['test'] + '@' + test['fstype']
+        if test.get('DNE', False):
+            testlist += '@DNE'
+        testlist += " "
+    return testlist
+
+def test_status_output(tests):
+    testlist = ""
+    for test in tests:
+        testlist += " " + test['test'] + '@' + test['fstype']
+        if test.get('DNE', False):
+            testlist += '@DNE'
+        test += " "
+        if not test['Failed']:
+            testlist += " passed\n"
+        else:
+            if test['Timeout']:
+                testlist += " Timed out\n"
+            elif test['Crash']:
+                testlist += " Crash\n"
+            elif test['Failed']:
+                testlist += " Failed\n"
+                if test.get('SubtestList', ''):
+                    testlist += "    " + test['SubtestList'] + '\n'
+            else:
+                # why are we here again?
+                pass
+        testlist += "  Results: " + path_to_url(test['ResultsDir']) + '/\n'
+
 def parse_checkpatch_output(out, path_line_comments, warning_count):
     """
     Parse string output out of CHECKPATCH into path_line_comments.
@@ -401,7 +434,7 @@ def add_review_comment(WorkItem):
         else:
             message = 'Build for x86_64 centos7 successful\nJob output URL: ' + path_to_url(WorkItem.artifactsdir)
             if WorkItem.initial_tests:
-                message += 'Commencing initial testing ADD TESTLIST HERE'
+                message += 'Commencing initial testing: ' + requested_tests_string(WorkItem.initial_tests)
             else:
                 message += 'This was detected as a build-only change, no further testing would be performed by this bot.\n'
             if not is_trivial_requested(commit_message):
@@ -410,13 +443,14 @@ def add_review_comment(WorkItem):
     elif WorkItem.InitialTestingDone and not WorkItem.TestingStarted:
         # This is after initial tests
         if WorkItem.InitialTestingError:
-            message = 'Initial testing failed\nINSERT USEFUL INFO AND LINKS HERE'
+            message = 'Initial testing failed:\n'
+            message += test_status_output(WorkItem.initial_tests)
             score = -1
             review_comments = WorkItem.ReviewComments
         else:
-            message = 'Initial testing succeeded\nINSERT TESTLIST\n'
+            message = 'Initial testing succeeded\n' + test_status_output(WorkItem.initial_tests)
             if WorkItem.tests:
-                message += 'Commencing standard testing ADD TESTLIST'
+                message += 'Commencing standard testing: ' + requested_tests_string(WorkItem.tests)
             else:
                 message += 'No additional testing was requested'
                 score = 1
@@ -427,12 +461,11 @@ def add_review_comment(WorkItem):
         message += 'Testing has completed '
         if WorkItem.TestingError:
             message += 'with errors!\n'
-            message += 'ADD SOME USEFUL INFO HERE\n'
             score = -1
             review_comments = WorkItem.ReviewComments
         else:
             message += 'Successfully\n'
-        message += 'Add some useful links and info here'
+        message += test_status_output(WorkItem.tests)
     else:
         # This is one of those intermediate states like not
         # Fully complete testing round or whatnot, so don't do anything.
