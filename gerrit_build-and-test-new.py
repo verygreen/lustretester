@@ -325,24 +325,22 @@ def test_status_output(tests):
         if test.get('DNE', False):
             testlist += '@DNE'
         testlist += " "
+
         if not test['Failed']:
-            testlist += " passed\n"
+            if not test.get('StatusMessage', ''):
+                testlist += " passed\n"
         else:
-            if test['Timeout']:
-                testlist += " Timed out\n"
-            elif test['Crash']:
-                testlist += " Crash\n"
-            elif test['Failed']:
-                if test.get('StatusMessage', ''):
-                    testlist += " " + test['StatusMessage'] + '\n'
+            if not test.get('StatusMessage', ''):
+                if test['Timeout']:
+                    testlist += " Timed out\n"
+                elif test['Crash']:
+                    testlist += " Crash\n"
                 else:
                     testlist += " Failed\n"
-                if test.get('SubtestList', ''):
-                    testlist += "    " + test['SubtestList'] + '\n'
-            else:
-                # why are we here again?
-                pass
-        testlist += "  Results: " + path_to_url(test['ResultsDir']) + '/\n'
+            testlist += " " + test['StatusMessage'] + '\n'
+            if test.get('SubtestList', ''):
+                testlist += "   " + test['SubtestList'] + '\n'
+        testlist += "Results: " + path_to_url(test['ResultsDir']) + '/\n'
     return testlist
 
 def parse_checkpatch_output(out, path_line_comments, warning_count):

@@ -439,17 +439,19 @@ class Tester(object):
                                     else:
                                         failedsubtests += "ret " + str(subtest['return_code'])
                                     failedsubtests += ") "
+                        elif yamltest.get('status', '') == "SKIP":
+                            message = "Skipped"
 
-        self.logger.info("Job finished with code " + str(testprocess.returncode))
         if testprocess.returncode is not 0:
             Failure = True
-            if "Memory leaks detected" in self.testerrs:
-                message = "Memory Leaks Detected"
-            else:
-                message = "Test script terminated with error " + str(testprocess.returncode)
+            message = "Test script terminated with error " + str(testprocess.returncode)
         elif not Failure:
             message = "Success"
 
+        if "Memory leaks detected" in self.testerrs:
+            message += "(Memory Leaks Detected)"
+
+        self.logger.info("Job finished with code " + str(testprocess.returncode) + " and message " + message)
         # XXX Also need to add yaml parsing of results with subtests.
 
         #pprint(self.testerrs)
