@@ -511,8 +511,8 @@ def add_review_comment(WorkItem):
                 message += ' Commencing initial testing: ' + requested_tests_string(WorkItem.initial_tests)
             else:
                 message += ' This was detected as a build-only change, no further testing would be performed by this bot.\n'
-            if not is_trivial_requested(commit_message):
-                message += TrivialNagMessage
+                if not is_trivial_requested(commit_message):
+                    message += TrivialNagMessage
                 score = 1
     elif WorkItem.InitialTestingDone and not WorkItem.TestingStarted:
         # This is after initial tests
