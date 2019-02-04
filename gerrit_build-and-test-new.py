@@ -304,7 +304,7 @@ def test_status_output(tests):
         testlist += " " + test['test'] + '@' + test['fstype']
         if test.get('DNE', False):
             testlist += '@DNE'
-        test += " "
+        testlist += " "
         if not test['Failed']:
             testlist += " passed\n"
         else:
@@ -494,7 +494,7 @@ def add_review_comment(WorkItem):
         # This is one of those intermediate states like not
         # Fully complete testing round or whatnot, so don't do anything.
         #message = "Help, I don't know why I am here" + str(vars(WorkItem))
-        pass
+        return
 
     # Errors = notify owner, no errors - no need to spam people
     if score < 0:
