@@ -161,6 +161,10 @@ class Tester(object):
                 self.logger.warning("Attempting to collect missing syslog for " + node)
                 return
             shutil.copy(syslogfilename, self.testresultsdir + "/")
+            try:
+                os.chmod(self.testresultsdir + "/" + node + ".syslog", 0644)
+            except OSError:
+                pass
 
     def collect_crashdumps(self, node):
         if node.returncode() is None:
