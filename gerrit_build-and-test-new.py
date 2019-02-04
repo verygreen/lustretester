@@ -157,6 +157,10 @@ I_DONT_KNOW_HOW_TO_TEST_THESE = [
         'contrib/lbuild/*', '*dkms*', '*spec*', 'debian/*', 'rpm/*',
         'lustre/kernel_patches/which_patch' ]
 
+
+# We store all job items here
+WorkList = []
+
 def match_fnmatch_list(item, list):
     for pattern in list:
         if fnmatch.fnmatch(item, pattern):
@@ -333,7 +337,10 @@ def test_status_output(tests):
             elif test['Crash']:
                 testlist += " Crash\n"
             elif test['Failed']:
-                testlist += " Failed\n"
+                if test.get('StatusMessage', ''):
+                    testlist += " " + test['StatusMessage'] + '\n'
+                else:
+                    testlist += " Failed\n"
                 if test.get('SubtestList', ''):
                     testlist += "    " + test['SubtestList'] + '\n'
             else:
@@ -507,7 +514,7 @@ def add_review_comment(WorkItem):
     elif WorkItem.TestingDone:
         message = ""
         if is_trivial_requested(commit_message):
-            message += TrivialIgnoredMessage
+            message += TrivialIgnoredMessage + '\n'
         message += 'Testing has completed '
         if WorkItem.TestingError:
             message += 'with errors!\n'
@@ -843,6 +850,7 @@ def save_WorkItem(workitem):
         pickle.dump(workitem, output, pickle.HIGHEST_PROTOCOL )
 
 def donewith_WorkItem(workitem):
+    WorkList.remove(workitem)
     try:
         os.unlink(SAVEDSTATE_DIR + "/" + str(workitem.buildnr) + ".pickle")
     except OSError:
@@ -871,8 +879,9 @@ def run_workitem_manager():
         workitem = managing_queue.get()
         managing_condition.release()
 
-        teststr = vars(workitem)
-        pprint(teststr)
+        #teststr = vars(workitem)
+        #pprint(teststr)
+        #sys.stdout.flush()
 
         if workitem.buildnr is None:
             # New item, we need to build it
@@ -884,6 +893,7 @@ def run_workitem_manager():
 
             # Initial workitem save
             save_WorkItem(workitem)
+            WorkList.append(workitem)
             logger.info("Got new ref " + workitem.ref + " assigned buildid " + str(workitem.buildnr))
             build_condition.acquire()
             build_queue.put([{}, workitem])
@@ -933,7 +943,9 @@ def run_workitem_manager():
             testing_condition.acquire()
             # First 0 is priority - highest
             for testinfo in workitem.initial_tests:
-                #testinfo['initial'] = True
+                # save/restart logic:
+                if testinfo.get('Finished', False):
+                    continue
                 testing_queue.put([0, testinfo, workitem])
                 testing_condition.notify()
             testing_condition.release()
@@ -961,12 +973,15 @@ def run_workitem_manager():
 
         if workitem.InitialTestingDone and not workitem.TestingStarted:
             # Initial testing finished, now need to do real testing
+            logger.info("ref " + workitem.ref + " build " + str(workitem.buildnr)  + " completed initial testing and switching to full testing " + str(workitem.tests))
             workitem.TestingStarted = True
             testing_condition.acquire()
             # First 100 is second priority. perhaps sort by timeout instead?
-            # could lead to prolonged struggling.
+            # could lead to prolonged stragglers.
             for testinfo in workitem.tests:
-                #testinfo['initial'] = False
+                # save/restart logic:
+                if testinfo.get('Finished', False):
+                    continue
                 testing_queue.put([100, testinfo, workitem])
                 testing_condition.notify()
             testing_condition.release()
@@ -975,7 +990,7 @@ def run_workitem_manager():
         if workitem.TestingDone:
             # We don't really care if it's finished in error or not, that's
             # for the reporting code to care about, but we are all done here
-            logger.info("All done testing ref " + workitem.ref + " build " + workitem.buildnr + "Success: " + str(not workitem.TestingError))
+            logger.info("All done testing ref " + workitem.ref + " build " + str(workitem.buildnr))
             donewith_WorkItem(workitem)
             continue
 
@@ -1024,6 +1039,34 @@ if __name__ == "__main__":
                         username, password, REVIEW_HISTORY_PATH)
 
     # XXX Add item loading here
+    for savedstateitem in os.listdir(SAVEDSTATE_DIR):
+        with open(SAVEDSTATE_DIR + "/" + savedstateitem) as input:
+            workitem = pickle.load(input)
+
+            if not workitem.BuildDone:
+                # Need to clean up build dir
+                shutil.rmtree(self.artifactsdir)
+            elif workitem.BuildError or workitem.InitialTestingError or workitem.TestingError:
+                pass # just insert for final notify
+            elif workitem.InitialTestingStarted and not InitialTestingDone:
+                # To reinsert it we just need to unmark initial testing started
+                workitem.InitialTestingStarted = False
+            elif workitem.TestingStarted and not workitem.TestingDone:
+                # Same here
+                workitem.TestingStarted = False
+
+            WorkList.append(workitem)
+            managing_condition.acquire()
+            managing_queue.put(workitem)
+            managing_condition.notify()
+            managing_condition.release()
+
+        # In debug, don't do anything:
+        if GERRIT_CHANGE_NUMBER:
+            while True:
+                # Just hang in here until interrupted
+                managerthread.join(1)
+
 
     if GERRIT_CHANGE_NUMBER:
         print("Asking for single change " + GERRIT_CHANGE_NUMBER)
