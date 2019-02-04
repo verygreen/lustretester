@@ -252,34 +252,42 @@ def determine_testlist(filelist, trivial_requested):
     comprehensive = []
 
     if not DoNothing:
-        if not NonTestFilesToo and modified_test_files:
+        if modified_test_files:
             UnknownItems = False
             foundtests = []
             for item in modified_test_files:
                 for test in initialtestlist + fulltestlist + lnettestlist + zfstestlist + ldiskfstestlist:
                     if item == test[0]:
                         foundtests.append(test)
+                        # To avoid doubletesting, mark it as disabled in the
+                        # regular list too - ok to do sice we reread the list
+                        # every time
+                        if len(test) < 3:
+                            test[3].append(True)
+                        else:
+                            test[3] = True
                         break
                 UnknownItems = True
+            populate_testlist_from_array(initial, foundtests, True, True, Force=True)
             if not UnknownItems:
                 # We just populate out test list from the changed scripts
                 # we detected that we run in all possible configs
                 # Force disabled tests too if we are modifying them we better
                 # know how they perform
-                populate_testlist_from_array(initial, foundtests, True, True, Force=True)
-                # Also let's rutn off every other test
+                # Also let's turn off every other test
                 LNetOnly = False
                 ZFSOnly = False
                 LDiskfsOnly = False
                 trivial_requested = True
             else:
                 # Hm, not sure what to do here? Probably run everything
-                # as requested?
+                # as requested in addition to modified test files?
                 pass
 
         # Careful, if initial test list was filled above, we presume it's
-        # comprehensive, revise this otherwise:
-        if not initial:
+        # comprehensive but if we have any other files modified that are
+        # non-test - add standard initial testing too.
+        if not initial or NonTestFilesToo:
             populate_testlist_from_array(initial, initialtestlist, LDiskfsOnly, ZFSOnly)
 
         if LNetOnly:
@@ -568,15 +576,15 @@ def add_review_comment(WorkItem):
     if not reviewer.post_review(WorkItem.change, WorkItem.revision, outputdict):
         # Ok, we had a failure posting this message, let's save it for
         # later processing
-        savefile = FAILED_POSTS_DIR + "/" + str(WorkItem.changenr) + "." + str(WorkItem.revision)
+        savefile = FAILED_POSTS_DIR + "/build-" str(buildnr) + "-" + str(WorkItem.changenr) + "." + str(WorkItem.revision)
         if os.path.exists(savefile + ".json"):
             attempt = 1
             while os.path.exists(savefile+ "-try" + str(attempt) + ".json"):
                 attempt += 1
-            savefile = savefile+ "-try" + str(attempt) + ".json"
+            savefile = savefile+ "-try" + str(attempt)
 
         try:
-            with open(savefile, "w") as outfile:
+            with open(savefile + ".json", "w") as outfile:
                 json.dump({'change':WorkItem.change, 'output':outputdict}, outfile, indent=4)
         except OSError:
             # Only if we cannot save
