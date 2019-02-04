@@ -338,11 +338,13 @@ class Tester(object):
                 DNEStr = " MDSDEV2=/dev/vdd MDSCOUNT=2 "
             else:
                 DNEStr = " "
+
+            EXTRAENV = testinfo.get('extraenv', '')
             args = ["ssh", "-tt", "-o", "StrictHostKeyChecking=no", "root@" + self.clientnetname,
                     'PDSH="pdsh -S -Rssh -w" mds_HOST=' + self.servernetname +
                     " ost_HOST=" + self.servernetname + " MDSDEV1=/dev/vdc " +
                     "OSTDEV1=/dev/vde OSTDEV2=/dev/vdf LOAD_MODULES_REMOTE=true " +
-                    "FSTYPE=" + fstype + DNEStr +
+                    "FSTYPE=" + fstype + DNEStr + EXTRAENV + " " +
                     "/home/green/git/lustre-release/lustre/tests/auster -D /tmp/testlogs/ -r " + testname ]
             testprocess = Popen(args, close_fds=True, stdin=PIPE, stdout=PIPE, stderr=PIPE, universal_newlines=True)
         except (OSError) as details:

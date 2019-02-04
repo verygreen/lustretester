@@ -108,7 +108,6 @@ fsconfig = {}
 
 distros = ["centos7"]
 architectures = ["x86_64"]
-#initialtestlist = [("runtests", 600)]
 
 ZFS_ONLY_FILES = [ 'lustre/osd-zfs/*.[ch]', 'lustre/utils/libmount_utils_zfs.c', 'config/lustre-build-zfs.m4' ]
 LDISKFS_ONLY_FILES = [
@@ -120,7 +119,8 @@ IGNORE_FILES = [ 'contrib/*', 'README', 'snmp/*', '*dkms*', '*spec*',
         'debian/*', 'rpm/*', 'Documentation/*', 'ChangeLog', 'COPYING',
         'MAINTAINERS', '*doxygen*', 'lustre-iokit/*', 'LICENSE',
         '.gitignore', 'nodist', 'lustre/doc/*', 'lustre/kernel_patches/*',
-        'lnet/doc/*', 'lnet/klnds/gnilnd/*' ]
+        'lnet/doc/*', 'lnet/klnds/gnilnd/*', 'lustre/tests/maloo_upload.sh',
+        'lustre/tests/parallel-scale-*.sh', 'lustre/tests/setup-*.sh' ]
 LNET_ONLY_FILES = [ 'lnet/*' ]
 CODE_FILES = [ '*.[ch]' ]
 I_DONT_KNOW_HOW_TO_TEST_THESE = [
@@ -146,35 +146,33 @@ def is_notknow_howto_test(filelist):
             return True
     return False
 
-def populate_testlist_from_array(testlist, testarray, LDiskfsOnly, ZFSOnly, DNE=True):
+def populate_testlist_from_array(testlist, testarray, LDiskfsOnly, ZFSOnly, DNE=True, Force=False):
     for item in testarray:
+        try:
+            # See if this test is disabled
+            if item[3] and not Force:
+                continue
+        except IndexError:
+            pass # No disabled element = we are all fine
+        test = {}
+        test['test'] = item[0]
+        test['timeout'] = item[1]
+        test['extraenv'] = item[2]
         if LDiskfsOnly and DNE:
-            test = {}
-            test['test'] = item[0]
             test['fstype'] = "ldiskfs"
             test['DNE'] = True
-            test['timeout'] = item[1]
             testlist.append(test)
         if ZFSOnly:
-            test = {}
-            test['test'] = item[0]
             test['fstype'] = "zfs"
-            test['timeout'] = item[1]
             testlist.append(test)
         if ZFSOnly and DNE and not LDiskfsOnly:
             # Need to also do DNE run
-            test = {}
-            test['test'] = item[0]
             test['fstype'] = "zfs"
-            test['timeout'] = item[1]
             test['DNE'] = True
             testlist.append(test)
         if LDiskfsOnly and not ZFSOnly:
             # Need to capture non-DNE run for ldiskfs
-            test = {}
-            test['test'] = item[0]
             test['fstype'] = "ldiskfs"
-            test['timeout'] = item[1]
             testlist.append(test)
 
     return testlist
@@ -257,7 +255,9 @@ def determine_testlist(filelist, trivial_requested):
             if not UnknownItems:
                 # We just populate out test list from the changed scripts
                 # we detected taht we run in all possible configs
-                populate_testlist_from_array(initial, foundtests, True, True)
+                # Force disabled tests too if we are modifying them we better
+                # know how they perform
+                populate_testlist_from_array(initial, foundtests, True, True, Force=True)
                 # Also let's rutn off every other test
                 LNetOnly = False
                 ZFSOnly = False
