@@ -477,15 +477,15 @@ def add_review_comment(WorkItem):
                 message = WorkItem.BuildMessage
             else:
                 message = 'Build failed\n'
-            message += 'Job output URL: ' + path_to_url(WorkItem.artifactsdir)
+            message += ' Job output URL: ' + path_to_url(WorkItem.artifactsdir)
             score = -1
             review_comments = WorkItem.ReviewComments
         else:
-            message = 'Build for x86_64 centos7 successful\nJob output URL: ' + path_to_url(WorkItem.artifactsdir) + '\n'
+            message = 'Build for x86_64 centos7 successful\n Job output URL: ' + path_to_url(WorkItem.artifactsdir) + '\n'
             if WorkItem.initial_tests:
-                message += 'Commencing initial testing: ' + requested_tests_string(WorkItem.initial_tests)
+                message += ' Commencing initial testing: ' + requested_tests_string(WorkItem.initial_tests)
             else:
-                message += 'This was detected as a build-only change, no further testing would be performed by this bot.\n'
+                message += ' This was detected as a build-only change, no further testing would be performed by this bot.\n'
             if not is_trivial_requested(commit_message):
                 message += TrivialNagMessage
                 score = 1
@@ -499,9 +499,9 @@ def add_review_comment(WorkItem):
         else:
             message = 'Initial testing succeeded\n' + test_status_output(WorkItem.initial_tests)
             if WorkItem.tests:
-                message += 'Commencing standard testing: ' + requested_tests_string(WorkItem.tests)
+                message += ' Commencing standard testing: ' + requested_tests_string(WorkItem.tests)
             else:
-                message += 'No additional testing was requested'
+                message += ' No additional testing was requested'
                 score = 1
     elif WorkItem.TestingDone:
         message = ""
@@ -1025,6 +1025,7 @@ if __name__ == "__main__":
     # XXX Add item loading here
 
     if GERRIT_CHANGE_NUMBER:
+        print("Asking for single change " + GERRIT_CHANGE_NUMBER)
         reviewer.update_single_change(GERRIT_CHANGE_NUMBER)
 
         while True:
