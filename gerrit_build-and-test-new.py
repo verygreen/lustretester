@@ -266,6 +266,7 @@ def determine_testlist(filelist, trivial_requested):
             else:
                 # Hm, not sure what to do here? Probably run everything
                 # as requested?
+                pass
 
         # Careful, if initial test list was filled above, we presume it's
         # comprehensive, revise this otherwise:
