@@ -117,7 +117,6 @@ testlist=[("sanity", 7200),
         ("sanity-benchmark", -1),
         ("metadata-updates", -1),
         ("racer", -1),
-        ("lnet-selftest", -1),
         ("replay-single", -1),
         ("conf-sanity", -1),
         ("recovery-small", -1),
@@ -136,6 +135,9 @@ testlist=[("sanity", 7200),
         ("sanity-hsm", -1)
 ]
 #testlist=[]
+lnettestlist = [
+        ("lnet-selftest", -1)
+        ]
 
 ZFS_ONLY_FILES = [ 'lustre/osd-zfs/*.[ch]', 'lustre/utils/libmount_utils_zfs.c', 'config/lustre-build-zfs.m4' ]
 LDISKFS_ONLY_FILES = [
@@ -200,18 +202,36 @@ def determine_testlist(filelist, trivial_requested):
     if LDiskfsOnly and ZFSOnly:
         FullRun = True
 
+    # For lnet only changes we'd volunteer a zfs only run
+    # to ensure actual Lustre operations still work.
     if LNetOnly and not FullRun and not LDiskfsOnly and not ZFSOnly:
+        ZFSOnly = True
+
+    # Override for testing
+    if GERRIT_CHANGE_NUMBER:
+        FullRun = True
         LNetOnly = True
 
     initial = []
     comprehensive = []
 
     if not DoNothing:
+        if LNetOnly:
+            # For items in this list we don't care about fs as it's supposed
+            # to be fs-neutral Lnet-only stuff like lnet-selftest
+            for item in lnettestlist:
+                test = {}
+                test['test'] = item[0]
+                test['timeout'] = item[1]
+                test['fstype'] = "ldiskfs"
+                # Or just add it to initial?
+                comprehensive.append(test)
         for item in initialtestlist:
             if FullRun or LDiskfsOnly:
                 test = {}
                 test['test'] = item[0]
                 test['fstype'] = "ldiskfs"
+                test['DNE'] = True
                 test['timeout'] = item[1]
                 initial.append(test)
             if ZFSOnly or FullRun:
@@ -219,22 +239,21 @@ def determine_testlist(filelist, trivial_requested):
                 test['test'] = item[0]
                 test['fstype'] = "zfs"
                 test['timeout'] = item[1]
-                test['DNE'] = True
                 initial.append(test)
             if ZFSOnly and not FullRun:
-                # Need to also do non-DNE run
+                # Need to also do DNE run
                 test = {}
                 test['test'] = item[0]
                 test['fstype'] = "zfs"
+                test['DNE'] = True
                 test['timeout'] = item[1]
                 initial.append(test)
             if LDiskfsOnly and not FullRun:
-                # Need to capture DNE run for ldiskfs
+                # Need to capture non-DNE run for ldiskfs
                 test = {}
                 test['test'] = item[0]
                 test['fstype'] = "ldiskfs"
                 test['timeout'] = item[1]
-                test['DNE'] = True
                 initial.append(test)
 
         if not trivial_requested or GERRIT_CHANGE_NUMBER:
@@ -243,6 +262,7 @@ def determine_testlist(filelist, trivial_requested):
                     test = {}
                     test['test'] = item[0]
                     test['fstype'] = "ldiskfs"
+                    test['DNE'] = True
                     test['timeout'] = item[1]
                     comprehensive.append(test)
                 if ZFSOnly or FullRun:
@@ -250,22 +270,21 @@ def determine_testlist(filelist, trivial_requested):
                     test['test'] = item[0]
                     test['fstype'] = "zfs"
                     test['timeout'] = item[1]
-                    test['DNE'] = True
                     comprehensive.append(test)
                 if ZFSOnly and not FullRun:
-                    # Need to also do non-DNE run
+                    # Need to also do DNE run
                     test = {}
                     test['test'] = item[0]
                     test['fstype'] = "zfs"
                     test['timeout'] = item[1]
+                    test['DNE'] = True
                     comprehensive.append(test)
                 if LDiskfsOnly and not FullRun:
-                    # Need to capture DNE run for ldiskfs
+                    # Need to capture non-DNE run for ldiskfs
                     test = {}
                     test['test'] = item[0]
                     test['fstype'] = "ldiskfs"
                     test['timeout'] = item[1]
-                    test['DNE'] = True
                     comprehensive.append(test)
 
     return (DoNothing, initial, comprehensive)
