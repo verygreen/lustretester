@@ -15,12 +15,11 @@ if [ ! -f "$HOMEDATA" -o -z "$NAME" -o ! -f "$KERNEL" -o ! -f "$INITRD" ] ; then
 	exit 1
 fi
 
-if [ ! -f vmcfg/${NAME}.env ] ; then
-	echo "Unknown vm name $NAME"
-	exit 1
+if [ -f vmcfg/"${NAME}".env ] ; then
+	. vmcfg/"${NAME}".env
+else 
+	. vmcfg/generic.env
 fi
-
-. vmcfg/"${NAME}.env"
 
 EXTRADEV=
 if [ -e "$MDT1DEV" ] ; then
