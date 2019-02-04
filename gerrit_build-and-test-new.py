@@ -471,7 +471,12 @@ def add_review_comment(WorkItem):
     elif WorkItem.BuildDone and not WorkItem.InitialTestingStarted and not WorkItem.TestingStarted:
         # This is after initial build completion
         if WorkItem.BuildError:
-            message = 'Build failed\nJob output URL: ' + path_to_url(WorkItem.artifactsdir)
+
+            if WorkItem.BuildMessage:
+                message = WorkItem.BuildMessage
+            else:
+                message = 'Build failed\n'
+            message += 'Job output URL: ' + path_to_url(WorkItem.artifactsdir)
             score = -1
             review_comments = WorkItem.ReviewComments
         else:
