@@ -3,5 +3,7 @@
 	"crashdumps":"/tmp/kcrashes",
 	"syslogdir":"/tmp/syslogs",
 	"testoutputdir":"testresults",
-	"testoutputowner":"green"
+	"testoutputowner":"green",
+	"http_server":"http://testing.linuxhacker.ru:3333/lustre-reports/",
+	"root_path_offset":"/exports/testreports/"
 }
