@@ -110,8 +110,32 @@ architectures = ["x86_64"]
 #initialtestlist=({'test':"runtests"},{'test':"runtests",'fstype':"zfs",'DNE':True,'timeout':600})
 initialtestlist = [("runtests", 600)]
 #testlist=({'test':"sanity", 'timeout':3600},{'test':"sanity",'fstype':"zfs",'DNE':True,'timeout':7200})
-#testlist=[("sanity", 7200)]
-testlist=[]
+testlist=[("sanity", 7200),
+        ("sanityn", -1),
+        ("sanity-pfl", -1),
+        ("sanity-flr", -1),
+        ("sanity-benchmark", -1),
+        ("metadata-updates", -1),
+        ("racer", -1),
+        ("lnet-selftest", -1),
+        ("replay-single", -1),
+        ("conf-sanity", -1),
+        ("recovery-small", -1),
+        ("replay-ost-single", -1),
+        ("replay-dual", -1),
+        ("replay-vbr", -1),
+        ("insanity", -1),
+        ("sanity-quota", -1),
+        ("sanity-sec", -1),
+        ("sanity-gss", -1),
+        ("lustre-rsync-test", -1),
+        ("ost-pools", -1),
+        ("mmp", -1),
+        ("sanity-scrub", -1),
+        ("sanity-lfsck", -1),
+        ("sanity-hsm", -1)
+]
+#testlist=[]
 
 ZFS_ONLY_FILES = [ 'lustre/osd-zfs/*.[ch]', 'lustre/utils/libmount_utils_zfs.c', 'config/lustre-build-zfs.m4' ]
 LDISKFS_ONLY_FILES = [
@@ -830,7 +854,7 @@ def run_workitem_manager():
             current_build += 1
 
             with open(LAST_BUILD_ID, 'wb') as input:
-                f.write('%d' % current_build)
+                input.write('%d' % current_build)
 
             # Initial workitem save
             save_WorkItem(workitem)
