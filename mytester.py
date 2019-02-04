@@ -12,6 +12,7 @@ import shlex
 import json
 import Queue
 import shutil
+import yaml
 from pprint import pprint
 from subprocess32 import Popen, PIPE, TimeoutExpired
 
@@ -372,13 +373,53 @@ class Tester(object):
                 self.testouts += outs
                 self.testerrs += errs
 
+        failedsubtests = ""
         if self.error:
             testprocess.terminate()
             outs, errs = testprocess.communicate()
             self.testouts += outs
             self.testerrs += errs
 
+        else:
+            # Don't go here if we had a panic, it's unimportant.
+            yamlfile = testresultsdir + '/results.yml'
+            Failure = False
+            if os.path.exists(yamlfile):
+                try:
+                    with open(yamlfile, "r") as fl:
+                        fldata = fl.read()
+                        testresults = yaml.load(fldata.replace('\\', ''))
+                except (OSError, ImportError) as e:
+                    self.logger.error("Exception when trying to read results.yml: " + str(e))
+                else:
+                    for yamltest in testresults.get('Tests', []):
+                        if yamltest.get('name', '') != testname:
+                            logger.warning("Skipping unexpected test results for " + yamltest.get('name', 'EMPTYNAME'))
+                            continue
+                        if yamltest.get('status', '') == "FAIL":
+                            Failure = True
+                            message = "Failure"
+                            for subtest in yamltest.get('SubTests', []):
+                                if subtest.get('status', '') == "FAIL":
+                                    failedsubtests += subtest['name'].replace('test_', '') + "("
+                                    if subtest.get('error'):
+                                        failedsubtests += subtest['error']
+                                    else:
+                                        failedsubtests += "ret " + str(subtest['return_code'])
+                                    failedsubtests += ") "
+
         self.logger.info("Job finished with code " + str(testprocess.returncode))
+        if testprocess.returncode is not 0:
+            Failure = True
+            if "Memory leaks detected" in self.testerrs:
+                message = "Memory Leaks Detected"
+            else:
+                message = "Test script terminated with error " + str(testprocess.returncode)
+        elif not Failure:
+            message = "Success"
+
+        # XXX Also need to add yaml parsing of results with subtests.
+
         #pprint(self.testerrs)
 
         # Now kill the client and server
@@ -396,6 +437,6 @@ class Tester(object):
         # If self.error is set that means we already updated the errors state,
         # But we still want them to fall through here to collect the crashdumps
         if not self.error:
-            workitem.UpdateTestStatus(testinfo, "Success", Finished=True, Crash=self.CrashDetected, TestStdOut=self.testouts, TestStdErr=self.testerrs)
+            workitem.UpdateTestStatus(testinfo, message, Finished=True, Crash=self.CrashDetected, TestStdOut=self.testouts, TestStdErr=self.testerrs, Failure=Failure, Subtests=failedsubtests)
 
         return True
