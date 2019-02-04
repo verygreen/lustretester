@@ -44,8 +44,8 @@ fsconfig = {}
 
 distros = ["centos7"]
 architectures = ["x86_64"]
-initialtestlist=({'test':"runtests"},{'test':"runtests",'fstype':"zfs",'DNE':True,'timeout':600})
-testlist=({'test':"sanity", 'timeout':3600},{'test':"sanity",'fstype':"zfs",'DNE':True,'timeout':7200})
+initialtestlist=[{'test':"runtests"},{'test':"runtests",'fstype':"zfs",'DNE':True,'timeout':600}]
+testlist=[{'test':"sanity", 'timeout':3600},{'test':"sanity",'fstype':"zfs",'DNE':True,'timeout':7200}]
 
 STARTING_BUILDNR = 1
 
@@ -159,6 +159,12 @@ def run_workitem_manager():
             logger.warning("ref " + workitem.ref + " build " + str(workitem.buildnr)  + " failed building")
             continue
 
+        if workitem.BuildDone and not workitem.initial_tests:
+            # Same as above, but no big tests
+            logger.info("ref " + workitem.ref + " build " + str(workitem.buildnr)  + " completed build, but no tests provided")
+            # XXX
+            continue
+
         if workitem.BuildDone and not workitem.InitialTestingStarted:
             # Just finished building, need to do some initial testing
             # Create the test output dir first
@@ -198,6 +204,12 @@ def run_workitem_manager():
             # Need to report it and move on,
             # Don't return the item anywhere
             logger.warning("ref " + workitem.ref + " build " + str(workitem.buildnr)  + " failed initial testing")
+            continue
+
+        if workitem.InitialTestingDone and not workitem.tests:
+            # Same as above, but no big tests
+            logger.info("ref " + workitem.ref + " build " + str(workitem.buildnr)  + " completed initial testing and no full tests provided")
+            # XXX
             continue
 
         if workitem.InitialTestingDone and not workitem.TestingStarted:
@@ -254,7 +266,7 @@ if __name__ == "__main__":
     managerthread.daemon = True
     managerthread.start()
 
-    workItem = GerritWorkItem("refs/changes/47/34147/2", initialtestlist, testlist)
+    workItem = GerritWorkItem("refs/changes/47/34147/2", initialtestlist, [])
     workItem.artifactsdir = "/exports/testreports/6"
     workItem.BuildDone = True
     workItem.buildnr = 6
