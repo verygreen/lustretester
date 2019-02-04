@@ -59,6 +59,9 @@ class Builder(object):
         self.daemon.daemon = True
         self.daemon.start()
 
+    def parse_compile_error(self, change, stderr):
+        return {}
+
     def put_error(self, statusmessage, workitem):
         workitem.BuildMessage = statusmessage
         workitem.BuildError = True
@@ -99,11 +102,28 @@ class Builder(object):
             self.logger.info("Build " + str(buildnr) + " timed out, killing")
             builder.terminate()
             touts, terrs = builder.communicate()
-            self.put_error("Build is taking too long", workitem)
+            self.put_error("Build is taking too long, aborting", workitem)
+            return True
 
         if builder.returncode is not 0:
-            self.logger.warning("Build " + str(buildnr) + " failed")
-            self.put_error("Build failed", workitem)
+            code = builder.returncode
+            self.logger.warning("Build " + str(buildnr) + " failed with code " + str(code))
+            message = ""
+            if code == 255 or code == 10:
+                # Technically we want to put the job back into build queue
+                message = "General error"
+                # return False
+            elif code == 12:
+                message = "Configure error: \n" + errs
+            elif code == 14:
+                # Thisis a build error, we can try to parse it
+                reviewitems = self.parse_compile_error(workitem.change, errs)
+                workitem.reviewitems = reviewitems
+                message = 'Build failed\n'
+                if not reviewitems:
+                    message += errs
+
+            self.put_error(message, workitem)
 
         # XXX add a check that artifact exists
 
