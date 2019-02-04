@@ -240,7 +240,7 @@ class Tester(object):
             workitem.UpdateTestStatus(testinfo, "Invalid testinfo!", Failed=True)
             return True # No point in retrying an invalid test
 
-        if workItem.Aborted:
+        if workitem.Aborted:
             return True
 
         timeout = testinfo.get("timeout", 900)
@@ -306,7 +306,7 @@ class Tester(object):
             #pprint(client.errs)
             return False
 
-        if workItem.Aborted:
+        if workitem.Aborted:
             server.terminate()
             client.terminate()
             return True
@@ -332,7 +332,7 @@ class Tester(object):
             client.terminate()
             return False
 
-        if workItem.Aborted:
+        if workitem.Aborted:
             server.terminate()
             client.terminate()
             return True
@@ -374,7 +374,7 @@ class Tester(object):
                 time.sleep(5) # every 5 seconds, not ideal because that becomes our latency
                 outs, errs = testprocess.communicate(timeout=0.01) # cannot have 0 somehow
             except TimeoutExpired:
-                if workItem.Aborted:
+                if workitem.Aborted:
                     testprocess.terminate()
                     server.terminate()
                     client.terminate()
@@ -399,7 +399,7 @@ class Tester(object):
                 self.testouts += outs
                 self.testerrs += errs
 
-        if workItem.Aborted:
+        if workitem.Aborted:
             testprocess.terminate()
             server.terminate()
             client.terminate()
