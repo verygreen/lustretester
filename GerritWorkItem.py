@@ -70,13 +70,14 @@ class GerritWorkItem(object):
                     item["TestStdOut"] = TestStdOut
                 if TestStdErr is not None:
                     item["TestStdErr"] = TestStdErr
-                if Subtests is not None:
+                if Subtests:
                     item["SubtestList"] = Subtests
-            print("Build " + str(self.buildnr) + " Updated test element " + str(item))
         if not updated:
             print("Build " + str(self.buildnr) + " Passed in testinfo that I cannot match " + str(testinfo))
             pprint(testinfo)
             pprint(worklist)
+        else:
+            print("Build " + str(self.buildnr) + " Updated test element " + str(item))
 
         if Finished:
             for item in worklist:
