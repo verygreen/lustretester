@@ -480,7 +480,7 @@ def add_review_comment(WorkItem):
             score = -1
             review_comments = WorkItem.ReviewComments
         else:
-            message = 'Build for x86_64 centos7 successful\nJob output URL: ' + path_to_url(WorkItem.artifactsdir)
+            message = 'Build for x86_64 centos7 successful\nJob output URL: ' + path_to_url(WorkItem.artifactsdir) + '\n'
             if WorkItem.initial_tests:
                 message += 'Commencing initial testing: ' + requested_tests_string(WorkItem.initial_tests)
             else:
