@@ -5,14 +5,16 @@ from pprint import pprint
 import threading
 
 class GerritWorkItem(object):
-    def __init__(self, change, initialtestlist, testlist):
+    def __init__(self, change, initialtestlist, testlist, EmptyJob=False):
         self.change = change
-        revision = change.get('current_revision')
-        self.ref = change['revisions'][str(revision)]['ref']
+        self.revision = change.get('current_revision')
+        self.ref = change['revisions'][str(self.revision)]['ref']
         self.buildnr = None
+        self.EmptyJob = EmptyJob
         self.BuildDone = False
         self.BuildError = False
         self.BuildMessage = ""
+        self.ReviewComments = {}
         self.artifactsdir = None
         self.InitialTestingStarted = False
         self.InitialTestingError = False
