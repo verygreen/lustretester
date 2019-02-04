@@ -128,12 +128,17 @@ testlist=[("sanity", 7200),
         ("sanity-gss", -1),
         ("lustre-rsync-test", -1),
         ("ost-pools", -1),
-        ("mmp", -1),
         ("sanity-scrub", -1),
         ("sanity-lfsck", -1),
         ("sanity-hsm", -1)
 ]
 # mostly depends on mpu-enabled write-disjoint and multiple clients ("metadata-updates", -1),
+
+ldiskfsonlytests = [
+        ("mmp", -1)
+        ]
+zfsonlytests = [
+        ]
 
 #testlist=[]
 lnettestlist = [
@@ -404,6 +409,10 @@ def parse_checkpatch_output(out, path_line_comments, warning_count):
             if level != 'ERROR' and level != 'WARNING':
                 level, kind, message = None, None, None
 
+def find_and_abort_duplicates(workitem):
+    for item in WorkList:
+        if item.changenr == workitem.changenr:
+            item.Aborted = True
 
 def review_input_and_score(path_line_comments, warning_count):
     """
@@ -470,7 +479,15 @@ def add_review_comment(WorkItem):
     except:
         commit_message = ""
 
-    if WorkItem.EmptyJob:
+    if WorkItem.Aborted:
+        if WorkItem.AbortDone:
+            # We already printed everything in the past, jsut exit
+            return
+        if WorkItem.BuildDone:
+            # No messages were printed anywhere, pretend we did nto even see it
+            return
+        message = "Newer revision detected, aborting all work on revision " + str(WorkItem.change['revisions'][str(WorkItem.revision)]['_number'])
+    elif WorkItem.EmptyJob:
         if is_notknow_howto_test(WorkItem.change['revisions'][str(WorkItem.current_revision)]['files']):
             message = "This file contains changes that I don't know how to test or build. Skipping"
         else:
@@ -540,16 +557,26 @@ def add_review_comment(WorkItem):
     else:
         code_review_score = 0
 
-    reviewer.post_review (WorkItem.change, WorkItem.revision, {
-        'message': (message),
-        'labels': {
-            'Code-Review': code_review_score
+    outputdict = {
+            'message': (message),
+            'labels': {
+                'Code-Review': code_review_score
             },
         'comments': review_comments,
         'notify': notify,
-        })
+        }
+    if not reviewer.post_review(WorkItem.change, WorkItem.revision, outputdict):
+        # Ok, we had a failure posting this message, let's save it for
+        # later processing
+        savefile = "failed_posts/" + str(WorkItem.change) + "." + str(WorkItem.revision)
+        if os.path.exists(savefile + ".json"):
+            attempt = 1
+            while os.path.exists(savefile+ "-try" + str(attempt) + ".json"):
+                attempt += 1
+            savefile = savefile+ "-try" + str(attempt) + ".json"
 
-
+        with open(savefile, "w") as outfile:
+            json.dump([WorkItem.change, outputdict], outfile, indent=4)
 
 def _now():
     """_"""
@@ -895,16 +922,28 @@ def run_workitem_manager():
             save_WorkItem(workitem)
             WorkList.append(workitem)
             logger.info("Got new ref " + workitem.ref + " assigned buildid " + str(workitem.buildnr))
+            # Also mark all earlier revs as aborted:
+            find_and_abort_duplicates(workitem)
             build_condition.acquire()
             build_queue.put([{}, workitem])
             build_condition.notify()
             build_condition.release()
             continue
 
+        if workitem.AbortDone:
+            # Just throw this one away, we notified everybody, these are
+            # just strugglers coming out
+            continue
+
         save_WorkItem(workitem)
         # We print all the updated state changes to gerrit here, and not above, but need to
         # move it above if we want to also print the "Job picked up" sort of messages
         add_review_comment(workitem)
+
+        if workitem.Aborted:
+            # Whoops, we no longer want to do anything with this item.
+            donewith_WorkItem(workitem)
+            continue
 
         if workitem.BuildDone and workitem.BuildError:
             # We just failed the build

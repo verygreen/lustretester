@@ -9,8 +9,11 @@ class GerritWorkItem(object):
         self.change = change
         self.revision = change.get('current_revision')
         self.ref = change['revisions'][str(self.revision)]['ref']
+        self.changenr = change['_number']
         self.buildnr = None
         self.EmptyJob = EmptyJob
+        self.Aborted = False
+        self.AbortDone = False
         self.BuildDone = False
         self.BuildError = False
         self.BuildMessage = ""

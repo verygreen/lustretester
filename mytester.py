@@ -235,6 +235,10 @@ class Tester(object):
         if testname is None:
             workitem.UpdateTestStatus(testinfo, "Invalid testinfo!", Failed=True)
             return True # No point in retrying an invalid test
+
+        if workItem.Aborted:
+            return True
+
         timeout = testinfo.get("timeout", 900)
         fstype = testinfo.get("fstype", "ldiskfs")
         DNE = testinfo.get("DNE", False)
@@ -298,6 +302,11 @@ class Tester(object):
             #pprint(client.errs)
             return False
 
+        if workItem.Aborted:
+            server.terminate()
+            client.terminate()
+            return True
+
         # Now mount NFS in VM
         try:
             command = "ssh -o StrictHostKeyChecking=no root@" + self.clientnetname + \
@@ -318,6 +327,11 @@ class Tester(object):
             server.terminate()
             client.terminate()
             return False
+
+        if workItem.Aborted:
+            server.terminate()
+            client.terminate()
+            return True
 
         try:
             if DNE:
@@ -354,6 +368,12 @@ class Tester(object):
                 time.sleep(5) # every 5 seconds, not ideal because that becomes our latency
                 outs, errs = testprocess.communicate(timeout=0.01) # cannot have 0 somehow
             except TimeoutExpired:
+                if workItem.Aborted:
+                    testprocess.terminate()
+                    server.terminate()
+                    client.terminate()
+                    return True
+
                 self.testouts += outs
                 self.testerrs += errs
                 if not server.check_node_alive():
@@ -372,6 +392,12 @@ class Tester(object):
             else:
                 self.testouts += outs
                 self.testerrs += errs
+
+        if workItem.Aborted:
+            testprocess.terminate()
+            server.terminate()
+            client.terminate()
+            return True
 
         failedsubtests = ""
         if self.error:

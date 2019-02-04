@@ -71,6 +71,10 @@ class Builder(object):
         # Might need to make this per-arch?
         # XXX Also add distro here
 
+        # Only check at the start.
+        if workitem.Aborted:
+            return True
+
         ref = workitem.ref
         buildnr = workitem.buildnr
         outdir = self.fsinfo["outputs"] + "/" + str(buildnr)
