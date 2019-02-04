@@ -214,9 +214,6 @@ def determine_testlist(filelist, trivial_requested):
         # Need to be smarter here about individual test file changes I guess?
         FullRun = True
 
-    if LDiskfsOnly and ZFSOnly:
-        FullRun = True
-
     # For lnet only changes we'd volunteer a zfs only run
     # to ensure actual Lustre operations still work.
     if LNetOnly and not FullRun and not LDiskfsOnly and not ZFSOnly:
@@ -227,18 +224,21 @@ def determine_testlist(filelist, trivial_requested):
         FullRun = True
         LNetOnly = True
 
+    if FullRun:
+        LDiskfsOnly = True
+        ZFSOnly = True
 
     # Always reload testlists
-    with open("tests/initial.json", "r") as input:
-        initialtestlist = json.load(input)
-    with open("tests/comprehensive.json", "r") as input:
-        fulltestlist = json.load(input)
-    with open("tests/lnet.json", "r") as input:
-        lnettestlist = json.load(input)
-    with open("tests/zfs.json", "r") as input:
-        zfstestlist = json.load(input)
-    with open("tests/ldiskfs.json", "r") as input:
-        ldiskfstestlist = json.load(input)
+    with open("tests/initial.json", "r") as blah:
+        initialtestlist = json.load(blah)
+    with open("tests/comprehensive.json", "r") as blah:
+        fulltestlist = json.load(blah)
+    with open("tests/lnet.json", "r") as blah:
+        lnettestlist = json.load(blah)
+    with open("tests/zfs.json", "r") as blah:
+        zfstestlist = json.load(blah)
+    with open("tests/ldiskfs.json", "r") as blah:
+        ldiskfstestlist = json.load(blah)
 
     initial = []
     comprehensive = []
@@ -255,7 +255,7 @@ def determine_testlist(filelist, trivial_requested):
                 UnknownItems = True
             if not UnknownItems:
                 # We just populate out test list from the changed scripts
-                # we detected taht we run in all possible configs
+                # we detected that we run in all possible configs
                 # Force disabled tests too if we are modifying them we better
                 # know how they perform
                 populate_testlist_from_array(initial, foundtests, True, True, Force=True)
@@ -290,6 +290,7 @@ def determine_testlist(filelist, trivial_requested):
 
         if not trivial_requested or GERRIT_CHANGE_NUMBER:
             populate_testlist_from_array(comprehensive, fulltestlist, LDiskfsOnly, ZFSOnly)
+
     return (DoNothing, initial, comprehensive)
 
 def is_trivial_requested(message):
@@ -884,9 +885,9 @@ def run_workitem_manager():
     current_build = 1
 
     try:
-        with open(LAST_BUILD_ID, 'rb') as input:
-            current_build = input.read('%d')
-    except:
+        with open(LAST_BUILD_ID, 'rb') as blah:
+            current_build = int(blah.read())
+    except OSError:
         pass
     
     logger = logging.getLogger("WorkitemManager")
@@ -910,8 +911,8 @@ def run_workitem_manager():
             workitem.buildnr = current_build
             current_build += 1
 
-            with open(LAST_BUILD_ID, 'wb') as input:
-                input.write('%d' % current_build)
+            with open(LAST_BUILD_ID, 'wb') as output:
+                output.write('%d' % current_build)
 
             # Mark all earlier revs as aborted first before we add ourselves in
             find_and_abort_duplicates(workitem)
@@ -919,6 +920,8 @@ def run_workitem_manager():
             save_WorkItem(workitem)
             WorkList.append(workitem)
             logger.info("Got new ref " + workitem.ref + " assigned buildid " + str(workitem.buildnr))
+            logger.info("for ref " + workitem.ref + " initial tests: " + str(workitem.initial_tests))
+            logger.info("for ref " + workitem.ref + " full tests: " + str(workitem.tests))
             build_condition.acquire()
             build_queue.put([{}, workitem])
             build_condition.notify()
@@ -1074,8 +1077,8 @@ if __name__ == "__main__":
 
     # XXX Add item loading here
     for savedstateitem in os.listdir(SAVEDSTATE_DIR):
-        with open(SAVEDSTATE_DIR + "/" + savedstateitem) as input:
-            workitem = pickle.load(input)
+        with open(SAVEDSTATE_DIR + "/" + savedstateitem) as blah:
+            workitem = pickle.load(blah)
 
             if not workitem.BuildDone:
                 # Need to clean up build dir
