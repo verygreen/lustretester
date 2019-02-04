@@ -363,6 +363,16 @@ def review_input_and_score(path_line_comments, warning_count):
             'notify': 'NONE',
             }, score
 
+def path_to_url(path):
+    url = fsconfig['http_server']
+    offset = fsconfig['root_path_offset']
+    cut = len(offset)
+    if path[:cut] != offset:
+        # Somethign is really wrong here
+        return "Error path substitution, server misconfiguration!"
+    url += path[cut:]
+    return url
+
 def add_review_comment(WorkItem):
     """
     Convert { PATH: { LINE: [COMMENT, ...] }, ... }, [11] to a gerrit
@@ -385,11 +395,11 @@ def add_review_comment(WorkItem):
     elif WorkItem.BuildDone and not WorkItem.InitialTestingStarted and not WorkItem.TestingStarted:
         # This is after initial build completion
         if WorkItem.BuildError:
-            message = 'Build failed\nInsert some useful info and URL here'
+            message = 'Build failed\nJob output URL: ' + path_to_url(WorkItem.artifactsdir)
             score = -1
             review_comments = WorkItem.ReviewComments
         else:
-            message = 'Build for x86_64 centos7 successful\n'
+            message = 'Build for x86_64 centos7 successful\nJob output URL: ' + path_to_url(WorkItem.artifactsdir)
             if WorkItem.initial_tests:
                 message += 'Commencing initial testing ADD TESTLIST HERE'
             else:
@@ -424,7 +434,9 @@ def add_review_comment(WorkItem):
             message += 'Successfully\n'
         message += 'Add some useful links and info here'
     else:
-        message = "Help, I don't know why I am here" + str(vars(WorkItem))
+        # This is one of those intermediate states like not
+        # Fully complete testing round or whatnot, so don't do anything.
+        #message = "Help, I don't know why I am here" + str(vars(WorkItem))
 
     # Errors = notify owner, no errors - no need to spam people
     if score < 0:
