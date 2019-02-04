@@ -471,6 +471,6 @@ class Tester(object):
         # If self.error is set that means we already updated the errors state,
         # But we still want them to fall through here to collect the crashdumps
         if not self.error:
-            workitem.UpdateTestStatus(testinfo, message, Finished=True, Crash=self.CrashDetected, TestStdOut=self.testouts, TestStdErr=self.testerrs, Failure=Failure, Subtests=failedsubtests)
+            workitem.UpdateTestStatus(testinfo, message, Finished=True, Crash=self.CrashDetected, TestStdOut=self.testouts, TestStdErr=self.testerrs, Failed=Failure, Subtests=failedsubtests)
 
         return True
