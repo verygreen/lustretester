@@ -339,6 +339,7 @@ def test_status_output(tests):
                 # why are we here again?
                 pass
         testlist += "  Results: " + path_to_url(test['ResultsDir']) + '/\n'
+    return testlist
 
 def parse_checkpatch_output(out, path_line_comments, warning_count):
     """
