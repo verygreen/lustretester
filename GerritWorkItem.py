@@ -37,7 +37,7 @@ class GerritWorkItem(object):
         elif self.TestingStarted and not self.TestingDone:
             worklist = self.tests
         else:
-            logger.error("Weird state, huh?" + vars(self));
+            print("Weird state, huh?" + vars(self));
 
         updated = False
         for item in worklist:
@@ -72,9 +72,9 @@ class GerritWorkItem(object):
                     item["TestStdErr"] = TestStdErr
                 if Subtests is not None:
                     item["SubtestList"] = Subtests
-            logger.info("Build " + str(self.buiildnr) + " Updated test element " + str(item))
+            print("Build " + str(self.buildnr) + " Updated test element " + str(item))
         if not updated:
-            logger.error("Build " + str(self.buiildnr) + " Passed in testinfo that I cannot match " + str(testinfo))
+            print("Build " + str(self.buildnr) + " Passed in testinfo that I cannot match " + str(testinfo))
             pprint(testinfo)
             pprint(worklist)
 
