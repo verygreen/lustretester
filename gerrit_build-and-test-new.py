@@ -115,7 +115,6 @@ testlist=[("sanity", 7200),
         ("sanity-pfl", -1),
         ("sanity-flr", -1),
         ("sanity-benchmark", -1),
-        ("metadata-updates", -1),
         ("racer", -1),
         ("replay-single", -1),
         ("conf-sanity", -1),
@@ -134,6 +133,8 @@ testlist=[("sanity", 7200),
         ("sanity-lfsck", -1),
         ("sanity-hsm", -1)
 ]
+# mostly depends on mpu-enabled write-disjoint and multiple clients ("metadata-updates", -1),
+
 #testlist=[]
 lnettestlist = [
         ("lnet-selftest", -1)
