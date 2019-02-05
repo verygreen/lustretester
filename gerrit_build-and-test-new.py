@@ -348,6 +348,8 @@ def test_status_output(tests):
         if not test['Failed']:
             if not test.get('StatusMessage', ''):
                 testlist += " passed\n"
+            else:
+                testlist += " " + test['StatusMessage'] + '\n'
         else:
             if not test.get('StatusMessage', ''):
                 if test['Timeout']:
@@ -613,7 +615,7 @@ class Reviewer(object):
         self.history_mode = 'rw'
         self.history = {}
         self.timestamp = 0L
-        self.post_enabled = False # XXX
+        self.post_enabled = True # XXX
         self.post_interval = 5
         self.update_interval = 300
         self.request_timeout = 60
@@ -1099,7 +1101,7 @@ if __name__ == "__main__":
             if not workitem.BuildDone:
                 # Need to clean up build dir
                 try:
-                    shutil.rmtree(workitem.artifactsdir)
+                    shutil.rmtree(fsconfig["outputs"] + "/" + str(workitem.buildnr))
                 except OSError:
                     pass # Ok if it's not there
             elif workitem.BuildError or workitem.InitialTestingError or workitem.TestingError:
