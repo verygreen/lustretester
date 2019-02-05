@@ -159,14 +159,14 @@ class Tester(object):
 
     def collect_syslogs(self):
         for node in [self.servernetname, self.clientnetname]:
-            syslogfilename = self.fsinfo["syslogdir"] + "/" + node + ".syslog"
+            syslogfilename = self.fsinfo["syslogdir"] + "/" + node + ".syslog.log"
 
             if not os.path.exists(syslogfilename):
                 self.logger.warning("Attempting to collect missing syslog for " + node)
                 return
             shutil.copy(syslogfilename, self.testresultsdir + "/")
             try:
-                os.chmod(self.testresultsdir + "/" + node + ".syslog", 0644)
+                os.chmod(self.testresultsdir + "/" + node + ".syslog.log", 0644)
             except OSError:
                 pass
 
