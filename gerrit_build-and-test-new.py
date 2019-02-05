@@ -980,18 +980,12 @@ def run_workitem_manager():
             # Create the test output dir first
             testresultsdir = workitem.artifactsdir + "/" + fsconfig["testoutputdir"]
 
-            # Let's see if this is a retest and create a new dir for that
-            if os.path.exists(testresultsdir):
-                retry = 1
-                while os.path.exists(testresultsdir + "-retry" + str(retry)):
-                    retry += 1
-                testresultsdir += "-retry" + str(retry)
-
-            try:
-                os.mkdir(testresultsdir)
-            except OSError:
-                logger.error("Huh, cannot create test results dir for ...")
-                sys.exit(1)
+            if not os.path.exists(testresultsdir):
+                try:
+                    os.mkdir(testresultsdir)
+                except OSError:
+                    logger.error("Huh, cannot create test results dir for ...")
+                    sys.exit(1)
 
             workitem.testresultsdir = testresultsdir
             workitem.InitialTestingStarted = True
