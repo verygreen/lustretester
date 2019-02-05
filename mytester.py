@@ -454,7 +454,7 @@ class Tester(object):
         if testprocess.returncode is not 0:
             Failure = True
             message += "Test script terminated with error " + str(testprocess.returncode)
-        elif not Failure:
+        elif not Failure and not message:
             message = "Success"
 
         if duration:
