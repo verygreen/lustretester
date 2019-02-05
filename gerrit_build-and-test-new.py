@@ -576,7 +576,7 @@ def add_review_comment(WorkItem):
     if not reviewer.post_review(WorkItem.change, WorkItem.revision, outputdict):
         # Ok, we had a failure posting this message, let's save it for
         # later processing
-        savefile = FAILED_POSTS_DIR + "/build-" str(buildnr) + "-" + str(WorkItem.changenr) + "." + str(WorkItem.revision)
+        savefile = FAILED_POSTS_DIR + "/build-" + str(WorkItem.buildnr) + "-" + str(WorkItem.changenr) + "." + str(WorkItem.revision)
         if os.path.exists(savefile + ".json"):
             attempt = 1
             while os.path.exists(savefile+ "-try" + str(attempt) + ".json"):
