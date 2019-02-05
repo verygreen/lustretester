@@ -453,14 +453,14 @@ class Tester(object):
 
         if testprocess.returncode is not 0:
             Failure = True
-            message += "Test script terminated with error " + str(testprocess.returncode)
+            message += " Test script terminated with error " + str(testprocess.returncode)
         elif not Failure and not message:
             message = "Success"
 
         if duration:
             message += "(" + str(duration) + "s)"
 
-        if "Memory leaks detected" in self.testerrs:
+        if "Memory leaks detected" in self.testouts:
             message += "(Memory Leaks Detected)"
 
         self.logger.info("Job finished with code " + str(testprocess.returncode) + " and message " + message)
