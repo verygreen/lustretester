@@ -175,6 +175,8 @@ class Builder(object):
                     message += errs.replace('\n', '\n ')
 
             self.put_error(message, workitem)
+        else:
+            message = "Success"
 
         # XXX add a check that artifact exists
 
