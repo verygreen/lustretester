@@ -104,6 +104,9 @@ class Tester(object):
     def run_daemon(self, in_cond, in_queue, out_cond, out_queue):
         self.logger = self.setup_custom_logger("tester-%s.log" % (self.name))
         self.logger.info("Started daemon")
+        # Would be great to verify all nodes are operational here, but
+        # Alas, need kernels and initrds for that. Perhaps require some
+        # default ones in json config?
         sleep_on_error = 30
         while True:
             in_cond.acquire()
@@ -416,6 +419,7 @@ class Tester(object):
         message = ""
         duration = 0
         if self.error:
+            Failure = True
             testprocess.terminate()
             outs, errs = testprocess.communicate()
             self.testouts += outs
