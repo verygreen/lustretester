@@ -406,6 +406,8 @@ class Tester(object):
             return True
 
         failedsubtests = ""
+        message = ""
+        duration = 0
         if self.error:
             testprocess.terminate()
             outs, errs = testprocess.communicate()
@@ -428,6 +430,7 @@ class Tester(object):
                         if yamltest.get('name', '') != testname:
                             logger.warning("Skipping unexpected test results for " + yamltest.get('name', 'EMPTYNAME'))
                             continue
+                        duration = yamltest.get('duration', 0)
                         if yamltest.get('status', '') == "FAIL":
                             Failure = True
                             message = "Failure"
@@ -444,9 +447,12 @@ class Tester(object):
 
         if testprocess.returncode is not 0:
             Failure = True
-            message = "Test script terminated with error " + str(testprocess.returncode)
+            message += "Test script terminated with error " + str(testprocess.returncode)
         elif not Failure:
             message = "Success"
+
+        if duration:
+            message += "(" + str(duration) + "s)"
 
         if "Memory leaks detected" in self.testerrs:
             message += "(Memory Leaks Detected)"
