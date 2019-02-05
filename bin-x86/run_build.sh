@@ -66,7 +66,7 @@ RETVAL=$?
 if [ $RETVAL -ne 0 ] ; then
         log "build error!"
 	make -j8 >/dev/null 2>${OUTDIR}/build${EXTRANAME}.stderr
-	PATTERN=$(echo $TGTBUILD | sed 's/\//\\\//g')
+	PATTERN=$(echo ${TGTBUILD}/ | sed 's/\//\\\//g')
 	grep '[[:digit:]]\+:[[:digit:]]\+: ' ${OUTDIR}/build${EXTRANAME}.stderr | sed "s/^${PATTERN}//" 1>&2 # to stdout where it can be easily separated
         exit 14
 fi

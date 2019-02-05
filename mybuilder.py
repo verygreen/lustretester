@@ -60,7 +60,54 @@ class Builder(object):
         self.daemon.start()
 
     def parse_compile_error(self, change, stderr):
-        return {}
+        reviews = {}
+        files = change['revisions'][str(change['current_revision'])]['files']
+        pprint(files)
+        if not files:
+            return reviews
+        for line in stderr.splitlines():
+            print("Working on: " + line)
+            # lustre/llite/file.c:247:2: error: 'blah' undeclared (first use in this function)
+            tokens = line.split(' ', 2)
+            if len(tokens) != 3:
+                continue
+
+            tmp = tokens[0].strip().split(':', 2)
+            if len(tmp) != 3:
+                continue
+
+            path = tmp[0].strip()
+            lineno_str = tmp[1].strip()
+            if not lineno_str.isdigit():
+                continue
+
+            line_number = int(lineno_str)
+            message = tokens[2].strip()
+            level = tokens[1].strip()
+            comment = level + " " + message
+
+            print("Got path " + path)
+            if path not in files and "/" not in path:
+                # Userspace files don't provide full path name, so
+                # lets try to find it in the list
+                for item in sorted(files):
+                    if os.path.basename(item) == path:
+                        found = True
+                        path = item
+                        break
+
+            print("Updated path " + path)
+            # Let's see if it was found once more, if not - we cannot add
+            # this item - gerrit would reject this comment
+            if path not in files:
+                continue
+
+            path_comments = reviews.setdefault(path, [])
+            path_comments.append({'line':line_number, 'message': comment})
+
+        print("Exiting")
+        pprint(reviews)
+        return reviews
 
     def put_error(self, statusmessage, workitem):
         workitem.BuildMessage = statusmessage
@@ -84,7 +131,7 @@ class Builder(object):
         except:
             self.logger.error("Build dir already exists, huh?")
             self.put_error("Build dir already exists", workitem)
-            return
+            return True
 
         command = "%s %s %s %s %s %s" % (self.command, outdir, ref, buildnr, self.fsinfo["testoutputowner"], self.name)
         args = shlex.split(command)
@@ -122,10 +169,10 @@ class Builder(object):
             elif code == 14:
                 # Thisis a build error, we can try to parse it
                 reviewitems = self.parse_compile_error(workitem.change, errs)
-                workitem.reviewitems = reviewitems
-                message = 'Build failed\n'
+                workitem.ReviewComments = reviewitems
+                message = 'Compile failed\n'
                 if not reviewitems:
-                    message += errs
+                    message += errs.replace('\n', '\n ')
 
             self.put_error(message, workitem)
 
@@ -136,6 +183,6 @@ class Builder(object):
         os.chown(outdir, 0, -1)
 
         workitem.BuildDone = True
-        workitem.BuildMessage = "Success"
+        workitem.BuildMessage = message
 
-        return outs
+        return True
