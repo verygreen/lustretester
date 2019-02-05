@@ -1095,18 +1095,19 @@ if __name__ == "__main__":
 
     # XXX Add item loading here
     for savedstateitem in os.listdir(SAVEDSTATE_DIR):
-        with open(SAVEDSTATE_DIR + "/" + savedstateitem) as blah:
+        with open(SAVEDSTATE_DIR + "/" + savedstateitem, "rb") as blah:
             workitem = pickle.load(blah)
 
+            sys.stdout.flush()
             if not workitem.BuildDone:
                 # Need to clean up build dir
                 try:
                     shutil.rmtree(fsconfig["outputs"] + "/" + str(workitem.buildnr))
                 except OSError:
                     pass # Ok if it's not there
-            elif workitem.BuildError or workitem.InitialTestingError or workitem.TestingError:
+            elif workitem.BuildError or (workitem.InitialTestingError and workitem.InitialTestingDone) or (workitem.TestingError and workitem.TestingDone):
                 pass # just insert for final notify
-            elif workitem.InitialTestingStarted and not InitialTestingDone:
+            elif workitem.InitialTestingStarted and not workitem.InitialTestingDone:
                 # To reinsert it we just need to unmark initial testing started
                 workitem.InitialTestingStarted = False
             elif workitem.TestingStarted and not workitem.TestingDone:

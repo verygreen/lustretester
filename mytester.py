@@ -268,6 +268,12 @@ class Tester(object):
             workitem.UpdateTestStatus("Build artifacts missing", Failed=True)
             return True # If we don't see 'em, nobody can see 'em
 
+        # On restart wipe old results
+        if os.path.exists(testresultsdir):
+            try:
+                shutil.rmtree(testresultsdir)
+            except OSError:
+                pass
         # Make output test results dir:
         try:
             os.mkdir(testresultsdir)
