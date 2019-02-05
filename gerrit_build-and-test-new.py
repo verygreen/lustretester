@@ -340,28 +340,32 @@ def requested_tests_string(tests):
 def test_status_output(tests):
     testlist = ""
     for test in tests:
-        testlist += " " + test['test'] + '@' + test['fstype']
+        testlist += "- " + test['test'] + '@' + test['fstype']
         if test.get('DNE', False):
             testlist += '@DNE'
         testlist += " "
 
         if not test['Failed']:
             if not test.get('StatusMessage', ''):
-                testlist += " passed\n"
+                testlist += " passed"
             else:
-                testlist += " " + test['StatusMessage'] + '\n'
+                testlist += " " + test['StatusMessage']
         else:
             if not test.get('StatusMessage', ''):
                 if test['Timeout']:
-                    testlist += " Timed out\n"
+                    testlist += " Timed out"
                 elif test['Crash']:
-                    testlist += " Crash\n"
+                    testlist += " Crash"
                 else:
-                    testlist += " Failed\n"
-            testlist += " " + test['StatusMessage'] + '\n'
+                    testlist += " Failed"
+            testlist += " " + test['StatusMessage']
             if test.get('SubtestList', ''):
-                testlist += "   " + test['SubtestList'] + '\n'
-        testlist += "Results: " + path_to_url(test['ResultsDir']) + '/\n'
+                testlist += "\n   " + test['SubtestList']
+        resultsdir = test.get('ResultsDir')
+        if resultsdir:
+            testlist += path_to_url(resultsdir) + '/'
+        testlist += '\n'
+
     return testlist
 
 def parse_checkpatch_output(out, path_line_comments, warning_count):
@@ -532,11 +536,11 @@ def add_review_comment(WorkItem):
             score = -1
             review_comments = WorkItem.ReviewComments
         else:
-            message = 'Initial testing succeeded\n' + test_status_output(WorkItem.initial_tests)
+            message = 'Initial testing succeeded.\n' + test_status_output(WorkItem.initial_tests)
             if WorkItem.tests:
-                message += ' Commencing standard testing: ' + requested_tests_string(WorkItem.tests)
+                message += 'Commencing standard testing: ' + requested_tests_string(WorkItem.tests)
             else:
-                message += ' No additional testing was requested'
+                message += 'No additional testing was requested'
                 score = 1
     elif WorkItem.TestingDone:
         message = ""
