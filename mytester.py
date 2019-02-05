@@ -442,24 +442,25 @@ class Tester(object):
                         if yamltest.get('name', '') != testname:
                             logger.warning("Skipping unexpected test results for " + yamltest.get('name', 'EMPTYNAME'))
                             continue
+                        try:
+                            for subtest in yamltest.get('SubTests', []):
+                                if subtest.get('status', '') == "FAIL":
+                                    failedsubtests += subtest['name'].replace('test_', '') + "("
+                                    if subtest.get('error'):
+                                        failedsubtests += subtest['error']
+                                    else:
+                                        failedsubtests += "ret " + str(subtest['return_code'])
+                                    failedsubtests += ") "
+                                elif subtest.get('status', '') == "SKIP":
+                                    skippedsubtests += subtest['name'].replace('test_', '') + "("
+                                    skippedsubtests += str(subtest.get('error')) + ") "
+                        except TypeError:
+                            pass # Well, here's empty list for you I guess
+
                         duration = yamltest.get('duration', 0)
                         if yamltest.get('status', '') == "FAIL":
                             Failure = True
                             message = "Failure"
-                            try:
-                                for subtest in yamltest.get('SubTests', []):
-                                    if subtest.get('status', '') == "FAIL":
-                                        failedsubtests += subtest['name'].replace('test_', '') + "("
-                                        if subtest.get('error'):
-                                            failedsubtests += subtest['error']
-                                        else:
-                                            failedsubtests += "ret " + str(subtest['return_code'])
-                                        failedsubtests += ") "
-                                    elif subtest.get('status', '') == "SKIP":
-                                        skippedsubtests += subtest['name'].replace('test_', '') + "("
-                                        skippedsubtests += str(subtest.get('error')) + ") "
-                            except TypeError:
-                                pass # Well, here's empty list for you I guess
                         elif yamltest.get('status', '') == "SKIP":
                             message = "Skipped"
 
