@@ -322,7 +322,7 @@ def is_buildonly_requested(message):
             return True
 
 def is_testonly_requested(message):
-    trivial_re = re.compile("^Test-Parameters:.*fortestdonly")
+    trivial_re = re.compile("^Test-Parameters:.*fortestonly")
     for line in message.splitlines():
         if trivial_re.match(line):
             return True
