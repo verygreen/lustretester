@@ -38,7 +38,8 @@ class Node(object):
         fl = fcntl.fcntl(fd, fcntl.F_GETFL)
         fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
 
-        while True:
+        deadlinetime = time.time() + 90 # IF a node did not come up in 90 seconds, somethins is wrong with it anyway
+        while time.time() <= deadlinetime:
             try:
                 string = self.process.stdout.read()
             except:
@@ -59,8 +60,8 @@ class Node(object):
                 fcntl.fcntl(fd, fcntl.F_SETFL, fl)
                 return None
         # Hm, the loop ended somehow?
-        self.process.poll()
-        return "terminated"
+        self.process.terminate()
+        return "Timed Out waiting for login prompt"
 
     def terminate(self):
         if self.process is None or self.process.returncode is not None:
@@ -246,7 +247,9 @@ class Tester(object):
         if workitem.Aborted:
             return True
 
-        timeout = testinfo.get("timeout", 900)
+        timeout = testinfo.get("timeout", -1)
+        if timeout == -1:
+            timeout = 5*3600 # we are willing to wait up to 5 hours for unknown tests
         fstype = testinfo.get("fstype", "ldiskfs")
         DNE = testinfo.get("DNE", False)
         serverkernel = artifactdir +"/kernel-%s-%s" % (serverdistro, self.serverarch)
@@ -372,8 +375,7 @@ class Tester(object):
         # be captured. This is probably fine because Lustre was not involved
         # yet? From this point on all failures are assumed to be test-related
 
-        # XXX add a loop here to preiodically test that our servers are alive
-        # and also to ensure we don't need to abandon the test for whatever reason
+        deadlinetime = time.time() + timeout
         while testprocess.returncode is None: # XXX add a timer
             try:
                 # This is a very ugly workaround to the fact that when you call
@@ -383,6 +385,11 @@ class Tester(object):
                 # XXX - perhaps consider doing some sort of a manual select call?
                 time.sleep(5) # every 5 seconds, not ideal because that becomes our latency
                 outs, errs = testprocess.communicate(timeout=0.01) # cannot have 0 somehow
+                if time.time() > deadlinetime:
+                    self.logger.warning("Job timed out, terminating");
+                    self.error = True
+                    workitem.UpdateTestStatus(testinfo, "Timeout", Timeout=True)
+                    break
             except TimeoutExpired:
                 if workitem.Aborted:
                     testprocess.terminate()
@@ -402,9 +409,6 @@ class Tester(object):
                     workitem.UpdateTestStatus(testinfo, "Client crashed", Crash=True)
                     self.error = True
                     break
-                #self.logger.warning("Job timed out, terminating");
-                # self.error = True
-                # workitem.UpdateTestStatus(testinfo, "Timeout", Timeout=True)
             else:
                 self.testouts += outs
                 self.testerrs += errs
@@ -413,6 +417,7 @@ class Tester(object):
             testprocess.terminate()
             server.terminate()
             client.terminate()
+            # Don't bother collectign logs
             return True
 
         failedsubtests = ""
