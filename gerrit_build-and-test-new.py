@@ -363,7 +363,7 @@ def test_status_output(tests):
                 testlist += "\n   " + test['SubtestList']
         resultsdir = test.get('ResultsDir')
         if resultsdir:
-            testlist += path_to_url(resultsdir) + '/'
+            testlist += " " + path_to_url(resultsdir) + '/'
         testlist += '\n'
 
     return testlist
