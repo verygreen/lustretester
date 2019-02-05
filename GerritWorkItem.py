@@ -30,7 +30,8 @@ class GerritWorkItem(object):
 
     def UpdateTestStatus(self, testinfo, message, Failed=False, Crash=False,
                          ResultsDir=None, Finished=False, Timeout=False,
-                         TestStdOut=None, TestStdErr=None, Subtests=None):
+                         TestStdOut=None, TestStdErr=None, Subtests=None,
+                         Skipped=None):
         # Lock here and we are fine
         if self.InitialTestingStarted and not self.InitialTestingDone:
             worklist = self.initial_tests
@@ -72,6 +73,8 @@ class GerritWorkItem(object):
                     item["TestStdErr"] = TestStdErr
                 if Subtests:
                     item["SubtestList"] = Subtests
+                if Skipped:
+                    item["SkippedSubtests"] = Skipped
         if not updated:
             print("Build " + str(self.buildnr) + " Passed in testinfo that I cannot match " + str(testinfo))
             pprint(testinfo)

@@ -412,6 +412,7 @@ class Tester(object):
             return True
 
         failedsubtests = ""
+        skippedsubtests = ""
         message = ""
         duration = 0
         if self.error:
@@ -440,6 +441,7 @@ class Tester(object):
                         if yamltest.get('status', '') == "FAIL":
                             Failure = True
                             message = "Failure"
+                        try:
                             for subtest in yamltest.get('SubTests', []):
                                 if subtest.get('status', '') == "FAIL":
                                     failedsubtests += subtest['name'].replace('test_', '') + "("
@@ -448,6 +450,11 @@ class Tester(object):
                                     else:
                                         failedsubtests += "ret " + str(subtest['return_code'])
                                     failedsubtests += ") "
+                                elif subtest.get('status', '') == "SKIP":
+                                    skippedsubtests += subtest['name'].replace('test_', '') + "("
+                                    skippedsubtests += str(subtest.get('error')) + ") "
+                        except TypeError:
+                            pass # Well, here's empty list for you I guess
                         elif yamltest.get('status', '') == "SKIP":
                             message = "Skipped"
 
@@ -483,6 +490,6 @@ class Tester(object):
         # If self.error is set that means we already updated the errors state,
         # But we still want them to fall through here to collect the crashdumps
         if not self.error:
-            workitem.UpdateTestStatus(testinfo, message, Finished=True, Crash=self.CrashDetected, TestStdOut=self.testouts, TestStdErr=self.testerrs, Failed=Failure, Subtests=failedsubtests)
+            workitem.UpdateTestStatus(testinfo, message, Finished=True, Crash=self.CrashDetected, TestStdOut=self.testouts, TestStdErr=self.testerrs, Failed=Failure, Subtests=failedsubtests, Skipped=skippedsubtests)
 
         return True
