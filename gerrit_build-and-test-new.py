@@ -47,6 +47,7 @@ import Queue
 import threading
 import pwd
 import re
+import operator
 import mybuilder
 import mytester
 from datetime import datetime
@@ -351,8 +352,8 @@ def test_status_output(tests):
     passedtests = ""
     failedtests = ""
     skippeditests = ""
-    for test in sorted(tests, key=itemgetter('test', 'fstype')):
-        testname += "- " + test['test'] + '@' + test['fstype']
+    for test in sorted(tests, key=operator.itemgetter('test', 'fstype')):
+        testname = test['test'] + '@' + test['fstype']
         if test.get('DNE', False):
             testname += '@DNE'
         testname += " "
@@ -379,12 +380,13 @@ def test_status_output(tests):
                 failedtests += "\n- " + path_to_url(resultsdir) + '/'
             failedtests += '\n'
 
+    testlist = ""
     if failedtests:
         testlist = "\n" + failedtests
     if passedtests:
-        testlist += "\nSucceeded:\n-" + passedtests + "\n"
+        testlist += "\nSucceeded:\n- " + passedtests + "\n"
     if skippeditests:
-        testlist += "\nSkipped:\n-" + skippeditests + "\n"
+        testlist += "\nSkipped:\n- " + skippeditests + "\n"
 
     return testlist
 
@@ -949,6 +951,7 @@ def run_workitem_manager():
         while managing_queue.empty():
             managing_condition.wait()
         workitem = managing_queue.get()
+
         managing_condition.release()
 
         #teststr = vars(workitem)
