@@ -329,7 +329,6 @@ def is_testonly_requested(message):
 
 def requested_tests_string(tests):
     testlist = ""
-
     for test in tests:
         testlist += test['test'] + '@' + test['fstype']
         if test.get('DNE', False):
@@ -338,33 +337,43 @@ def requested_tests_string(tests):
     return testlist
 
 def test_status_output(tests):
-    testlist = ""
+    passedtests = ""
+    failedtests = ""
+    skippeditests = ""
     for test in sorted(tests, key=itemgetter('test', 'fstype')):
-        testlist += "- " + test['test'] + '@' + test['fstype']
+        testname += "- " + test['test'] + '@' + test['fstype']
         if test.get('DNE', False):
-            testlist += '@DNE'
-        testlist += " "
+            testname += '@DNE'
+        testname += " "
 
         if not test['Failed']:
-            if not test.get('StatusMessage', ''):
-                testlist += " passed"
+            if test.get('Skipped'):
+                skippeditests += testname
             else:
-                testlist += " " + test['StatusMessage']
+                passedtests += testname
         else:
+            failedtests += "> " + testname
             if not test.get('StatusMessage', ''):
                 if test['Timeout']:
-                    testlist += " Timed out"
+                    failedtests += " Timed out"
                 elif test['Crash']:
-                    testlist += " Crash"
+                    failedtests += " Crash"
                 else:
-                    testlist += " Failed"
-            testlist += " " + test['StatusMessage']
+                    failedtests += " Failed"
+            failedtests += " " + test['StatusMessage']
             if test.get('SubtestList', ''):
-                testlist += "\n   " + test['SubtestList']
-        resultsdir = test.get('ResultsDir')
-        if resultsdir:
-            testlist += " " + path_to_url(resultsdir) + '/'
-        testlist += '\n'
+                failedtests += "\n- " + test['SubtestList']
+            resultsdir = test.get('ResultsDir')
+            if resultsdir:
+                failedtests += "\n- " + path_to_url(resultsdir) + '/'
+            failedtests += '\n'
+
+    if failedtests:
+        testlist = "\n" + failedtests
+    if passedtests:
+        testlist += "\nSucceeded:\n-" + passedtests + "\n"
+    if skippeditests:
+        testlist += "\nSkipped:\n-" + skippeditests + "\n"
 
     return testlist
 
@@ -538,9 +547,9 @@ def add_review_comment(WorkItem):
         else:
             message = 'Initial testing succeeded.\n' + test_status_output(WorkItem.initial_tests)
             if WorkItem.tests:
-                message += 'Commencing standard testing: ' + requested_tests_string(WorkItem.tests)
+                message += '\nCommencing standard testing: ' + requested_tests_string(WorkItem.tests)
             else:
-                message += 'No additional testing was requested'
+                message += '\nNo additional testing was requested'
                 score = 1
     elif WorkItem.TestingDone:
         message = ""
