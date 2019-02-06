@@ -73,6 +73,10 @@ GERRIT_CHANGE_NUMBER = os.getenv('GERRIT_CHANGE_NUMBER', None)
 GERRIT_DRYRUN = os.getenv('GERRIT_DRYRUN', None)
 GERRIT_FORCEALLTESTS = os.getenv('GERRIT_FORCEALLTESTS', None)
 
+# When this is set - only changes with this topic would be tested.
+# good for trial runs before big deployment
+GERRIT_FORCETOPIC = os.getenv('GERRIT_FORCETOPIC', None)
+
 SAVEDSTATE_DIR="savedstate"
 DONEWITH_DIR="donewith"
 FAILED_POSTS_DIR="failed_posts"
@@ -755,6 +759,9 @@ class Reviewer(object):
         query['project'] = urllib.quote(project, safe='')
         branch = query.get('branch', self.branch)
         query['branch'] = urllib.quote(branch, safe='')
+        if GERRIT_FORCETOPIC and not GERRIT_CHANGE_NUMBER:
+            query['topic'] = GERRIT_FORCETOPIC
+
         path = ('/changes/?q=' +
                 '+'.join(k + ':' + v for k, v in query.iteritems()) +
                 '&o=CURRENT_REVISION&o=CURRENT_COMMIT&o=CURRENT_FILES')
