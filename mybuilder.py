@@ -39,6 +39,7 @@ class Builder(object):
 
             self.Busy = True
             job = in_queue.get()
+            self.logger.info("Remaining Builder items in the queue left: " + str(in_queue.qsize()))
             in_cond.release()
             builddata = job[0] # Unused for now
             workitem = job[1]

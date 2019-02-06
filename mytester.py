@@ -115,6 +115,7 @@ class Tester(object):
                 in_cond.wait()
 
             job = in_queue.get()
+            self.logger.info("Remaining Testing items in the queue left: " + str(in_queue.qsize()))
             self.Busy = True
             in_cond.release()
             priority = job[0] # Not really used here
