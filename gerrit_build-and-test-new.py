@@ -868,11 +868,12 @@ class Reviewer(object):
         GET recently updated changes and review as needed.
         """
         new_timestamp = _now()
-        age = new_timestamp - self.timestamp + 60 * 60 # 1h padding
+        age = 1 # Age
         self._debug("update: age = %d", age)
 
         open_changes = self.get_changes({'status':'open',
-                                         '-age':str(age) + 's'})
+                                         '-age':str(age) + 'h',
+                                         '-label':'Code-Review=-2'})
         self._debug("update: got %d open_changes", len(open_changes))
 
         for change in open_changes:
