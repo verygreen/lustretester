@@ -70,6 +70,8 @@ GERRIT_PROJECT = os.getenv('GERRIT_PROJECT', 'fs/lustre-release')
 GERRIT_BRANCH = os.getenv('GERRIT_BRANCH', 'master')
 GERRIT_AUTH_PATH = os.getenv('GERRIT_AUTH_PATH', 'GERRIT_AUTH')
 GERRIT_CHANGE_NUMBER = os.getenv('GERRIT_CHANGE_NUMBER', None)
+GERRIT_DRYRUN = os.getenv('GERRIT_DRYRUN', None)
+GERRIT_FORCEALLTESTS = os.getenv('GERRIT_FORCEALLTESTS', None)
 
 SAVEDSTATE_DIR="savedstate"
 DONEWITH_DIR="donewith"
@@ -228,7 +230,7 @@ def determine_testlist(filelist, trivial_requested):
         ZFSOnly = True
 
     # Override for testing
-    if GERRIT_CHANGE_NUMBER:
+    if GERRIT_FORCEALLTESTS:
         FullRun = True
         LNetOnly = True
 
@@ -304,7 +306,7 @@ def determine_testlist(filelist, trivial_requested):
             # to be fs-neutral Lnet-only stuff like lnet-selftest
             populate_testlist_from_array(comprehensive, ldiskfstestlist, True, False)
 
-        if not trivial_requested or GERRIT_CHANGE_NUMBER:
+        if not trivial_requested or GERRIT_FORCEALLTESTS:
             populate_testlist_from_array(comprehensive, fulltestlist, LDiskfsOnly, ZFSOnly)
 
     return (DoNothing, initial, comprehensive)
@@ -628,7 +630,7 @@ class Reviewer(object):
         self.history_mode = 'rw'
         self.history = {}
         self.timestamp = 0L
-        self.post_enabled = True # XXX
+        self.post_enabled = True and not GERRIT_DRYRUN # XXX
         self.post_interval = 5
         self.update_interval = 300
         self.request_timeout = 60
@@ -716,6 +718,8 @@ class Reviewer(object):
         """
         Add review record to history dict and file.
         """
+        if GERRIT_DRYRUN:
+            return
         if change_id != '-':
             self.history[change_id + ' ' + revision] = score
 
@@ -801,7 +805,7 @@ class Reviewer(object):
 
         # Reject too old ones
         date_created = dateutil.parser.parse(change['revisions'][str(current_revision)]['created'])
-        if abs(datetime.now() - date_created).days > IGNORE_OLDER_THAN_DAYS:
+        if abs(datetime.now() - date_created).days > IGNORE_OLDER_THAN_DAYS and not GERRIT_DRYRUN:
             self._debug("change_needs_review: Created too long ago")
             return False
 
@@ -953,6 +957,10 @@ def run_workitem_manager():
             logger.info("Got new ref " + workitem.ref + " assigned buildid " + str(workitem.buildnr))
             logger.info("for ref " + workitem.ref + " initial tests: " + str(workitem.initial_tests))
             logger.info("for ref " + workitem.ref + " full tests: " + str(workitem.tests))
+
+            if GERRIT_DRYRUN:
+                donewith_WorkItem(workitem)
+                continue
             build_condition.acquire()
             build_queue.put([{}, workitem])
             build_condition.notify()
@@ -1127,19 +1135,19 @@ if __name__ == "__main__":
             managing_condition.notify()
             managing_condition.release()
 
-        # In debug, don't do anything:
-        if GERRIT_CHANGE_NUMBER:
-            while True:
-                # Just hang in here until interrupted
-                managerthread.join(1)
+        time.sleep(2)
+        while WorkList:
+            # Just hang in here until done
+            managerthread.join(1)
 
 
     if GERRIT_CHANGE_NUMBER:
         print("Asking for single change " + GERRIT_CHANGE_NUMBER)
         reviewer.update_single_change(GERRIT_CHANGE_NUMBER)
 
-        while True:
-            # Just hang in here until interrupted
+        time.sleep(3)
+        while WorkList:
+            # Just hang in here until done
             managerthread.join(1)
     else:
         reviewer.run()
