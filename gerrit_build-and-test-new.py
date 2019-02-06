@@ -339,7 +339,7 @@ def requested_tests_string(tests):
 
 def test_status_output(tests):
     testlist = ""
-    for test in tests:
+    for test in sorted(tests, key=itemgetter('test', 'fstype')):
         testlist += "- " + test['test'] + '@' + test['fstype']
         if test.get('DNE', False):
             testlist += '@DNE'
