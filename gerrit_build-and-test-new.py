@@ -153,7 +153,7 @@ def populate_testlist_from_array(testlist, testarray, LDiskfsOnly, ZFSOnly, DNE=
             test = {}
             test['test'] = item[0]
             test['timeout'] = item[1]
-            test['extraenv'] = item[2]
+            test['testparam'] = item[2]
             return test
 
         try:
