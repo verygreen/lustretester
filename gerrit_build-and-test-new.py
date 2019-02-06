@@ -205,9 +205,9 @@ def determine_testlist(filelist, trivial_requested):
             continue # with deletion would set BuildOnly
         DoNothing = False
         if match_fnmatch_list(item, TEST_SCRIPT_FILES):
-            modified_test_files.append(os.path.basename(path).replace('.sh',''))
-        else:
-            NonTestFilesToo = True
+            modified_test_files.append(os.path.basename(item).replace('.sh',''))
+            continue
+        NonTestFilesToo = True
         if match_fnmatch_list(item, BUILD_ONLY_FILES):
             BuildOnly = True
             continue
@@ -253,23 +253,28 @@ def determine_testlist(filelist, trivial_requested):
     initial = []
     comprehensive = []
 
+    print(LDiskfsOnly, ZFSOnly)
     if not DoNothing:
         if modified_test_files:
-            UnknownItems = False
+            UnknownItems = NonTestFilesToo
             foundtests = []
             for item in modified_test_files:
+                Found = False
                 for test in initialtestlist + fulltestlist + lnettestlist + zfstestlist + ldiskfstestlist:
                     if item == test[0]:
                         foundtests.append(test)
                         # To avoid doubletesting, mark it as disabled in the
                         # regular list too - ok to do sice we reread the list
                         # every time
-                        if len(test) < 3:
-                            test[3].append(True)
+                        if len(test) < 4:
+                            test.append(True)
                         else:
                             test[3] = True
+                        Found = True
                         break
-                UnknownItems = True
+                if not Found:
+                    UnknownItems = True
+
             populate_testlist_from_array(initial, foundtests, True, True, Force=True)
             if not UnknownItems:
                 # We just populate out test list from the changed scripts
@@ -506,14 +511,15 @@ def add_review_comment(WorkItem):
 
     if WorkItem.Aborted:
         if WorkItem.AbortDone:
-            # We already printed everything in the past, jsut exit
+            # We already printed everything in the past, just exit
             return
         if WorkItem.BuildDone:
-            # No messages were printed anywhere, pretend we did nto even see it
+            # No messages were printed anywhere, pretend we did not even see it
             return
+
         message = "Newer revision detected, aborting all work on revision " + str(WorkItem.change['revisions'][str(WorkItem.revision)]['_number'])
     elif WorkItem.EmptyJob:
-        if is_notknow_howto_test(WorkItem.change['revisions'][str(WorkItem.current_revision)]['files']):
+        if is_notknow_howto_test(WorkItem.change['revisions'][str(WorkItem.revision)]['files']):
             message = "This file contains changes that I don't know how to test or build. Skipping"
         else:
             message = 'Cannot detect any useful changes in this patch\n'
