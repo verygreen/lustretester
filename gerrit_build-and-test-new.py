@@ -126,7 +126,7 @@ LNET_ONLY_FILES = [ 'lnet/*' ]
 CODE_FILES = [ '*.[ch]' ]
 I_DONT_KNOW_HOW_TO_TEST_THESE = [
         'contrib/lbuild/*', '*dkms*', '*spec*', 'debian/*', 'rpm/*',
-        'lustre/kernel_patches/which_patch' ]
+        'lustre/kernel_patches/*' ]
 TEST_SCRIPT_FILES = [ 'lustre/tests/*' ]
 
 
