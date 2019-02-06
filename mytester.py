@@ -386,11 +386,6 @@ class Tester(object):
                 # XXX - perhaps consider doing some sort of a manual select call?
                 time.sleep(5) # every 5 seconds, not ideal because that becomes our latency
                 outs, errs = testprocess.communicate(timeout=0.01) # cannot have 0 somehow
-                if time.time() > deadlinetime:
-                    self.logger.warning("Job timed out, terminating");
-                    self.error = True
-                    workitem.UpdateTestStatus(testinfo, "Timeout", Timeout=True)
-                    break
             except TimeoutExpired:
                 if workitem.Aborted:
                     testprocess.terminate()
@@ -410,12 +405,21 @@ class Tester(object):
                     workitem.UpdateTestStatus(testinfo, "Client crashed", Crash=True)
                     self.error = True
                     break
+
+                if time.time() > deadlinetime:
+                    self.logger.warning("Job timed out, terminating");
+                    self.error = True
+                    workitem.UpdateTestStatus(testinfo, "Timeout", Timeout=True)
+                    break
             else:
                 self.testouts += outs
                 self.testerrs += errs
 
         if workitem.Aborted:
-            testprocess.terminate()
+            try:
+                testprocess.terminate()
+            except OSError:
+                pass # No such process?
             server.terminate()
             client.terminate()
             # Don't bother collectign logs
@@ -427,7 +431,10 @@ class Tester(object):
         duration = 0
         if self.error:
             Failure = True
-            testprocess.terminate()
+            try:
+                testprocess.terminate()
+            except OSError:
+                pass # No such process?
             outs, errs = testprocess.communicate()
             self.testouts += outs
             self.testerrs += errs
