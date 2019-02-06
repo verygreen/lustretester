@@ -52,7 +52,7 @@ echo "${REF}" >${OUTDIR}/REF
 log "autogen.sh"
 sh autogen.sh >>${BUILDLOG} 2>&1
 log "Configure"
-./configure --with-linux=${KERNELDIR}  --with-zfs=/usr/local/src/zfs-0.7.11 --with-spl=/usr/local/src/spl-0.7.11 --with-zfs-devel=/usr/local --disable-shared >>${BUILDLOG} 2>&1
+./configure --with-linux=${KERNELDIR}  --with-zfs=/usr/local/src/zfs-0.7.12 --with-spl=/usr/local/src/spl-0.7.12 --with-zfs-devel=/usr/local --disable-shared >>${BUILDLOG} 2>&1
 RETVAL=$?
 if [ $RETVAL -ne 0 ] ; then
         echo "configure error!"
