@@ -363,7 +363,7 @@ class Tester(object):
                     " ost_HOST=" + self.servernetname + " MDSDEV1=/dev/vdc " +
                     "OSTDEV1=/dev/vde OSTDEV2=/dev/vdf LOAD_MODULES_REMOTE=true " +
                     "FSTYPE=" + fstype + DNEStr +
-                    "/home/green/git/lustre-release/lustre/tests/auster -D /tmp/testlogs/ -r -k " + testname + " " + TESTPARAMS ]
+                    "NAME=ncli /home/green/git/lustre-release/lustre/tests/auster -D /tmp/testlogs/ -r -k " + testname + " " + TESTPARAMS ]
             testprocess = Popen(args, close_fds=True, stdin=PIPE, stdout=PIPE, stderr=PIPE, universal_newlines=True)
         except (OSError) as details:
             self.logger.warning("Failed to run test " + str(details))
