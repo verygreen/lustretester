@@ -1,5 +1,5 @@
 [
-	["sanity", 7200, "--exclude '400a'"],
+	["sanity", 9000, "--except '400a'"],
         ["sanityn", -1, ""],
         ["sanity-pfl", -1, ""],
         ["sanity-flr", -1, ""],
