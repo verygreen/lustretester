@@ -417,6 +417,15 @@ class Tester(object):
             else:
                 self.testouts += outs
                 self.testerrs += errs
+                # We finished normally, let's see if it was an invalid
+                # run. Currently we filter for this message only:
+                # insmod: ERROR: could not insert module /home/green/git/lustre-release/lustre/ptlrpc/ptlrpc.ko: Network is down
+                # Add a config file if this list is to grow
+                if "ptlrpc.ko: Network is down" in self.testouts:
+                    self.logger.warning("Clash with portmap, restarting")
+                    server.terminate()
+                    client.terminate()
+                    return False
 
         if workitem.Aborted:
             try:
@@ -425,7 +434,7 @@ class Tester(object):
                 pass # No such process?
             server.terminate()
             client.terminate()
-            # Don't bother collectign logs
+            # Don't bother collecting logs
             return True
 
         failedsubtests = ""
