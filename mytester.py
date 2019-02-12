@@ -38,7 +38,7 @@ class Node(object):
         fl = fcntl.fcntl(fd, fcntl.F_GETFL)
         fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
 
-        deadlinetime = time.time() + 90 # IF a node did not come up in 90 seconds, somethins is wrong with it anyway
+        deadlinetime = time.time() + 90 # IF a node did not come up in 90 seconds, something is wrong with it anyway
         while time.time() <= deadlinetime:
             try:
                 string = self.process.stdout.read()
@@ -135,6 +135,7 @@ class Tester(object):
             else:
                 # We had some problem with our VMs or whatnot, return
                 # the job to the pool for retrying and sleep for some time
+                self.logger.info("Failed to test job buildid " + str(workitem.buildnr) + " test " + str(testinfo) )
                 in_cond.acquire()
                 in_queue.put([priority, testinfo, workitem])
                 in_cond.notify()
@@ -314,10 +315,12 @@ class Tester(object):
         if server.wait_for_login() is not None:
             client.terminate()
             #pprint(server.errs)
+            self.logger.warning("Server did not show login prompt " + str(server.errs) + " " + str(server.outs))
             return False
         if client.wait_for_login() is not None:
             server.terminate()
             #pprint(client.errs)
+            self.logger.warning("Client did not show login prompt" + str(client.errs) + " " + str(client.outs))
             return False
 
         if workitem.Aborted:
