@@ -995,11 +995,12 @@ def run_workitem_manager():
             workitem.testresultsdir = testresultsdir
             workitem.InitialTestingStarted = True
             testing_condition.acquire()
-            # First 0 is priority - highest
-            for testinfo in workitem.initial_tests:
+            # Perhaps also sort by timeout once populated?
+            for testinfo in sorted(workitem.initial_tests, key=operator.itemgetter('test')):
                 # save/restart logic:
                 if testinfo.get('Finished', False):
                     continue
+                # First 0 is priority - highest
                 testing_queue.put([0, testinfo, workitem])
                 testing_condition.notify()
             testing_condition.release()
@@ -1030,12 +1031,14 @@ def run_workitem_manager():
             logger.info("ref " + workitem.ref + " build " + str(workitem.buildnr)  + " completed initial testing and switching to full testing " + str(workitem.tests))
             workitem.TestingStarted = True
             testing_condition.acquire()
-            # First 100 is second priority. perhaps sort by timeout instead?
-            # could lead to prolonged stragglers.
-            for testinfo in workitem.tests:
+            # Perhaps sort by timeout once available to run short tests
+            # first?
+            for testinfo in sorted(workitem.tests, key=operator.itemgetter('test', 'fstype')):
                 # save/restart logic:
                 if testinfo.get('Finished', False):
                     continue
+                # First 100 is second priority. perhaps sort by timeout instead?
+                # could lead to prolonged stragglers.
                 testing_queue.put([100, testinfo, workitem])
                 testing_condition.notify()
             testing_condition.release()
