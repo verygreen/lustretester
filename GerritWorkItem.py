@@ -8,7 +8,10 @@ class GerritWorkItem(object):
     def __init__(self, change, initialtestlist, testlist, EmptyJob=False):
         self.change = change
         self.revision = change.get('current_revision')
-        self.ref = change['revisions'][str(self.revision)]['ref']
+        if change.get('branch'):
+            self.ref = change['branch']
+        else:
+            self.ref = change['revisions'][str(self.revision)]['ref']
         self.changenr = change['_number']
         self.buildnr = None
         self.EmptyJob = EmptyJob
@@ -27,12 +30,13 @@ class GerritWorkItem(object):
         self.TestingError = False
         self.initial_tests = initialtestlist
         self.tests = testlist
+        self.lock = threading.Lock()
 
     def UpdateTestStatus(self, testinfo, message, Failed=False, Crash=False,
                          ResultsDir=None, Finished=False, Timeout=False,
                          TestStdOut=None, TestStdErr=None, Subtests=None,
                          Skipped=None):
-        # Lock here and we are fine
+        self.lock.acquire()
         if self.InitialTestingStarted and not self.InitialTestingDone:
             worklist = self.initial_tests
         elif self.TestingStarted and not self.TestingDone:
@@ -85,6 +89,7 @@ class GerritWorkItem(object):
         if Finished:
             for item in worklist:
                 if not item.get("Finished", False):
+                    self.lock.release()
                     return
             # All entires are finished, time to mark the set
             if not self.InitialTestingDone:
@@ -92,3 +97,59 @@ class GerritWorkItem(object):
             elif not self.TestingDone:
                 self.TestingDone = True
 
+        self.lock.release()
+
+    def requested_tests_string(self, tests):
+        testlist = ""
+        self.lock.acquire()
+        for test in sorted(tests, key=operator.itemgetter('test', 'fstype')):
+            testlist += test['test'] + '@' + test['fstype']
+            if test.get('DNE', False):
+                testlist += '+DNE'
+            testlist += " "
+        self.lock.release()
+        return testlist
+
+    def test_status_output(tests):
+        passedtests = ""
+        failedtests = ""
+        skippedtests = ""
+        self.lock.acquire()
+        for test in sorted(tests, key=operator.itemgetter('test', 'fstype')):
+            testname = test['test'] + '@' + test['fstype']
+            if test.get('DNE', False):
+                testname += '+DNE'
+            testname += " "
+
+            if not test['Failed']:
+                if test.get('Skipped'):
+                    skippedtests += testname
+                else:
+                    passedtests += testname
+            else:
+                failedtests += "> " + testname
+                if not test.get('StatusMessage', ''):
+                    if test['Timeout']:
+                        failedtests += " Timed out"
+                    elif test['Crash']:
+                        failedtests += " Crash"
+                    else:
+                        failedtests += " Failed"
+                failedtests += " " + test['StatusMessage']
+                if test.get('SubtestList', ''):
+                    failedtests += "\n- " + test['SubtestList']
+                resultsdir = test.get('ResultsDir')
+                if resultsdir:
+                    failedtests += "\n- " + path_to_url(resultsdir) + '/'
+                failedtests += '\n'
+        self.lock.release()
+
+        testlist = ""
+        if failedtests:
+            testlist = "\n" + failedtests
+        if passedtests:
+            testlist += "\nSucceeded:\n- " + passedtests + "\n"
+        if skippedtests:
+            testlist += "\nSkipped:\n- " + skippedtests + "\n"
+
+        return testlist

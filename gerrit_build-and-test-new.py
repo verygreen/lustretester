@@ -73,6 +73,7 @@ GERRIT_AUTH_PATH = os.getenv('GERRIT_AUTH_PATH', 'GERRIT_AUTH')
 GERRIT_CHANGE_NUMBER = os.getenv('GERRIT_CHANGE_NUMBER', None)
 GERRIT_DRYRUN = os.getenv('GERRIT_DRYRUN', None)
 GERRIT_FORCEALLTESTS = os.getenv('GERRIT_FORCEALLTESTS', None)
+GERRIT_BRANCHMONITORDIR = os.getenv('GERRIT_BRANCHMONITORDIR', "./branches/")
 
 # When this is set - only changes with this topic would be tested.
 # good for trial runs before big deployment
@@ -339,57 +340,6 @@ def is_testonly_requested(message):
         if trivial_re.match(line):
             return True
 
-def requested_tests_string(tests):
-    testlist = ""
-    for test in tests:
-        testlist += test['test'] + '@' + test['fstype']
-        if test.get('DNE', False):
-            testlist += '@DNE'
-        testlist += " "
-    return testlist
-
-def test_status_output(tests):
-    passedtests = ""
-    failedtests = ""
-    skippeditests = ""
-    for test in sorted(tests, key=operator.itemgetter('test', 'fstype')):
-        testname = test['test'] + '@' + test['fstype']
-        if test.get('DNE', False):
-            testname += '@DNE'
-        testname += " "
-
-        if not test['Failed']:
-            if test.get('Skipped'):
-                skippeditests += testname
-            else:
-                passedtests += testname
-        else:
-            failedtests += "> " + testname
-            if not test.get('StatusMessage', ''):
-                if test['Timeout']:
-                    failedtests += " Timed out"
-                elif test['Crash']:
-                    failedtests += " Crash"
-                else:
-                    failedtests += " Failed"
-            failedtests += " " + test['StatusMessage']
-            if test.get('SubtestList', ''):
-                failedtests += "\n- " + test['SubtestList']
-            resultsdir = test.get('ResultsDir')
-            if resultsdir:
-                failedtests += "\n- " + path_to_url(resultsdir) + '/'
-            failedtests += '\n'
-
-    testlist = ""
-    if failedtests:
-        testlist = "\n" + failedtests
-    if passedtests:
-        testlist += "\nSucceeded:\n- " + passedtests + "\n"
-    if skippeditests:
-        testlist += "\nSkipped:\n- " + skippeditests + "\n"
-
-    return testlist
-
 def parse_checkpatch_output(out, path_line_comments, warning_count):
     """
     Parse string output out of CHECKPATCH into path_line_comments.
@@ -545,7 +495,7 @@ def add_review_comment(WorkItem):
         else:
             message = 'Build for x86_64 centos7 successful\n Job output URL: ' + path_to_url(WorkItem.artifactsdir) + '\n'
             if WorkItem.initial_tests:
-                message += ' Commencing initial testing: ' + requested_tests_string(WorkItem.initial_tests)
+                message += ' Commencing initial testing: ' + WorkItem.requested_tests_string(WorkItem.initial_tests)
             else:
                 message += ' This was detected as a build-only change, no further testing would be performed by this bot.\n'
                 if not is_trivial_requested(commit_message):
@@ -555,13 +505,13 @@ def add_review_comment(WorkItem):
         # This is after initial tests
         if WorkItem.InitialTestingError:
             message = 'Initial testing failed:\n'
-            message += test_status_output(WorkItem.initial_tests)
+            message += WorkItem.test_status_output(WorkItem.initial_tests)
             score = -1
             review_comments = WorkItem.ReviewComments
         else:
-            message = 'Initial testing succeeded.\n' + test_status_output(WorkItem.initial_tests)
+            message = 'Initial testing succeeded.\n' + WorkItem.test_status_output(WorkItem.initial_tests)
             if WorkItem.tests:
-                message += '\nCommencing standard testing: ' + requested_tests_string(WorkItem.tests)
+                message += '\nCommencing standard testing: \n- ' + WorkItem.requested_tests_string(WorkItem.tests)
             else:
                 message += '\nNo additional testing was requested'
                 score = 1
@@ -576,7 +526,7 @@ def add_review_comment(WorkItem):
             review_comments = WorkItem.ReviewComments
         else:
             message += 'Successfully\n'
-        message += test_status_output(WorkItem.tests)
+        message += WorkItem.test_status_output(WorkItem.tests)
     else:
         # This is one of those intermediate states like not
         # Fully complete testing round or whatnot, so don't do anything.
@@ -602,7 +552,7 @@ def add_review_comment(WorkItem):
         'comments': review_comments,
         'notify': notify,
         }
-    if not reviewer.post_review(WorkItem.change, WorkItem.revision, outputdict):
+    if WorkItem.change.get('branch', None) or not reviewer.post_review(WorkItem.change, WorkItem.revision, outputdict):
         # Ok, we had a failure posting this message, let's save it for
         # later processing
         savefile = FAILED_POSTS_DIR + "/build-" + str(WorkItem.buildnr) + "-" + str(WorkItem.changenr) + "." + str(WorkItem.revision)
@@ -643,7 +593,7 @@ class Reviewer(object):
         self.history = {}
         self.timestamp = 0L
         self.post_enabled = True and not GERRIT_DRYRUN # XXX
-        self.post_interval = 5
+        self.post_interval = 1
         self.update_interval = 300
         self.request_timeout = 60
 
@@ -893,6 +843,16 @@ class Reviewer(object):
 
         self.timestamp = new_timestamp
         self.write_history('-', '-', 0)
+
+        # Now check if we have any branches to test
+        for branch in os.listdir(GERRIT_BRANCHMONITORDIR):
+            try:
+                os.rmdir(GERRIT_BRANCHMONITORDIR + "/" + branch)
+            except OSError:
+                pass
+            change = {'branch':branch, 'current_revision':branch, '_number':1 }
+            self.review_change(change)
+
 
     def update_single_change(self, change):
 
