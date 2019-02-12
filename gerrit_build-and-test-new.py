@@ -594,7 +594,7 @@ class Reviewer(object):
         self.timestamp = 0L
         self.post_enabled = True and not GERRIT_DRYRUN # XXX
         self.post_interval = 1
-        self.update_interval = 300
+        self.update_interval = 120
         self.request_timeout = 60
 
     def _debug(self, msg, *args):
