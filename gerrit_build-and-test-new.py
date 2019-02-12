@@ -489,11 +489,11 @@ def add_review_comment(WorkItem):
                 message = WorkItem.BuildMessage
             else:
                 message = 'Build failed\n'
-            message += ' Job output URL: ' + path_to_url(WorkItem.artifactsdir)
+            message += ' Job output URL: ' + path_to_url(WorkItem.artifactsdir) + "/results.html"
             score = -1
             review_comments = WorkItem.ReviewComments
         else:
-            message = 'Build for x86_64 centos7 successful\n Job output URL: ' + path_to_url(WorkItem.artifactsdir) + '\n'
+            message = 'Build for x86_64 centos7 successful\n Job output URL: ' + path_to_url(WorkItem.artifactsdir) + '/results.html\n'
             if WorkItem.initial_tests:
                 message += ' Commencing initial testing: ' + WorkItem.requested_tests_string(WorkItem.initial_tests)
             else:
@@ -803,7 +803,11 @@ class Reviewer(object):
         except:
             commit_message = ""
 
-        (DoNothing, ilist, clist) = determine_testlist(change['revisions'][str(current_revision)]['files'], is_trivial_requested(commit_message))
+        if change.get('branch'):
+            files = ['everything']
+        else:
+            files = change['revisions'][str(current_revision)].get('files', [])
+        (DoNothing, ilist, clist) = determine_testlist(files, is_trivial_requested(commit_message))
 
         # For testonly changes only do very minimal testing for now
         if is_testonly_requested(commit_message):
@@ -811,7 +815,7 @@ class Reviewer(object):
         if is_buildonly_requested(commit_message):
             clist = []
             ilist = []
-        workItem = GerritWorkItem(change, ilist, clist, EmptyJob=DoNothing)
+        workItem = GerritWorkItem(change, ilist, clist, fsconfig, EmptyJob=DoNothing)
         if DoNothing:
             add_review_comment(workItem)
         else:
@@ -847,10 +851,11 @@ class Reviewer(object):
         # Now check if we have any branches to test
         for branch in os.listdir(GERRIT_BRANCHMONITORDIR):
             try:
-                os.rmdir(GERRIT_BRANCHMONITORDIR + "/" + branch)
+                os.unlink(GERRIT_BRANCHMONITORDIR + "/" + branch)
             except OSError:
                 pass
-            change = {'branch':branch, 'current_revision':branch, '_number':1 }
+            change = {'branch':branch, 'current_revision':branch, '_number':1,
+                      'id':branch}
             self.review_change(change)
 
 
@@ -934,6 +939,7 @@ def run_workitem_manager():
             logger.info("Got new ref " + workitem.ref + " assigned buildid " + str(workitem.buildnr))
             logger.info("for ref " + workitem.ref + " initial tests: " + str(workitem.initial_tests))
             logger.info("for ref " + workitem.ref + " full tests: " + str(workitem.tests))
+            workitem.Write_HTML_Status()
 
             if GERRIT_DRYRUN:
                 donewith_WorkItem(workitem)
@@ -954,6 +960,7 @@ def run_workitem_manager():
         # move it above if we want to also print the "Job picked up" sort of messages
         add_review_comment(workitem)
 
+        workitem.Write_HTML_Status()
         if workitem.Aborted:
             # Whoops, we no longer want to do anything with this item.
             donewith_WorkItem(workitem)

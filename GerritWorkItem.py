@@ -3,9 +3,10 @@ import sys
 import os
 from pprint import pprint
 import threading
+import operator
 
 class GerritWorkItem(object):
-    def __init__(self, change, initialtestlist, testlist, EmptyJob=False):
+    def __init__(self, change, initialtestlist, testlist, fsconfig, EmptyJob=False):
         self.change = change
         self.revision = change.get('current_revision')
         if change.get('branch'):
@@ -14,6 +15,7 @@ class GerritWorkItem(object):
             self.ref = change['revisions'][str(self.revision)]['ref']
         self.changenr = change['_number']
         self.buildnr = None
+        self.fsconfig = fsconfig
         self.EmptyJob = EmptyJob
         self.Aborted = False
         self.AbortDone = False
@@ -30,6 +32,14 @@ class GerritWorkItem(object):
         self.TestingError = False
         self.initial_tests = initialtestlist
         self.tests = testlist
+        self.lock = threading.Lock()
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        del state['lock']
+        return state
+    def __setstate__(self, state):
+        self.__dict__.update(state)
         self.lock = threading.Lock()
 
     def UpdateTestStatus(self, testinfo, message, Failed=False, Crash=False,
@@ -69,6 +79,8 @@ class GerritWorkItem(object):
                 item["Timeout"] = Timeout
                 item["Failed"] = Failed
                 item["Finished"] = Finished
+                if self.Aborted:
+                    item["Aborted"] = True
                 if message is not None:
                     item["StatusMessage"] = message
                 if TestStdOut is not None:
@@ -85,6 +97,7 @@ class GerritWorkItem(object):
             pprint(worklist)
         else:
             print("Build " + str(self.buildnr) + " Updated test element " + str(item))
+            self.Write_HTML_Status()
 
         if Finished:
             for item in worklist:
@@ -99,6 +112,122 @@ class GerritWorkItem(object):
 
         self.lock.release()
 
+    def testresults_as_html(self, tests):
+        htmlteststable += '<table><tr><th>Test</th><th>Status/results</th><th>Extra info</th></tr>'
+        for test in sorted(initialtests, key=operator.itemgetter('test', 'fstype')):
+            htmlteststable += '<tr><td>'
+            htmlteststable += test['test'] + '@' + test['fstype']
+            if test.get('DNE', False):
+                htmlteststable += '+DNE'
+            htmlteststable += '</td><td>'
+            if test.get('ResultsDir'):
+                htmlteststable += '<a href="' + test.get('ResultsDir').replace(self.artifactsdir, '') + '/">'
+            if test.get('Finished', False):
+                if not test.get('StatusMessage', ''):
+                    htmlteststable += test['StatusMessage']
+                elif test['Timeout']:
+                    htmlteststable += 'Timed Out'
+                elif test['Crash']:
+                    htmlteststable += 'Crashed'
+                elif item["Failed"]:
+                    htmlteststable += 'Failed'
+                elif item["Aborted"]:
+                    htmlteststable += 'Aborted'
+                else:
+                    htmlteststable += 'Success'
+            else: # Not finished, if results dir is set, then we at least started
+                if test.get('ResultsDir'):
+                    htmlteststable += 'Running'
+
+            if test.get('ResultsDir'):
+                htmlteststable += '</a>'
+
+            htmlteststable += '</td><td>'
+            htmlteststable += test.get('SubtestList', '')
+            htmlteststable += '</td></tr>'
+
+        htmlteststable += '</table>'
+        return htmlteststable
+
+    def Write_HTML_Status(self):
+        if not self.artifactsdir:
+            # Did not even finish compile yet
+            return
+        if self.change.get('branch'):
+            change = "tip of %s branch" % (self.change['branch'])
+        else:
+            # XXX - need to somehow pass in GERRIT_HOST
+            change = '<a href="http://review.whamcloud.com/%d">%d rev %d: %s</a>' % (self.change.changenr, self.change.changenr, self.change['revisions'][str(self.revision)]["_number"], self.change['subject'])
+        all_items = {'build':buildnr, 'change':change}
+        template = """
+<html>
+<head>Results for build #{build} {change}</head>
+<body>
+{abortedmessage}
+<h2>Results for build #{build} {change}</h2>
+{buildinfo}
+{initialtesting}
+{fulltesting}
+</body>
+"""
+        if self.Aborted:
+            abortedmessage = '<h1>This testrun was ABORTED! Likely due to a newer version of a patch. Below data is not going to progress anymore</h1>'
+        else:
+            abortedmessage = ''
+        all_items['abortedmessage'] = abortedmessage
+
+        if not self.BuildDone:
+            buildstatus = "Ongoing"
+        elif self.BuildError:
+            if self.BuildMessage:
+                buildstatus = self.BuildMessage
+            else:
+                buildstatus = "Error"
+        else:
+            buildstatus = "Success"
+        # XXX - hardcoded arch/distro
+        buildinfo = '<h3>Build %s <a href="build-centos7-x86_64.console">build console</a></h3>' % (buildstatus)
+        all_items['buildinfo'] = buildinfo
+
+        if self.initial_tests:
+            if self.InitialTestingStarted:
+                if not self.InitialTestingDone:
+                    initialtesting = '<h3>Initial testing: Running</h3><p>'
+                elif self.InitialTestingError:
+                    initialtesting = '<h3>Initial testing: Failure</h3><p>'
+                elif self.InitialTestingDone:
+                    initialtesting = '<h3>Initial testing: Success</h3><p>'
+            else:
+                initialtesting = '<h3>Initial testing: Not started</h3><p>'
+            initialtesting += testresults_as_html(self.initial_tests)
+        else:
+            initialtesting = '<h3>Initial testing: Not planned</h3><p>'
+
+        all_items['initialtesting'] = initialtesting
+
+        if self.tests:
+            if self.TestingStarted:
+                if not self.TestingDone:
+                    testing = '<h3>Comprehensive testing: Running</h3><p>'
+                elif self.TestingError:
+                    testing = '<h3>Comprehensive testing: Failure</h3><p>'
+                elif self.TestingDone:
+                    testing = '<h3>Comprehensive testing: Success</h3><p>'
+            else:
+                testing = '<h3>Comprehensive testing: Not started</h3><p>'
+            testing += testresults_as_html(self.tests)
+        else:
+            testing = '<h3>Comprehensive testing: Not planned</h3><p>'
+
+        all_items['fulltesting'] = testing
+
+        try:
+            with open(self.artifactsdir + "/results.html", "w") as indexfile:
+                indexfile.write(template.format(**all_items))
+        except:
+            pass
+
+
     def requested_tests_string(self, tests):
         testlist = ""
         self.lock.acquire()
@@ -110,7 +239,7 @@ class GerritWorkItem(object):
         self.lock.release()
         return testlist
 
-    def test_status_output(tests):
+    def test_status_output(self, tests):
         passedtests = ""
         failedtests = ""
         skippedtests = ""
@@ -140,7 +269,8 @@ class GerritWorkItem(object):
                     failedtests += "\n- " + test['SubtestList']
                 resultsdir = test.get('ResultsDir')
                 if resultsdir:
-                    failedtests += "\n- " + path_to_url(resultsdir) + '/'
+                    url = resultsdir.replace(self.fsconfig['root_path_offset'], self.fsconfig['http_server'])
+                    failedtests += "\n- " + url + '/'
                 failedtests += '\n'
         self.lock.release()
 
