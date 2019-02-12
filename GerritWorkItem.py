@@ -113,25 +113,35 @@ class GerritWorkItem(object):
         self.lock.release()
 
     def testresults_as_html(self, tests):
-        htmlteststable += '<table><tr><th>Test</th><th>Status/results</th><th>Extra info</th></tr>'
-        for test in sorted(initialtests, key=operator.itemgetter('test', 'fstype')):
+        htmlteststable = '<table border="1"><tr><th>Test</th><th>Status/results</th><th>Extra info</th></tr>'
+        for test in sorted(tests, key=operator.itemgetter('test', 'fstype')):
             htmlteststable += '<tr><td>'
             htmlteststable += test['test'] + '@' + test['fstype']
             if test.get('DNE', False):
                 htmlteststable += '+DNE'
-            htmlteststable += '</td><td>'
-            if test.get('ResultsDir'):
-                htmlteststable += '<a href="' + test.get('ResultsDir').replace(self.artifactsdir, '') + '/">'
+            # Ugh, double checking
+            color = ""
             if test.get('Finished', False):
-                if not test.get('StatusMessage', ''):
+                if test["Failed"]:
+                    color = 'bgcolor="pink"'
+                elif "Skipped" in test.get('StatusMessage', ''): # XXX - add real state
+                    color = 'bgcolor="yellow"'
+                else:
+                    color = 'bgcolor="lightgreen"'
+
+            htmlteststable += '</td><td ' + color + '>'
+            if test.get('ResultsDir'):
+                htmlteststable += '<a href="' + test.get('ResultsDir').replace(self.artifactsdir + '/', '') + '/">'
+            if test.get('Finished', False):
+                if test.get('StatusMessage', ''):
                     htmlteststable += test['StatusMessage']
                 elif test['Timeout']:
                     htmlteststable += 'Timed Out'
                 elif test['Crash']:
                     htmlteststable += 'Crashed'
-                elif item["Failed"]:
+                elif test["Failed"]:
                     htmlteststable += 'Failed'
-                elif item["Aborted"]:
+                elif test.get("Aborted", False):
                     htmlteststable += 'Aborted'
                 else:
                     htmlteststable += 'Success'
@@ -143,7 +153,10 @@ class GerritWorkItem(object):
                 htmlteststable += '</a>'
 
             htmlteststable += '</td><td>'
-            htmlteststable += test.get('SubtestList', '')
+            if test.get("Failed", False):
+                htmlteststable += test.get('SubtestList', '')
+            else:
+                htmlteststable += test.get('SkippedSubtests', '')
             htmlteststable += '</td></tr>'
 
         htmlteststable += '</table>'
@@ -158,7 +171,7 @@ class GerritWorkItem(object):
         else:
             # XXX - need to somehow pass in GERRIT_HOST
             change = '<a href="http://review.whamcloud.com/%d">%d rev %d: %s</a>' % (self.change.changenr, self.change.changenr, self.change['revisions'][str(self.revision)]["_number"], self.change['subject'])
-        all_items = {'build':buildnr, 'change':change}
+        all_items = {'build':self.buildnr, 'change':change}
         template = """
 <html>
 <head>Results for build #{build} {change}</head>
@@ -199,7 +212,7 @@ class GerritWorkItem(object):
                     initialtesting = '<h3>Initial testing: Success</h3><p>'
             else:
                 initialtesting = '<h3>Initial testing: Not started</h3><p>'
-            initialtesting += testresults_as_html(self.initial_tests)
+            initialtesting += self.testresults_as_html(self.initial_tests)
         else:
             initialtesting = '<h3>Initial testing: Not planned</h3><p>'
 
@@ -215,7 +228,7 @@ class GerritWorkItem(object):
                     testing = '<h3>Comprehensive testing: Success</h3><p>'
             else:
                 testing = '<h3>Comprehensive testing: Not started</h3><p>'
-            testing += testresults_as_html(self.tests)
+            testing += self.testresults_as_html(self.tests)
         else:
             testing = '<h3>Comprehensive testing: Not planned</h3><p>'
 
