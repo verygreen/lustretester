@@ -1,9 +1,7 @@
-lvcreate -n ${NAME}-server-home -L 3G vg_fatbox1
 lvcreate -n ${NAME}-server-swap -L 1G vg_fatbox1
 lvcreate -n ${NAME}-server-mdt1 -L 1G vg_fatbox1
 lvcreate -n ${NAME}-server-mdt2 -L 1G vg_fatbox1
 lvcreate -n ${NAME}-server-ost1 -L 2G vg_fatbox1
 lvcreate -n ${NAME}-server-ost2 -L 2G vg_fatbox1
-lvcreate -n ${NAME}-client-home -L 3G vg_fatbox1
 lvcreate -n ${NAME}-client-swap -L 1G vg_fatbox1
 
