@@ -10,7 +10,7 @@ class GerritWorkItem(object):
         self.change = change
         self.revision = change.get('current_revision')
         if change.get('branch'):
-            self.ref = change['branch']
+            self.ref = self.revision
         else:
             self.ref = change['revisions'][str(self.revision)]['ref']
         self.changenr = change['_number']
@@ -167,14 +167,14 @@ class GerritWorkItem(object):
             # Did not even finish compile yet
             return
         if self.change.get('branch'):
-            change = "tip of %s branch" % (self.change['branch'])
+            change = '<a href="https://git.whamcloud.com/fs/lustre-release.git/shortlog/%s">Then tip of %s branch "%s</a>' % (self.change['current_revision'], self.change['branch'], self.change['subject'])
         else:
             # XXX - need to somehow pass in GERRIT_HOST
             change = '<a href="http://review.whamcloud.com/%d">%d rev %d: %s</a>' % (self.change.changenr, self.change.changenr, self.change['revisions'][str(self.revision)]["_number"], self.change['subject'])
         all_items = {'build':self.buildnr, 'change':change}
         template = """
 <html>
-<head>Results for build #{build} {change}</head>
+<head><title>Results for build #{build} {change}</title></head>
 <body>
 {abortedmessage}
 <h2>Results for build #{build} {change}</h2>
@@ -182,6 +182,7 @@ class GerritWorkItem(object):
 {initialtesting}
 {fulltesting}
 </body>
+</html>
 """
         if self.Aborted:
             abortedmessage = '<h1>This testrun was ABORTED! Likely due to a newer version of a patch. Below data is not going to progress anymore</h1>'

@@ -84,6 +84,8 @@ DONEWITH_DIR="donewith"
 FAILED_POSTS_DIR="failed_posts"
 LAST_BUILD_ID="LASTBUILD_ID"
 
+StopMachine = False
+
 # GERRIT_AUTH should contain a single JSON dictionary of the form:
 # {
 #     "review.example.com": {
@@ -243,6 +245,7 @@ def determine_testlist(filelist, trivial_requested):
     if FullRun:
         LDiskfsOnly = True
         ZFSOnly = True
+        LNetOnly = True
 
     # Always reload testlists
     with open("tests/initial.json", "r") as blah:
@@ -259,7 +262,6 @@ def determine_testlist(filelist, trivial_requested):
     initial = []
     comprehensive = []
 
-    print(LDiskfsOnly, ZFSOnly)
     if not DoNothing:
         if modified_test_files:
             UnknownItems = NonTestFilesToo
@@ -851,13 +853,22 @@ class Reviewer(object):
         # Now check if we have any branches to test
         for branch in os.listdir(GERRIT_BRANCHMONITORDIR):
             try:
+                with open(GERRIT_BRANCHMONITORDIR + "/" + branch, "r") as brfil:
+                    subject = brfil.read()
+
                 os.unlink(GERRIT_BRANCHMONITORDIR + "/" + branch)
             except OSError:
-                pass
+                subject = "Cannot read file"
+            # XXX
+            url = "https://git.whamcloud.com/fs/lustre-release.git/patch/" + branch
+            try:
+                r = requests.get(url)
+                revision = r.text.split(" ", 2)[1]
+            except requests.exceptions.RequestException:
+                revision = "unknown"
             change = {'branch':branch, 'current_revision':branch, '_number':1,
-                      'id':branch}
+                    'id':branch, 'subject':subject, 'current_revision':revision }
             self.review_change(change)
-
 
     def update_single_change(self, change):
 
@@ -885,10 +896,12 @@ class Reviewer(object):
             time.sleep(self.update_interval)
 
 def save_WorkItem(workitem):
+    print_WorkList_to_HTML()
     with open(SAVEDSTATE_DIR + "/" + str(workitem.buildnr) + ".pickle", "wb") as output:
         pickle.dump(workitem, output, pickle.HIGHEST_PROTOCOL )
 
 def donewith_WorkItem(workitem):
+    print_WorkList_to_HTML()
     WorkList.remove(workitem)
     try:
         os.unlink(SAVEDSTATE_DIR + "/" + str(workitem.buildnr) + ".pickle")
@@ -896,6 +909,77 @@ def donewith_WorkItem(workitem):
         pass
     with open(DONEWITH_DIR + "/" + str(workitem.buildnr) + ".pickle", "wb") as output:
         pickle.dump(workitem, output, pickle.HIGHEST_PROTOCOL)
+
+def print_WorkList_to_HTML():
+    template = """
+<html>
+<head><title>Testing and queue status</title></head>
+<body>
+<h2>{status}</h2>
+<h2>Work Items status</h2>
+<table border=1>
+<tr><th>Build number</th><th>Description</th><th>Status</th></tr>
+{workitems}
+</table>
+</body>
+</html>
+"""
+    if GERRIT_DRYRUN or GERRIT_CHANGE_NUMBER:
+        status = "Draining Test Queue and Stopping"
+    elif StopMachine:
+        status = "Stopped"
+    else:
+        if WorkList:
+            status = "Operational / working"
+        else:
+            status = "Operational / Idle"
+        if GERRIT_FORCETOPIC:
+            status += "(Only querying changes with topic: %s)" % (GERRIT_FORCETOPIC)
+        if GERRIT_FORCETOPIC:
+            status += "(Only querying changes on branch: %s)" % (GERRIT_BRANCH)
+    workitems = ""
+    for workitem in WorkList:
+        workitems += '<tr><td>'
+        if workitem.artifactsdir:
+            workitems += '<a href="' + workitem.artifactsdir.replace(fsconfig['root_path_offset'] + "/", "") + '">'
+        workitems += str(workitem.buildnr)
+        if workitem.artifactsdir:
+            workitems += '</a>'
+        workitems += '</td><td>'
+
+        if workitem.artifactsdir:
+            workitems += '<a href="' + workitem.artifactsdir.replace(fsconfig['root_path_offset'] + "/", "") + '">'
+        workitems += workitem.change['subject']
+        if workitem.artifactsdir:
+            workitems += '</a>'
+        workitems += '</td><td>'
+
+        if workitem.Aborted:
+            workitems += "Aborted!"
+        elif workitem.TestingDone:
+            workitems += "Testing done"
+            if workitem.TestingError:
+                workitems += " (some tests failed)"
+        elif workitem.TestingStarted:
+            workitems += "Comprehensive testing"
+            if workitem.TestingError:
+                workitems += " (some tests failed already)"
+        elif workitem.InitialTestingStarted:
+            workitems += "Initial testing"
+            if workitem.InitialTestingError:
+                workitems += " (some tests failed already)"
+        elif workitem.BuildError:
+            workitems += "Build failed"
+        else:
+            if workitem.artifactsdir:
+                workitems += "Building"
+            else:
+                workitems += "Waiting to build"
+
+    all_items = {'status':status, 'workitems':workitems}
+    with open(fsconfig["outputs"] + "/status.html", "w") as indexfile:
+        indexfile.write(template.format(**all_items))
+
 
 def run_workitem_manager():
     current_build = 1
@@ -1122,21 +1206,22 @@ if __name__ == "__main__":
             managing_condition.notify()
             managing_condition.release()
 
-        time.sleep(2)
-        while WorkList:
-            # Just hang in here until done
-            managerthread.join(1)
+    print_WorkList_to_HTML()
 
+    try:
+        if GERRIT_CHANGE_NUMBER:
+            print("Asking for single change " + GERRIT_CHANGE_NUMBER)
+            reviewer.update_single_change(GERRIT_CHANGE_NUMBER)
 
-    if GERRIT_CHANGE_NUMBER:
-        print("Asking for single change " + GERRIT_CHANGE_NUMBER)
-        reviewer.update_single_change(GERRIT_CHANGE_NUMBER)
-
-        time.sleep(3)
-        while WorkList:
-            # Just hang in here until done
-            managerthread.join(1)
-    else:
-        reviewer.run()
+            time.sleep(3)
+            while WorkList:
+                # Just hang in here until done
+                managerthread.join(1)
+        else:
+            reviewer.run()
+    except KeyboardInterrupt:
+        StopMachine = True
+        print_WorkList_to_HTML()
+        sys.exit(1)
 
 
