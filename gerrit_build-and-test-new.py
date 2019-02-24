@@ -50,6 +50,7 @@ import re
 import operator
 import mybuilder
 import mytester
+import mycrashanalyzer
 from datetime import datetime
 import dateutil.parser
 import shutil
@@ -113,6 +114,8 @@ testing_queue = Queue.PriorityQueue()
 testing_condition = threading.Condition()
 managing_queue = Queue.Queue()
 managing_condition = threading.Condition()
+crashing_queue = Queue.Queue()
+crashing_condition = threading.Condition()
 reviewer = None
 
 fsconfig = {}
@@ -817,7 +820,7 @@ class Reviewer(object):
         if is_buildonly_requested(commit_message):
             clist = []
             ilist = []
-        workItem = GerritWorkItem(change, ilist, clist, fsconfig, EmptyJob=DoNothing)
+        workItem = GerritWorkItem(change, ilist, clist, fsconfig, EmptyJob=DoNothing, Reviewer=self)
         if DoNothing:
             add_review_comment(workItem)
         else:
@@ -855,6 +858,7 @@ class Reviewer(object):
             try:
                 with open(GERRIT_BRANCHMONITORDIR + "/" + branch, "r") as brfil:
                     subject = brfil.read()
+                    subject = subject.strip()
 
                 os.unlink(GERRIT_BRANCHMONITORDIR + "/" + branch)
             except OSError:
@@ -864,9 +868,12 @@ class Reviewer(object):
             try:
                 r = requests.get(url)
                 revision = r.text.split(" ", 2)[1]
+                changenum = int(revision[:8], 16)
             except requests.exceptions.RequestException:
                 revision = "unknown"
-            change = {'branch':branch, 'current_revision':branch, '_number':1,
+                changenum = 1 # all the same - so abort-unsafe
+            change = {'branch':branch, 'current_revision':branch,
+                    '_number':changenum,
                     'id':branch, 'subject':subject, 'current_revision':revision }
             self.review_change(change)
 
@@ -941,14 +948,14 @@ def print_WorkList_to_HTML():
     for workitem in WorkList:
         workitems += '<tr><td>'
         if workitem.artifactsdir:
-            workitems += '<a href="' + workitem.artifactsdir.replace(fsconfig['root_path_offset'] + "/", "") + '">'
+            workitems += '<a href="' + workitem.artifactsdir.replace(fsconfig['root_path_offset'], "") + '">'
         workitems += str(workitem.buildnr)
         if workitem.artifactsdir:
             workitems += '</a>'
         workitems += '</td><td>'
 
         if workitem.artifactsdir:
-            workitems += '<a href="' + workitem.artifactsdir.replace(fsconfig['root_path_offset'] + "/", "") + '">'
+            workitems += '<a href="' + workitem.artifactsdir.replace(fsconfig['root_path_offset'], "") + '">'
         workitems += workitem.change['subject']
         if workitem.artifactsdir:
             workitems += '</a>'
@@ -1020,6 +1027,7 @@ def run_workitem_manager():
             # Initial workitem save
             save_WorkItem(workitem)
             WorkList.append(workitem)
+            print_WorkList_to_HTML() # Here do it separately to catch the new build
             logger.info("Got new ref " + workitem.ref + " assigned buildid " + str(workitem.buildnr))
             logger.info("for ref " + workitem.ref + " initial tests: " + str(workitem.initial_tests))
             logger.info("for ref " + workitem.ref + " full tests: " + str(workitem.tests))
@@ -1164,7 +1172,14 @@ if __name__ == "__main__":
 
     for worker in workers:
         worker['thread'] = mytester.Tester(worker, fsconfig, testing_condition,\
-                                           testing_queue, managing_condition, managing_queue)
+                                           testing_queue, managing_condition, \
+                                           managing_queue, crashing_condition,
+                                           crashing_queue)
+
+    # XXX - hardcode to 3 for now:
+    crashers = []
+    for crasher in [1, 2, 3]:
+        crashers.append(mycrashanalyzer.Crasher(fsconfig, crashing_condition, crashing_queue, managing_condition, managing_queue))
 
     managerthread = threading.Thread(target=run_workitem_manager, args=())
     managerthread.daemon = True

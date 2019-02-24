@@ -6,7 +6,7 @@ import threading
 import operator
 
 class GerritWorkItem(object):
-    def __init__(self, change, initialtestlist, testlist, fsconfig, EmptyJob=False):
+    def __init__(self, change, initialtestlist, testlist, fsconfig, EmptyJob=False, Reviewer=None):
         self.change = change
         self.revision = change.get('current_revision')
         if change.get('branch'):
@@ -15,6 +15,7 @@ class GerritWorkItem(object):
             self.ref = change['revisions'][str(self.revision)]['ref']
         self.changenr = change['_number']
         self.buildnr = None
+        self.Reviewer = None
         self.fsconfig = fsconfig
         self.EmptyJob = EmptyJob
         self.Aborted = False
@@ -33,6 +34,7 @@ class GerritWorkItem(object):
         self.initial_tests = initialtestlist
         self.tests = testlist
         self.lock = threading.Lock()
+        self.UrgentReviewPrinted = False
 
     def __getstate__(self):
         state = self.__dict__.copy()
@@ -41,6 +43,18 @@ class GerritWorkItem(object):
     def __setstate__(self, state):
         self.__dict__.update(state)
         self.lock = threading.Lock()
+
+    # This just prints a rate-limited message
+    def post_immediate_review_comment(self, message, review):
+        if self.UrgentReviewPrinted:
+            return # for now only do it once
+        if not self.Reviewer: # Well, no object = nothing to do
+            return
+        if not review or not message:
+            return # Not printing empty reviews
+
+        if self.Reviewer.post_review(workitem.change, workitem.revision, {'message':message, 'notify':'OWNER', 'labels':{'Code-Review':0}, 'comments':review}):
+            self.UrgentReviewPrinted = True
 
     def UpdateTestStatus(self, testinfo, message, Failed=False, Crash=False,
                          ResultsDir=None, Finished=False, Timeout=False,
@@ -167,7 +181,7 @@ class GerritWorkItem(object):
             # Did not even finish compile yet
             return
         if self.change.get('branch'):
-            change = '<a href="https://git.whamcloud.com/fs/lustre-release.git/shortlog/%s">Then tip of %s branch "%s</a>' % (self.change['current_revision'], self.change['branch'], self.change['subject'])
+            change = '<a href="https://git.whamcloud.com/fs/lustre-release.git/shortlog/%s">Then tip of %s branch "%s"</a>' % (self.change['current_revision'], self.change['branch'], self.change['subject'])
         else:
             # XXX - need to somehow pass in GERRIT_HOST
             change = '<a href="http://review.whamcloud.com/%d">%d rev %d: %s</a>' % (self.change.changenr, self.change.changenr, self.change['revisions'][str(self.revision)]["_number"], self.change['subject'])

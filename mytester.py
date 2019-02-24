@@ -102,7 +102,7 @@ class Tester(object):
         logger.addHandler(screen_handler)
         return logger
 
-    def run_daemon(self, in_cond, in_queue, out_cond, out_queue):
+    def run_daemon(self, in_cond, in_queue, out_cond, out_queue, crash_cond, crash_queue):
         self.logger = self.setup_custom_logger("tester-%s.log" % (self.name))
         self.logger.info("Started daemon")
         # Would be great to verify all nodes are operational here, but
@@ -124,14 +124,23 @@ class Tester(object):
             self.logger.info("Got job buildid " + str(workitem.buildnr) + " test " + str(testinfo) )
             result = self.test_worker(testinfo, workitem)
             if result:
+                sleep_on_error = 30 # Reset the backoff time after successful run
                 self.collect_syslogs()
                 self.logger.info("Finished job buildid " + str(workitem.buildnr) + " test " + str(testinfo) )
-                out_cond.acquire()
-                out_queue.put(workitem)
-                out_cond.notify()
-                out_cond.release()
-                self.Busy = False
-                sleep_on_error = 30 # Reset the backoff time after successful run
+                # If we had a crash, kick the item to crash processing
+                # thread instead, it will return the item to queue when done
+                if self.CrashDetected:
+                    for crashfile in self.crashfiles:
+                        crash_cond.acquire()
+                        # XXX - do real distro from the job and arch from us
+                        crash_queue.put((crashfile, testinfo, "centos7", "x86_64", workitem))
+                        crash_cond.notify()
+                        crash_cond.release()
+                else:
+                    out_cond.acquire()
+                    out_queue.put(workitem)
+                    out_cond.notify()
+                    out_cond.release()
             else:
                 # We had some problem with our VMs or whatnot, return
                 # the job to the pool for retrying and sleep for some time
@@ -143,8 +152,10 @@ class Tester(object):
                 time.sleep(sleep_on_error)
                 sleep_on_error *= 2
 
+            self.Busy = False
 
-    def __init__(self, workerinfo, fsinfo, in_cond, in_queue, out_cond, out_queue):
+
+    def __init__(self, workerinfo, fsinfo, in_cond, in_queue, out_cond, out_queue, crash_cond, crash_queue):
         self.name = workerinfo['name']
         self.serverruncommand = workerinfo['serverrun']
         self.clientruncommand = workerinfo['clientrun']
@@ -155,7 +166,9 @@ class Tester(object):
         self.testresultsdir = ""
         self.fsinfo = fsinfo
         self.Busy = False
-        self.daemon = threading.Thread(target=self.run_daemon, args=(in_cond, in_queue, out_cond, out_queue))
+        self.CrashDetected = False
+        self.crashfiles = []
+        self.daemon = threading.Thread(target=self.run_daemon, args=(in_cond, in_queue, out_cond, out_queue, crash_cond, crash_queue))
         self.daemon.daemon = True
         self.daemon.start()
 
@@ -208,6 +221,7 @@ class Tester(object):
                             os.chmod(outputlocationpathprefix + "vmcore", 0644)
                         except OSError:
                             pass # What can we do?
+                        self.crashfiles.append(outputlocationpathprefix + "vmcore")
 
                 vmcore_flat.close()
 
@@ -218,6 +232,7 @@ class Tester(object):
         self.testerrs = ''
         self.testouts = ''
         self.CrashDetected = False
+        self.crashfiles = []
         self.error = False
         # Cleanup old crashdumps and syslogs
         for nodename in [self.servernetname, self.clientnetname]:
