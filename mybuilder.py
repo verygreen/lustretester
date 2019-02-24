@@ -87,7 +87,6 @@ class Builder(object):
             level = tokens[1].strip()
             comment = level + " " + message
 
-            print("Got path " + path)
             if path not in files and "/" not in path:
                 # Userspace files don't provide full path name, so
                 # lets try to find it in the list
@@ -97,7 +96,6 @@ class Builder(object):
                         path = item
                         break
 
-            print("Updated path " + path)
             # Let's see if it was found once more, if not - we cannot add
             # this item - gerrit would reject this comment
             if path not in files:
@@ -106,8 +104,6 @@ class Builder(object):
             path_comments = reviews.setdefault(path, [])
             path_comments.append({'line':line_number, 'message': comment})
 
-        print("Exiting")
-        pprint(reviews)
         return reviews
 
     def put_error(self, statusmessage, workitem):
@@ -145,7 +141,7 @@ class Builder(object):
         except (OSError) as details:
             self.logger.warning("Failed to run builder " + str(details))
             self.put_error("Failed to run builder", workitem)
-            return
+            return False
 
         try:
             # Typically build takes 4-5 minutes, so 10 minutes should be aplenty
