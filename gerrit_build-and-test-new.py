@@ -906,7 +906,12 @@ class Reviewer(object):
 def save_WorkItem(workitem):
     print_WorkList_to_HTML()
     with open(SAVEDSTATE_DIR + "/" + str(workitem.buildnr) + ".pickle", "wb") as output:
-        pickle.dump(workitem, output, pickle.HIGHEST_PROTOCOL )
+        workitem.lock.acquire()
+        try:
+            pickle.dump(workitem, output, pickle.HIGHEST_PROTOCOL )
+        except RuntimeError,v:
+            pass # We just want to avoid the crash. next iteration will write it out.
+        workitem.lock.release()
 
 def donewith_WorkItem(workitem):
     print_WorkList_to_HTML()
