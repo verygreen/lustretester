@@ -208,7 +208,7 @@ def convert_new_crash(dbconn, form):
         if not tmp.isdigit():
             return "Wrong bt cutat value"
         btlines = int(tmp) + 1
-    if btlines > len(backtrace) + 1 or btlines < 3:
+    if btlines > len(backtrace) + 1 or btlines < 2:
         if btlines != len(backtrace): # for small backtraces it's ok
             return "Cannot cut too low or too high"
 
