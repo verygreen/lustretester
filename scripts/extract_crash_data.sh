@@ -1,5 +1,7 @@
 #!/bin/bash
 
+COMPRESS_CORE_AFTER_DONE="yes" # or no
+
 BUILDDIR=$1
 COREFILE=$2
 DISTRO=$3
@@ -40,6 +42,10 @@ if [ -s "${TEMPDIR}/lustre.bin" ] ; then
 fi
 cp ${TEMPDIR}/bt.crash ${COREFILE}-decoded-bt.txt
 cp ${TEMPDIR}/crash.out ${COREFILE}-crash.out
+
+if [ "${COMPRESS_CORE_AFTER_DONE}" = "yes" ] ; then
+	xz -9 "$COREFILE"
+fi
 
 rm -rf "$TEMPDIR"
 exit 0
