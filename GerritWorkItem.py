@@ -295,11 +295,12 @@ class GerritWorkItem(object):
                 failedtests += " " + test['StatusMessage']
                 if test.get('SubtestList', ''):
                     failedtests += "\n- " + test['SubtestList']
-                resultsdir = test.get('ResultsDir')
-                if resultsdir:
-                    url = resultsdir.replace(self.fsconfig['root_path_offset'], self.fsconfig['http_server'])
-                    failedtests += "\n- " + url + '/'
-                failedtests += '\n'
+                # Only print one URL at theend for everything
+                #resultsdir = test.get('ResultsDir')
+                #if resultsdir:
+                #    url = resultsdir.replace(self.fsconfig['root_path_offset'], self.fsconfig['http_server'])
+                #    failedtests += "\n- " + url + '/'
+                #failedtests += '\n'
         self.lock.release()
 
         testlist = ""
@@ -309,5 +310,8 @@ class GerritWorkItem(object):
             testlist += "\nSucceeded:\n- " + passedtests + "\n"
         if skippedtests:
             testlist += "\nSkipped:\n- " + skippedtests + "\n"
+
+        allresults = self.artifactsdir + "/results.html"
+        testlist += "\nAll results and logs: " + allresults.replace(self.fsconfig['root_path_offset'], self.fsconfig['http_server'])
 
         return testlist
