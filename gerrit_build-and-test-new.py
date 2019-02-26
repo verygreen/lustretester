@@ -557,7 +557,7 @@ def add_review_comment(WorkItem):
         'comments': review_comments,
         'notify': notify,
         }
-    if WorkItem.change.get('branch', None) or not reviewer.post_review(WorkItem.change, WorkItem.revision, outputdict):
+    if WorkItem.change.get('branchwide', False) or not reviewer.post_review(WorkItem.change, WorkItem.revision, outputdict):
         # Ok, we had a failure posting this message, let's save it for
         # later processing
         savefile = FAILED_POSTS_DIR + "/build-" + str(WorkItem.buildnr) + "-" + str(WorkItem.changenr) + "." + str(WorkItem.revision)
@@ -808,15 +808,16 @@ class Reviewer(object):
         except:
             commit_message = ""
 
-        if change.get('branch'):
+        if change.get('branchwide'):
             files = ['everything']
         else:
             files = change['revisions'][str(current_revision)].get('files', [])
         (DoNothing, ilist, clist) = determine_testlist(files, is_trivial_requested(commit_message))
 
         # For testonly changes only do very minimal testing for now
-        if is_testonly_requested(commit_message):
-            clist = []
+        # Or not.
+        #if is_testonly_requested(commit_message):
+        #    clist = []
         if is_buildonly_requested(commit_message):
             clist = []
             ilist = []
@@ -873,7 +874,7 @@ class Reviewer(object):
                 revision = "unknown"
                 changenum = 1 # all the same - so abort-unsafe
             change = {'branch':branch, 'current_revision':branch,
-                    '_number':changenum,
+                    '_number':changenum, 'branchwide':True,
                     'id':branch, 'subject':subject, 'current_revision':revision }
             self.review_change(change)
 

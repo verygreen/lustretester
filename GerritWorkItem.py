@@ -9,7 +9,7 @@ class GerritWorkItem(object):
     def __init__(self, change, initialtestlist, testlist, fsconfig, EmptyJob=False, Reviewer=None):
         self.change = change
         self.revision = change.get('current_revision')
-        if change.get('branch'):
+        if change.get('branchwide'):
             self.ref = self.revision
         else:
             self.ref = change['revisions'][str(self.revision)]['ref']
@@ -180,11 +180,11 @@ class GerritWorkItem(object):
         if not self.artifactsdir:
             # Did not even finish compile yet
             return
-        if self.change.get('branch'):
+        if self.change.get('branchwide'):
             change = '<a href="https://git.whamcloud.com/fs/lustre-release.git/shortlog/%s">Then tip of %s branch "%s"</a>' % (self.change['current_revision'], self.change['branch'], self.change['subject'])
         else:
             # XXX - need to somehow pass in GERRIT_HOST
-            change = '<a href="http://review.whamcloud.com/%d">%d rev %d: %s</a>' % (self.change.changenr, self.change.changenr, self.change['revisions'][str(self.revision)]["_number"], self.change['subject'])
+            change = '<a href="http://review.whamcloud.com/%d">%d rev %d: %s</a>' % (self.changenr, self.changenr, self.change['revisions'][str(self.revision)]["_number"], self.change['subject'])
         all_items = {'build':self.buildnr, 'change':change}
         template = """
 <html>
