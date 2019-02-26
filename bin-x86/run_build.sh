@@ -38,7 +38,8 @@ cd ${TGTBUILD}
 cp -a ${SRCLOCATION}/.git .
 git reset --hard >/dev/null 2>&1
 
-(git fetch http://review.whamcloud.com/fs/lustre-release $REF && git checkout -f FETCH_HEAD ) >>${BUILDLOG} 2>&1
+echo $REF | grep -q '^refs/' && git pull >/dev/null 2>&1
+(git fetch https://review.whamcloud.com/fs/lustre-release $REF && git checkout -f FETCH_HEAD ) >>${BUILDLOG} 2>&1
 
 RETVAL=$?
 
