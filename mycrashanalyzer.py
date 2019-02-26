@@ -387,13 +387,10 @@ class Crasher(object):
         (bug, extrainfo) = is_known_crash(lasttestline, crashtrigger, crashfunction, abbreviated_backtrace, entirecrash, lasttestlogs)
         if bug is not None:
             # Ok, there was a match, just append it to old message and move on
-            message = testinfo.get('StatusMessage')
-            if not message: # Huh? It must be set - always set on crashes.
-                message = "Crash"
-            message += " (%s)" % (bug)
+            message = "%s" % (bug)
             if extrainfo:
                 message += "(%s)" % (extrainfo)
-            testinfo['StatusMessage'] = message
+            testinfo['SubtestList'] = message
             return True # No need to look into decoded bt, this is a known crash
 
         # Need to generate our link
@@ -407,10 +404,8 @@ class Crasher(object):
         # Lets record this new or previously seen crash and record status of it
         (newid, numreports) = add_new_crash(lasttestline, crashtrigger, crashfunction, abbreviated_backtrace, entirecrash, lasttestlogs, url)
         if newid: # 0 means there was some error
-            message = testinfo.get('StatusMessage')
-            if not message: # Huh? It must be set - always set on crashes.
-                message = "Crash"
-            message += " (Untriaged #%d, seen %d times before)" % (newid, numreports)
+            message = "(Untriaged #%d, seen %d times before)" % (newid, numreports)
+            testinfo['SubtestList'] = message
             if numreports > 20: # Frequently hit failure, don't bother posting below
                 return True
         else:
