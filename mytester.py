@@ -126,7 +126,8 @@ class Tester(object):
             if result:
                 sleep_on_error = 30 # Reset the backoff time after successful run
                 self.collect_syslogs()
-                self.logger.info("Finished job buildid " + str(workitem.buildnr) + " test " + str(testinfo) )
+                self.update_permissions()
+                self.logger.info("Finished job buildid " + str(workitem.buildnr) + " test " + testinfo['test'] + '-' + testinfo['fstype'] )
                 # If we had a crash, kick the item to crash processing
                 # thread instead, it will return the item to queue when done
                 if self.CrashDetected:
@@ -171,6 +172,16 @@ class Tester(object):
         self.daemon = threading.Thread(target=self.run_daemon, args=(in_cond, in_queue, out_cond, out_queue, crash_cond, crash_queue))
         self.daemon.daemon = True
         self.daemon.start()
+
+    def update_permissions(self):
+        """ Update all files to be readable in the test dir """
+        for filename in os.listdir(self.testresultsdir):
+            path = self.testresultsdir + "/" + filename
+            if not os.path.isdir(path):
+                try:
+                    os.chmod(path, 0644)
+                except OSError:
+                    pass # what can we do
 
     def collect_syslogs(self):
         for node in [self.servernetname, self.clientnetname]:
@@ -241,7 +252,7 @@ class Tester(object):
             except OSError:
                 pass # Not there, who cares
             try:
-                with open(self.fsinfo["syslogdir"] + "/" + nodename + ".syslog", 'wb') as f:
+                with open(self.fsinfo["syslogdir"] + "/" + nodename + ".syslog.log", 'wb') as f:
                     f.truncate(0)
             except:
                 pass # duh, no syslog file yet?
