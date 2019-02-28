@@ -128,10 +128,11 @@ class Tester(object):
                 self.logger.info("Finished job buildid " + str(workitem.buildnr) + " test " + testinfo['test'] + '-' + testinfo['fstype'] )
                 # If we had a crash, kick the item to crash processing
                 # thread instead, it will return the item to queue when done
-                if self.CrashDetected:
+                if self.CrashDetected and self.crashfiles:
                     for crashfile in self.crashfiles:
                         crash_cond.acquire()
                         # XXX - do real distro from the job and arch from us
+                        self.logger.info("Posting crashfile " + crashfile)
                         crash_queue.put((crashfile, testinfo, "centos7", "x86_64", workitem))
                         crash_cond.notify()
                         crash_cond.release()
@@ -385,11 +386,13 @@ class Tester(object):
                 DNEStr = " "
 
             TESTPARAMS = testinfo.get('testparam', '')
+            # XXX - this stuff should be in some config
             args = ["ssh", "-tt", "-o", "StrictHostKeyChecking=no", "root@" + self.clientnetname,
                     'PDSH="pdsh -S -Rssh -w" mds_HOST=' + self.servernetname +
                     " ost_HOST=" + self.servernetname + " MDSDEV1=/dev/vdc " +
                     "OSTDEV1=/dev/vde OSTDEV2=/dev/vdf LOAD_MODULES_REMOTE=true " +
-                    "FSTYPE=" + fstype + DNEStr +
+                    "FSTYPE=" + fstype + DNEStr + "MDSSIZE=0 OSTSIZE=0 " +
+                    "MGSSIZE=0 "
                     "NAME=ncli /home/green/git/lustre-release/lustre/tests/auster -D /tmp/testlogs/ -r -k " + testname + " " + TESTPARAMS ]
             testprocess = Popen(args, close_fds=True, stdin=PIPE, stdout=PIPE, stderr=PIPE, universal_newlines=True)
         except (OSError) as details:
