@@ -2,12 +2,9 @@
 """
 import sys
 import os
-import fcntl
-import time
 import threading
 import logging
 import Queue
-import subprocess32
 import shlex
 import json
 from pprint import pprint
@@ -92,7 +89,6 @@ class Builder(object):
                 # lets try to find it in the list
                 for item in sorted(files):
                     if os.path.basename(item) == path:
-                        found = True
                         path = item
                         break
 

@@ -7,10 +7,8 @@ import time
 import threading
 import logging
 import Queue
-import subprocess32
 import shlex
 import json
-import Queue
 import shutil
 import yaml
 from pprint import pprint
@@ -436,7 +434,7 @@ class Tester(object):
                     break
 
                 if time.time() > deadlinetime:
-                    self.logger.warning("Job timed out, terminating");
+                    self.logger.warning("Job timed out, terminating")
                     self.error = True
                     workitem.UpdateTestStatus(testinfo, "Timeout", Timeout=True)
                     break
@@ -491,7 +489,7 @@ class Tester(object):
                 else:
                     for yamltest in testresults.get('Tests', []):
                         if yamltest.get('name', '') != testname:
-                            logger.warning("Skipping unexpected test results for " + yamltest.get('name', 'EMPTYNAME'))
+                            self.logger.warning("Skipping unexpected test results for " + yamltest.get('name', 'EMPTYNAME'))
                             continue
                         try:
                             for subtest in yamltest.get('SubTests', []):
