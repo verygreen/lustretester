@@ -1,0 +1,10 @@
+*.log
+*.pyc
+LASTBUILD_ID
+REVIEW_HISTORY
+__pycache__
+savedstate
+donewith
+commands
+failed_posts
+for-later
