@@ -39,7 +39,6 @@ import json
 import os
 import sys
 import requests
-import subprocess
 import time
 import urllib
 from GerritWorkItem import GerritWorkItem
@@ -75,6 +74,7 @@ GERRIT_CHANGE_NUMBER = os.getenv('GERRIT_CHANGE_NUMBER', None)
 GERRIT_DRYRUN = os.getenv('GERRIT_DRYRUN', None)
 GERRIT_FORCEALLTESTS = os.getenv('GERRIT_FORCEALLTESTS', None)
 GERRIT_BRANCHMONITORDIR = os.getenv('GERRIT_BRANCHMONITORDIR', "./branches/")
+GERRIT_COMMANDMONITORDIR = os.getenv('GERRIT_COMMANDMONITORDIR', "./commands/")
 
 # When this is set - only changes with this topic would be tested.
 # good for trial runs before big deployment
@@ -146,8 +146,8 @@ TEST_SCRIPT_FILES = [ 'lustre/tests/*' ]
 # We store all job items here
 WorkList = []
 
-def match_fnmatch_list(item, list):
-    for pattern in list:
+def match_fnmatch_list(item, fnlist):
+    for pattern in fnlist:
         if fnmatch.fnmatch(item, pattern):
             return True
     return False
@@ -249,6 +249,7 @@ def determine_testlist(filelist, trivial_requested):
         LDiskfsOnly = True
         ZFSOnly = True
         LNetOnly = True
+        BuildOnly = False
 
     # Always reload testlists
     with open("tests/initial.json", "r") as blah:
@@ -265,7 +266,7 @@ def determine_testlist(filelist, trivial_requested):
     initial = []
     comprehensive = []
 
-    if not DoNothing:
+    if not DoNothing and not BuildOnly:
         if modified_test_files:
             UnknownItems = NonTestFilesToo
             foundtests = []
@@ -494,11 +495,14 @@ def add_review_comment(WorkItem):
                 message = WorkItem.BuildMessage
             else:
                 message = 'Build failed\n'
-            message += ' Job output URL: ' + path_to_url(WorkItem.artifactsdir) + "/results.html"
+            message += ' Job output URL: ' + path_to_url(WorkItem.artifactsdir) + "/" + WorkItem.get_results_filename()
             score = -1
             review_comments = WorkItem.ReviewComments
         else:
-            message = 'Build for x86_64 centos7 successful\n Job output URL: ' + path_to_url(WorkItem.artifactsdir) + '/results.html\n'
+            if WorkItem.retestiteration:
+                message = "This is a retest #%d\n" % (WorkItem.retestiteration)
+            else:
+                message = 'Build for x86_64 centos7 successful\n Job output URL: ' + path_to_url(WorkItem.artifactsdir) + '/' + WorkItem.get_results_filename() + '\n'
             if WorkItem.initial_tests:
                 message += ' Commencing initial testing: ' + WorkItem.requested_tests_string(WorkItem.initial_tests)
             else:
@@ -737,26 +741,6 @@ class Reviewer(object):
         self._debug("post_review: path = '%s'", path)
         return self._post(path, review_input)
 
-    def check_patch(self, patch):
-        """
-        Run each script in CHECKPATCH_PATHS on patch, return a
-        ReviewInput() and score.
-        """
-        path_line_comments = {}
-        warning_count = [0]
-
-        for path in CHECKPATCH_PATHS:
-            pipe = subprocess.Popen([path] + CHECKPATCH_ARGS,
-                                    stdin=subprocess.PIPE,
-                                    stdout=subprocess.PIPE,
-                                    stderr=subprocess.PIPE)
-            out, err = pipe.communicate(patch)
-            self._debug("check_patch: path = %s, out = '%s...', err = '%s...'",
-                        path, out[:80], err[:80])
-            parse_checkpatch_output(out, path_line_comments, warning_count)
-
-        return review_input_and_score(path_line_comments, warning_count)
-
     def change_needs_review(self, change):
         """
         * Bail if the change isn't open (status is not 'NEW').
@@ -854,6 +838,114 @@ class Reviewer(object):
         self.timestamp = new_timestamp
         self.write_history('-', '-', 0)
 
+        # See if we got any commands
+        for commandfile in os.listdir(GERRIT_COMMANDMONITORDIR):
+            command = {}
+            try:
+                with open(GERRIT_COMMANDMONITORDIR + "/" + commandfile, "r") as cmdfl:
+                    try:
+                        command = json.load(cmdfl)
+                    except: # XXX Add some json format error here
+                        pass
+                    os.unlink(GERRIT_COMMANDMONITORDIR + "/" + commandfile)
+            except OSError:
+                pass
+            if not command:
+                continue
+            if command.get("retest-item"):
+                retestitem = str(command['retest-item'])
+                self._debug("Asked to retest build id: " + retestitem)
+                # This is a retest request, see if we got new test list
+                # or if not - clean up old tests.
+                retestfile = DONEWITH_DIR + "/" + retestitem + ".pickle"
+                if not os.path.exists(retestfile):
+                    self._debug("Build id: " + retestitem + " does not exist")
+                    continue # no file - nothing to do. error print?
+
+                with open(retestfile, "rb") as blah:
+                    try:
+                        workitem = pickle.load(blah)
+                    except:
+                        self._debug("Build id: " + retestitem + " cannot be loaded")
+                        continue
+                if not workitem.BuildDone or workitem.BuildError:
+                    self._debug("Build id: " + retestitem + " has no successful build")
+                    # Cannot retest a failed build
+                    continue
+                workitem.retestiteration += 1
+                workitem.TestingDone = False
+                workitem.TestingStarted = False
+                workitem.TestingError = False
+                workitem.InitialTestingDone = False
+                workitem.InitialError = False
+                workitem.InitialTestingStarted = False
+
+                try:
+                    if command.get("testlist"):
+                        # XXX - this is a copy from another func. need to
+                        # have it all in a single place
+                        with open("tests/initial.json", "r") as blah:
+                            initialtestlist = json.load(blah)
+                        with open("tests/comprehensive.json", "r") as blah:
+                            fulltestlist = json.load(blah)
+                        with open("tests/lnet.json", "r") as blah:
+                            lnettestlist = json.load(blah)
+                        with open("tests/zfs.json", "r") as blah:
+                            zfstestlist = json.load(blah)
+                        with open("tests/ldiskfs.json", "r") as blah:
+                            ldiskfstestlist = json.load(blah)
+
+                        testarray = []
+                        for item in command['testlist'].split(','):
+                            item = item.strip()
+                            for test in initialtestlist + fulltestlist + lnettestlist + zfstestlist + ldiskfstestlist:
+                                if item == test[0]:
+                                    testarray.append(test)
+                                    break
+
+                        zfsonly = command.get("zfs", True)
+                        ldiskfsonly = command.get("ldiskfs", True)
+                        DNE = command.get("DNE", True)
+                        workitem.tests = []
+                        # Force to ensure we test what was requested even if disabled
+                        workitem.initial_tests = populate_testlist_from_array([], testarray, ldiskfsonly, zfsonly, DNE=DNE, Force=True)
+                    else:
+                        # copy existing tests
+                        for tlist in (workitem.initial_tests, workitem.tests):
+                            testarray = []
+                            for item in tlist:
+                                titem = {}
+                                for elem in ('test', 'timeout', 'testparam', 'fstype', 'DNE'):
+                                    if item.get(elem):
+                                        titem[elem] = item[elem]
+                                testarray.append(titem)
+                            tlist = testarray
+                except : # Add some array list here?
+                    self._debug("Build id: " + retestitem + " cannot update test list")
+
+                try:
+                    os.unlink(retestfile)
+                except OSError:
+                    # cannot delete - skip
+                    self._debug("Build id: " + retestitem + " cannot delete workitem")
+                    continue
+
+                WorkList.append(workitem)
+                managing_condition.acquire()
+                managing_queue.put(workitem)
+                managing_condition.notify()
+                managing_condition.release()
+            elif command.get("abort"):
+                buildnr = command.get("abort")
+                self._debug("Requested abort of build " + str(buildnr))
+                for item in WorkList:
+                    if item.buildnr == buildnr:
+                        item.Aborted = True
+                        self._debug("Aborted build " + str(buildnr))
+                        break
+            else:
+                self._debug("Unknown command file contents: " + str(command));
+
         # Now check if we have any branches to test
         for branch in os.listdir(GERRIT_BRANCHMONITORDIR):
             try:
@@ -873,8 +965,7 @@ class Reviewer(object):
             except requests.exceptions.RequestException:
                 revision = "unknown"
                 changenum = 1 # all the same - so abort-unsafe
-            change = {'branch':branch, 'current_revision':branch,
-                    '_number':changenum, 'branchwide':True,
+            change = {'branch':branch, '_number':changenum, 'branchwide':True,
                     'id':branch, 'subject':subject, 'current_revision':revision }
             self.review_change(change)
 
@@ -1002,7 +1093,7 @@ def run_workitem_manager():
             current_build = int(blah.read())
     except OSError:
         pass
-    
+
     logger = logging.getLogger("WorkitemManager")
 
     while os.path.exists(fsconfig["outputs"] + "/" + str(current_build)):
@@ -1190,7 +1281,6 @@ if __name__ == "__main__":
     managerthread = threading.Thread(target=run_workitem_manager, args=())
     managerthread.daemon = True
     managerthread.start()
- 
 
     with open(GERRIT_AUTH_PATH) as auth_file:
         auth = json.load(auth_file)
@@ -1203,7 +1293,11 @@ if __name__ == "__main__":
     # XXX Add item loading here
     for savedstateitem in os.listdir(SAVEDSTATE_DIR):
         with open(SAVEDSTATE_DIR + "/" + savedstateitem, "rb") as blah:
-            workitem = pickle.load(blah)
+            try:
+                workitem = pickle.load(blah)
+            except:
+                # delete bad item.
+                os.unlink(SAVEDSTATE_DIR + "/" + savedstateitem)
 
             sys.stdout.flush()
             if not workitem.BuildDone:

@@ -34,6 +34,7 @@ class GerritWorkItem(object):
         self.initial_tests = initialtestlist
         self.tests = testlist
         self.lock = threading.Lock()
+        self.retestiteration = 0
         self.UrgentReviewPrinted = False
 
     def __getstate__(self):
@@ -43,6 +44,15 @@ class GerritWorkItem(object):
     def __setstate__(self, state):
         self.__dict__.update(state)
         self.lock = threading.Lock()
+        if not self.__dict__.get('retestiteration'):
+            self.retestiteration = 0
+
+    def get_results_filename(self):
+        if self.retestiteration:
+            htmlfile = "results-retry%d.html" % (self.retestiteration)
+        else:
+            htmlfile = "results.html"
+        return htmlfile
 
     # This just prints a rate-limited message
     def post_immediate_review_comment(self, message, review):
@@ -53,7 +63,7 @@ class GerritWorkItem(object):
         if not review or not message:
             return # Not printing empty reviews
 
-        if self.Reviewer.post_review(workitem.change, workitem.revision, {'message':message, 'notify':'OWNER', 'labels':{'Code-Review':0}, 'comments':review}):
+        if self.Reviewer.post_review(self.change, self.revision, {'message':message, 'notify':'OWNER', 'labels':{'Code-Review':0}, 'comments':review}):
             self.UrgentReviewPrinted = True
 
     def UpdateTestStatus(self, testinfo, message, Failed=False, Crash=False,
@@ -66,52 +76,40 @@ class GerritWorkItem(object):
         elif self.TestingStarted and not self.TestingDone:
             worklist = self.tests
         else:
-            print("Weird state, huh?" + vars(self));
+            print("Weird state, huh?" + str(vars(self)));
 
-        updated = False
-        for item in worklist:
-            matched = True
-            for element in testinfo:
-                if item.get(element, None) != testinfo[element]:
-                    matched = False
-                    break
-            if matched:
-                updated = True
-                if message is None and ResultsDir is not None:
-                    item["ResultsDir"] = ResultsDir
-                    break
-                if Crash or Timeout:
-                    Failed = True
-                if Failed:
-                    Finished = True
-                    if not self.InitialTestingDone:
-                        self.InitialTestingError = True
-                    else:
-                        self.TestingError = True
-
-                item["Crash"] = Crash
-                item["Timeout"] = Timeout
-                item["Failed"] = Failed
-                item["Finished"] = Finished
-                if self.Aborted:
-                    item["Aborted"] = True
-                if message is not None:
-                    item["StatusMessage"] = message
-                if TestStdOut is not None:
-                    item["TestStdOut"] = TestStdOut
-                if TestStdErr is not None:
-                    item["TestStdErr"] = TestStdErr
-                if Subtests:
-                    item["SubtestList"] = Subtests
-                if Skipped:
-                    item["SkippedSubtests"] = Skipped
-        if not updated:
-            print("Build " + str(self.buildnr) + " Passed in testinfo that I cannot match " + str(testinfo))
-            pprint(testinfo)
-            pprint(worklist)
+        item = testinfo # no need to search for it
+        if message is None and ResultsDir is not None:
+            item["ResultsDir"] = ResultsDir
         else:
-            print("Build " + str(self.buildnr) + " Updated test element " + str(item))
-            self.Write_HTML_Status()
+            if Crash or Timeout:
+                Failed = True
+            if Failed:
+                Finished = True
+                if not self.InitialTestingDone:
+                    self.InitialTestingError = True
+                else:
+                    self.TestingError = True
+
+            item["Crash"] = Crash
+            item["Timeout"] = Timeout
+            item["Failed"] = Failed
+            item["Finished"] = Finished
+            if self.Aborted:
+                item["Aborted"] = True
+            if message is not None:
+                item["StatusMessage"] = message
+            if TestStdOut is not None:
+                item["TestStdOut"] = TestStdOut
+            if TestStdErr is not None:
+                item["TestStdErr"] = TestStdErr
+            if Subtests:
+                item["SubtestList"] = Subtests
+            if Skipped:
+                item["SkippedSubtests"] = Skipped
+
+        print("Build " + str(self.buildnr) + " Updated test element " + str(item))
+        self.Write_HTML_Status()
 
         if Finished:
             for item in worklist:
@@ -249,8 +247,10 @@ class GerritWorkItem(object):
 
         all_items['fulltesting'] = testing
 
+        htmlfile = "/" + self.get_results_filename()
+
         try:
-            with open(self.artifactsdir + "/results.html", "w") as indexfile:
+            with open(self.artifactsdir + htmlfile, "w") as indexfile:
                 indexfile.write(template.format(**all_items))
         except:
             pass
@@ -300,7 +300,7 @@ class GerritWorkItem(object):
                 #if resultsdir:
                 #    url = resultsdir.replace(self.fsconfig['root_path_offset'], self.fsconfig['http_server'])
                 #    failedtests += "\n- " + url + '/'
-                #failedtests += '\n'
+                failedtests += '\n'
         self.lock.release()
 
         testlist = ""
@@ -311,7 +311,7 @@ class GerritWorkItem(object):
         if skippedtests:
             testlist += "\nSkipped:\n- " + skippedtests + "\n"
 
-        allresults = self.artifactsdir + "/results.html"
+        allresults = self.artifactsdir + "/" + self.get_results_filename()
         testlist += "\nAll results and logs: " + allresults.replace(self.fsconfig['root_path_offset'], self.fsconfig['http_server'])
 
         return testlist
