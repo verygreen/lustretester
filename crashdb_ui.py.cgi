@@ -217,10 +217,13 @@ def convert_new_crash(dbconn, form):
 
     # Now see how many matches we have
     btline = '\n'.join(backtrace)
-    SELECTline = "SELECT new_crashes.id, new_crashes.reason, new_crashes.func, new_crashes.backtrace, count(triage.newcrash_id) as hitcount max(triage.created_at) as last_seen FROM new_crashes, triage WHERE triage.newcrash_id=new_crashes.id AND new_crashes.reason=%s AND strpos(new_crashes.backtrace, %s) > 0 and new_crashes.func=%s"
-    SELECTvars = [ reason, btline, func ]
+    SELECTline = "SELECT new_crashes.id, new_crashes.reason, new_crashes.func, new_crashes.backtrace, count(triage.newcrash_id) as hitcount, max(triage.created_at) as last_seen FROM new_crashes, triage WHERE triage.newcrash_id=new_crashes.id AND new_crashes.reason=%s AND strpos(new_crashes.backtrace, %s) > 0"
+    SELECTvars = [ reason, btline ]
     EXTRACONDS = ""
     EXTRACONDvars = []
+    if func:
+        EXTRACONDS += " AND new_crashes.func=%s"
+        EXTRACONDvars.append(func)
     if testline:
         EXTRACONDS += " AND strpos(triage.testline, %s) > 0"
         EXTRACONDvars.append(testline)
@@ -261,7 +264,7 @@ def convert_new_crash(dbconn, form):
         cur = dbconn.cursor()
         cur.execute(SELECTline, SELECTvars)
         if cur.rowcount == 0:
-            return "Cannot find anything matching: " + SELECTline + infullbt
+            return "Cannot find anything matching: " + SELECTline + " " + str(SELECTvars)
         TRACECOUNT = cur.rowcount
         rows = cur.fetchall()
         cur.close()
