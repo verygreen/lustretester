@@ -6,7 +6,6 @@ import time
 import threading
 import logging
 import Queue
-import subprocess32
 import shlex
 import json
 import re
@@ -39,6 +38,9 @@ lustremodules = [ "[ldiskfs]", "[ldiskfs]", "[lnet]", "[lnet_selftest]", "[ko2ib
 
 def extract_crash_from_dmesg(crashfile):
     crashlog = crashfile.read()
+    return extract_crash_from_dmesg_string(crashlog)
+
+def extract_crash_from_dmesg_string(crashlog):
 
     lasttestline = None
     entirecrash = ""
@@ -77,10 +79,10 @@ def extract_crash_from_dmesg(crashfile):
             if recording_crash:
                 continue
             # Now lustre specific stuff
-            pattern = re.compile("LustreError: \d+:\d+:\([a-zA-Z0-9_\.]+:\d+:(\w+)\(\)\) (ASSERTION\( .* \) failed)")
+            pattern = re.compile(r"LustreError: \d+:\d+:\([a-zA-Z0-9_\.]+:\d+:(\w+)\(\)\) (ASSERTION\( .* \) failed)")
             result = pattern.match(line)
             if not result:
-                pattern = re.compile("LustreError: \d+:\d+:\([a-zA-Z0-9_\.]+:\d+:(\w+)\(\)\) (LBUG)")
+                pattern = re.compile(r"LustreError: \d+:\d+:\([a-zA-Z0-9_\.]+:\d+:(\w+)\(\)\) (LBUG)")
                 result = pattern.match(line)
             if result:
                 entirecrash += line + "\n"
@@ -137,17 +139,17 @@ def extract_crash_from_dmesg(crashfile):
                     #    abbreviated_backtrace += " " + bttokens[2]
                     abbreviated_backtrace += '\n'
             elif not crashfunction:
-                pattern = re.compile("IP: \[<\w+>\] (\w+).*\+0x")
+                pattern = re.compile(r"IP: \[<\w+>\] (\w+).*\+0x")
                 result = pattern.match(line)
                 if result:
                     crashfunction = result.group(1)
                     continue
-                pattern = re.compile("RIP: \d+:\[<\w+>\]  \[<\w+>\] (\w+).*\+0x")
+                pattern = re.compile(r"RIP: \d+:\[<\w+>\]  \[<\w+>\] (\w+).*\+0x")
                 result = pattern.match(line)
                 if result:
                     crashfunction = result.group(1)
                     continue
-                pattern = re.compile("PC is at (\w+)\+0x")
+                pattern = re.compile(r"PC is at (\w+)\+0x")
                 result = pattern.match(line)
                 if result:
                     crashfunction = result.group(1)
@@ -310,9 +312,13 @@ class Crasher(object):
         self.logger.info("Started crasher daemon")
         while True:
             in_cond.acquire()
+            self.logger.info("got in_cond")
             while in_queue.empty():
+                self.logger.info("Waiting for more jobs")
                 in_cond.wait()
+            self.logger.info("Crasher items in the queue: " + str(in_queue.qsize()))
             self.Busy = True
+            self.logger.info("before in_queue.get")
             job = in_queue.get()
             self.logger.info("Remaining Crasher items in the queue left: " + str(in_queue.qsize()))
             in_cond.release()
@@ -321,13 +327,17 @@ class Crasher(object):
             distro = job[2]
             arch = job[3]
             workitem = job[4]
-            self.logger.info("Got crash job for id " + str(workitem.buildnr))
+            self.logger.info("Got crash job for id " + str(workitem.buildnr) + " filename " + crashfilename)
             result = self.crash_worker(crashfilename, testinfo, distro, arch, workitem)
             self.logger.info("Finished crash job for id " + str(workitem.buildnr))
             out_cond.acquire()
+            self.logger.info("got out_cond " + str(workitem.buildnr))
             out_queue.put(workitem)
+            self.logger.info("item put " + str(workitem.buildnr))
             out_cond.notify()
+            self.logger.info("notify " + str(workitem.buildnr))
             out_cond.release()
+            self.logger.info("Returned to management queue for id " + str(workitem.buildnr))
             self.Busy = False
 
     def __init__(self, fsconfig, in_cond, in_queue, out_cond, out_queue):
@@ -359,7 +369,6 @@ class Crasher(object):
             processor = Popen(args, close_fds=True, stdin=PIPE, stdout=PIPE, stderr=PIPE, universal_newlines=True)
         except (OSError) as details:
             self.logger.warning("Failed to run crash processor " + str(details))
-            self.put_error("Failed to run crash processor", workitem)
             return False
 
         # We will not give any timeout here since we assume it's a well
@@ -420,7 +429,7 @@ class Crasher(object):
             files = workitem.change['revisions'][str(workitem.change['current_revision'])]['files']
         else:
             # debug files = ['lustre/osc/osc_object.c']
-            return # Nowhere to post changes, bail out
+            return True # Nowhere to post changes, bail out
 
         try:
             with open(crashfilename + "-decoded-bt.txt", "r") as crashfile:
