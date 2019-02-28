@@ -150,7 +150,7 @@ def convert_new_crash(dbconn, form):
 <table border=1>
 <form method="post" action=\"crashdb_ui.py.cgi\">
 <h2>Matched {TRACECOUNT} crash traces:</h2>
-<tr><th>ID</th><th>Crash Reason</th><th>Crashing Function</th><th>Matched Backtrace</th><th>Matched Reports Count</th></tr>
+<tr><th>ID</th><th>Crash Reason</th><th>Crashing Function</th><th>Matched Backtrace</th><th>Matched Reports Count</th><th>Last report time</th></tr>
 {REPORTS}
 </table>
 <textarea name=\"inlogs\" style=\"display:none;\" readonly>{INLOGS}</textarea>
@@ -234,10 +234,7 @@ def convert_new_crash(dbconn, form):
             EXTRACONDS += " AND strpos(triage.testlogs, %s) > 0"
             EXTRACONDvars.append(line)
             inlogs_lines.append(line)
-        if len(inlogs_lines) > 1:
             inlogs_cleaned = '\n'.join(inlogs_lines)
-        else:
-            inlogs_cleaned = inlogs_lines[0]
     else:
         inlogs_cleaned = ""
 
@@ -248,15 +245,12 @@ def convert_new_crash(dbconn, form):
             EXTRACONDS += " AND strpos(triage.fullcrash, %s) > 0"
             EXTRACONDvars.append(line)
             infullbt_lines.append(line)
-        if len(infullbt_lines) > 1:
             infullbt_cleaned = '\n'.join(infullbt_lines)
-        else:
-            infullbt_cleaned = infullbt_lines[0]
     else:
         infullbt_cleaned = ""
 
     SELECTline += EXTRACONDS
-    SELECTline += " group by new_crashes.id order by hitcount desc"
+    SELECTline += " group by new_crashes.id order by last_seen desc, hitcount desc"
     SELECTvars += EXTRACONDvars
 
     REPORTS = ""
