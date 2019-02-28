@@ -25,7 +25,8 @@ def newreport_rows_to_table(rows):
         REPORTS += '<tr><td>%d</td>' % (row[0])
         REPORTS += '<td><a href="crashdb_ui.py.cgi?newid=%d">%s</a></td><td>%s</td>' % (row[0], cgi.escape(row[1]), cgi.escape(xstr(row[2])))
         REPORTS += '<td>%s</td>' % (row[3].replace('\n', '<br>'))
-        REPORTS += '<td>' + str(row[4]) + '</td></tr>'
+        REPORTS += '<td>' + str(row[4]) + '</td>'
+        REPORTS += '<td>' + str(row[5]) + '</td></tr>'
 
     return REPORTS
 
@@ -34,7 +35,7 @@ def print_new_crashes(dbconn):
 <body>
 <H2>List of untriaged crash reports (top 20)</H2>
 <table border=1>
-<tr><th>ID</th><th>Reason</th><th>Crashing Function</th><th>Backtrace</th><th>Reports Count</th></tr>
+<tr><th>ID</th><th>Reason</th><th>Crashing Function</th><th>Backtrace</th><th>Reports Count</th><th>Last hit</th></tr>
 {REPORTS}
 </table>
 </body>
@@ -44,7 +45,7 @@ def print_new_crashes(dbconn):
     REPORTS=""
     try:
         cur = dbconn.cursor()
-        cur.execute("SELECT new_crashes.id, new_crashes.reason, new_crashes.func, new_crashes.backtrace, count(triage.newcrash_id) as hitcounts from new_crashes, triage where new_crashes.id = triage.newcrash_id group by new_crashes.id order by hitcounts desc LIMIT 20")
+        cur.execute("SELECT new_crashes.id, new_crashes.reason, new_crashes.func, new_crashes.backtrace, count(triage.newcrash_id) as hitcounts, max(triage.created_at) as last_seen from new_crashes, triage where new_crashes.id = triage.newcrash_id group by new_crashes.id order by last_seen desc, hitcounts desc LIMIT 20")
         rows = cur.fetchall()
         REPORTS = newreport_rows_to_table(rows)
         cur.close()
@@ -115,7 +116,7 @@ def examine_one_new_crash(dbconn, newid_str):
     TRIAGE = ""
     try:
         cur = dbconn.cursor()
-        cur.execute("SELECT DISTINCT ON (testline) id, testline, fullcrash, testlogs, link FROM triage where newcrash_id = %s LIMIT 100", [newid])
+        cur.execute("SELECT DISTINCT ON (testline) id, testline, fullcrash, testlogs, link FROM triage where newcrash_id = %s order by testline, created_at desc LIMIT 100", [newid])
         rows = cur.fetchall()
         cur.close()
         if not rows:
@@ -216,7 +217,7 @@ def convert_new_crash(dbconn, form):
 
     # Now see how many matches we have
     btline = '\n'.join(backtrace)
-    SELECTline = "SELECT new_crashes.id, new_crashes.reason, new_crashes.func, new_crashes.backtrace, count(triage.newcrash_id) as hitcount FROM new_crashes, triage WHERE triage.newcrash_id=new_crashes.id AND new_crashes.reason=%s AND strpos(new_crashes.backtrace, %s) > 0 and new_crashes.func=%s"
+    SELECTline = "SELECT new_crashes.id, new_crashes.reason, new_crashes.func, new_crashes.backtrace, count(triage.newcrash_id) as hitcount max(triage.created_at) as last_seen FROM new_crashes, triage WHERE triage.newcrash_id=new_crashes.id AND new_crashes.reason=%s AND strpos(new_crashes.backtrace, %s) > 0 and new_crashes.func=%s"
     SELECTvars = [ reason, btline, func ]
     EXTRACONDS = ""
     EXTRACONDvars = []
