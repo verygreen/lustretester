@@ -5,5 +5,10 @@ change StrictHostKeyChecking to no in /etc/ssh/ssh_config
 
 add this to rc.local:
 modprobe crc_t10dif
-mount -t ramfs none /etc/udev/rules.d
 
+[root@fatbox1 build-and-test]# cat /exports/centos7-base/etc/modprobe.d/zfs.conf
+options zfs zfs_multihost_history=100
+options zfs zfs_multihost_fail_intervals=20
+
+update postgres config to enable = null to is null:
+transform_null_equals = on in /var/lib/pgsql/data/postgresql.conf
