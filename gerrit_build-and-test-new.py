@@ -1006,7 +1006,11 @@ def save_WorkItem(workitem):
 
 def donewith_WorkItem(workitem):
     print_WorkList_to_HTML()
-    WorkList.remove(workitem)
+    try:
+        WorkList.remove(workitem)
+    except ValueError:
+        pass # We are not in the list, e.g. because this is a duplicate hit for like a crash processing
+
     try:
         os.unlink(SAVEDSTATE_DIR + "/" + str(workitem.buildnr) + ".pickle")
     except OSError:
@@ -1338,5 +1342,4 @@ if __name__ == "__main__":
         StopMachine = True
         print_WorkList_to_HTML()
         sys.exit(1)
-
 
