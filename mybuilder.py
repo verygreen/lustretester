@@ -59,6 +59,9 @@ class Builder(object):
 
     def parse_compile_error(self, change, stderr):
         reviews = {}
+        if not change.get('revisions'):
+            return reviews
+
         files = change['revisions'][str(change['current_revision'])]['files']
         pprint(files)
         if not files:
