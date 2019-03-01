@@ -16,11 +16,27 @@ from subprocess32 import Popen, PIPE, TimeoutExpired
 
 
 class Node(object):
-    def __init__(self, name):
+    def __init__(self, name, outputdir):
         self.name = name # Node name
+        # XXX we probably want a better way eventually.
+        self.consolelogfile = outputdir + "/" + name + "-console.txt"
         self.process = None # Popen object
         self.outs = '' # full accumulated stdout output
         self.errs = '' # full accumulated stderr output
+        self.consoleoutput = ""
+
+    def match_console_string(self, string):
+        # Right now we assume the output cannot be changing as we are called
+        # at the end. This migth change eventually I guess
+        if not os.path.exists(self.consolelogfile):
+            return False
+        if os.stat(self.consolelogfile).st_size > len(self.consoleoutput):
+            try:
+                with open(self.consolelogfile, "r") as consolefile:
+                    self.consoleoutput = consolefile.read()
+            except OSError:
+                return False
+        return string in self.consoleoutput
 
     def is_alive(self):
         if self.process is not None:
@@ -263,8 +279,6 @@ class Tester(object):
         artifactdir = workitem.artifactsdir
         outdir = workitem.testresultsdir
 
-        server = Node(self.servernetname)
-        client = Node(self.clientnetname)
         # XXX Incorporate distro into this somehow?
         testname = testinfo.get("test", None)
         if testname is None:
@@ -273,6 +287,14 @@ class Tester(object):
 
         if workitem.Aborted:
             return True
+
+        console_errors = []
+        if os.path.exists("console_errors_lookup.json"):
+            try:
+                with open("console_errors_lookup.json", "r") as errfile:
+                    console_errors = json.load(errfile)
+            except: # any error really
+                pass
 
         timeout = testinfo.get("timeout", -1)
         if timeout == -1:
@@ -321,6 +343,9 @@ class Tester(object):
 
         # To know where to copy syslogs and core files
         self.testresultsdir = testresultsdir
+
+        server = Node(self.servernetname, testresultsdir)
+        client = Node(self.clientnetname, testresultsdir)
 
         workitem.UpdateTestStatus(testinfo, None, ResultsDir=testresultsdir)
 
@@ -406,7 +431,8 @@ class Tester(object):
         # be captured. This is probably fine because Lustre was not involved
         # yet? From this point on all failures are assumed to be test-related
 
-        deadlinetime = time.time() + timeout
+        startTime = time.time()
+        deadlinetime = startTime + timeout
         while testprocess.returncode is None: # XXX add a timer
             try:
                 # This is a very ugly workaround to the fact that when you call
@@ -416,7 +442,7 @@ class Tester(object):
                 # XXX - perhaps consider doing some sort of a manual select call?
                 time.sleep(5) # every 5 seconds, not ideal because that becomes our latency
                 outs, errs = testprocess.communicate(timeout=0.01) # cannot have 0 somehow
-            except TimeoutExpired:
+            except TimeoutExpired, ValueError:
                 if workitem.Aborted:
                     testprocess.terminate()
                     server.terminate()
@@ -436,6 +462,19 @@ class Tester(object):
                     self.error = True
                     break
 
+                # See if any fatal errors happened that would allow us to
+                # terminate job sooner as we know it's not healthy anymore
+                for item in console_errors:
+                    if item.get('error') and item.get('fatal'):
+                        if server.match_console_string(item['error']) or client.match_console_string(item['error']):
+                            self.logger.warning("Matched fatal error in logs: " + item['error'])
+                            self.error = True
+                            workitem.UpdateTestStatus(testinfo, "Fatal Error", Failed=True)
+                            break
+                if self.error:
+                    break # the above break only breaks from the for loop
+
+                # Also timeout
                 if time.time() > deadlinetime:
                     self.logger.warning("Job timed out, terminating")
                     self.error = True
@@ -448,7 +487,8 @@ class Tester(object):
                 # run. Currently we filter for this message only:
                 # insmod: ERROR: could not insert module /home/green/git/lustre-release/lustre/ptlrpc/ptlrpc.ko: Network is down
                 # Add a config file if this list is to grow
-                if "ptlrpc.ko: Network is down" in self.testouts:
+                portmap_error = "Can't start acceptor on port 988: port already in use"
+                if server.match_console_string(portmap_error) or client.match_console_string(portmap_error):
                     self.logger.warning("Clash with portmap, restarting")
                     server.terminate()
                     client.terminate()
@@ -467,7 +507,6 @@ class Tester(object):
         failedsubtests = ""
         skippedsubtests = ""
         message = ""
-        duration = 0
         if self.error:
             Failure = True
             try:
@@ -509,7 +548,6 @@ class Tester(object):
                         except TypeError:
                             pass # Well, here's empty list for you I guess
 
-                        duration = yamltest.get('duration', 0)
                         if yamltest.get('status', '') == "FAIL":
                             Failure = True
                             message = "Failure"
@@ -522,11 +560,21 @@ class Tester(object):
         elif not Failure and not message:
             message = "Success"
 
-        if duration:
-            message += "(" + str(duration) + "s)"
+        duration = int(time.time() - startTime)
+        message += "(" + str(duration) + "s)"
 
-        if "Memory leaks detected" in self.testouts:
-            message += "(Memory Leaks Detected)"
+        matched_server_errors = []
+        matched_client_errors = []
+        for item in console_errors:
+            if item.get('error') and item.get('message'):
+                if server.match_console_string(item['error']):
+                    matched_server_errors.append(item['message'])
+                if client.match_console_string(item['error']):
+                    matched_client_errors.append(item['message'])
+        if matched_server_errors:
+            message += "(Server: " + ",".join(matched_server_errors) + ")"
+        if matched_client_errors:
+            message += "(Client: " + ",".join(matched_client_errors) + ")"
 
         self.logger.info("Job finished with code " + str(testprocess.returncode) + " and message " + message)
         # XXX Also need to add yaml parsing of results with subtests.
