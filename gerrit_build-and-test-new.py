@@ -502,7 +502,8 @@ def add_review_comment(WorkItem):
             if WorkItem.retestiteration:
                 message = "This is a retest #%d\n" % (WorkItem.retestiteration)
             else:
-                message = 'Build for x86_64 centos7 successful\n Job output URL: ' + path_to_url(WorkItem.artifactsdir) + '/' + WorkItem.get_results_filename() + '\n'
+                message = 'Build for x86_64 centos7 successful\n'
+            message += 'Job output URL: ' + path_to_url(WorkItem.artifactsdir) + '/' + WorkItem.get_results_filename() + '\n\n'
             if WorkItem.initial_tests:
                 message += ' Commencing initial testing: ' + WorkItem.requested_tests_string(WorkItem.initial_tests)
             else:
@@ -877,7 +878,7 @@ class Reviewer(object):
                 workitem.TestingStarted = False
                 workitem.TestingError = False
                 workitem.InitialTestingDone = False
-                workitem.InitialError = False
+                workitem.InitialTestingError = False
                 workitem.InitialTestingStarted = False
 
                 try:
