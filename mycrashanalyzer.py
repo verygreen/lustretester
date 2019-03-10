@@ -167,6 +167,10 @@ def extract_crash_from_dmesg_string(crashlog):
                     #    abbreviated_backtrace += " " + tokens[1]
                     abbreviated_backtrace += "\n"
 
+    # Sometimes the function does not resolve because it's an invalid pointer
+    # Replace it with a static string to ease matching
+    if crashfunction and crashfunction.startswith("0x"):
+        crashfunction = "unresolved"
 
     return (lasttestline, entirecrash, lasttestlogs, crashtrigger, crashfunction, abbreviated_backtrace)
 
