@@ -15,7 +15,7 @@ class GerritWorkItem(object):
             self.ref = change['revisions'][str(self.revision)]['ref']
         self.changenr = change['_number']
         self.buildnr = None
-        self.Reviewer = None
+        self.Reviewer = Reviewer
         self.fsconfig = fsconfig
         self.EmptyJob = EmptyJob
         self.Aborted = False
@@ -40,10 +40,12 @@ class GerritWorkItem(object):
     def __getstate__(self):
         state = self.__dict__.copy()
         del state['lock']
+        del state['Reviewer'] # no posts on restarts?
         return state
     def __setstate__(self, state):
         self.__dict__.update(state)
         self.lock = threading.Lock()
+        self.Reviewer = None
         if not self.__dict__.get('retestiteration'):
             self.retestiteration = 0
 
@@ -56,15 +58,19 @@ class GerritWorkItem(object):
 
     # This just prints a rate-limited message
     def post_immediate_review_comment(self, message, review):
-        if self.UrgentReviewPrinted:
-            return # for now only do it once
+        #if self.UrgentReviewPrinted:
+        #    return # for now only do it once
         if not self.Reviewer: # Well, no object = nothing to do
+            print("No reviewer")
             return
         if not review or not message:
+            print("message or review empty")
             return # Not printing empty reviews
 
         if self.Reviewer.post_review(self.change, self.revision, {'message':message, 'notify':'OWNER', 'labels':{'Code-Review':0}, 'comments':review}):
             self.UrgentReviewPrinted = True
+        else:
+            print("Failure posting review")
 
     def UpdateTestStatus(self, testinfo, message, Failed=False, Crash=False,
                          ResultsDir=None, Finished=False, Timeout=False,
