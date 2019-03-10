@@ -480,6 +480,7 @@ class Crasher(object):
                     break
                 else:
                     #print("function in unknown file " + str(filename) + " " + str(fileline))
+                    pass
 
         if reviews: # there's at least some match and we have not seen it too much - let's print it as immediate message comment?
             self.logger.warning("Looks like we are going to try to post urgent review here")
