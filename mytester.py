@@ -122,7 +122,7 @@ class Tester(object):
         # Would be great to verify all nodes are operational here, but
         # Alas, need kernels and initrds for that. Perhaps require some
         # default ones in json config?
-        sleep_on_error = 30
+        sleep_on_error = 15
         while True:
             in_cond.acquire()
             while in_queue.empty():
@@ -137,8 +137,12 @@ class Tester(object):
             workitem = job[2]
             self.logger.info("Got job buildid " + str(workitem.buildnr) + " test " + str(testinfo) )
             result = self.test_worker(testinfo, workitem)
+            # same the test output if any
+            if self.testresultsdir and self.testouts:
+                with open(self.testresultsdir + "/test.stdout") as sout:
+                    sout.write(self.testouts)
             if result:
-                sleep_on_error = 30 # Reset the backoff time after successful run
+                sleep_on_error = 15 # Reset the backoff time after successful run
                 self.collect_syslogs()
                 self.update_permissions()
                 self.logger.info("Finished job buildid " + str(workitem.buildnr) + " test " + testinfo['test'] + '-' + testinfo['fstype'] )
@@ -160,7 +164,9 @@ class Tester(object):
             else:
                 # We had some problem with our VMs or whatnot, return
                 # the job to the pool for retrying and sleep for some time
-                self.logger.info("Failed to test job buildid " + str(workitem.buildnr) + " test " + str(testinfo) )
+                failcount = testinfo.get("failcount", 0) + 1
+                testinfo["failcount"] = failcount
+                self.logger.info("Failed to test job buildid " + str(workitem.buildnr) + " test " + str(testinfo) + " #" + str(failcount))
                 in_cond.acquire()
                 in_queue.put([priority, testinfo, workitem])
                 in_cond.notify()
@@ -184,6 +190,8 @@ class Tester(object):
         self.Busy = False
         self.CrashDetected = False
         self.crashfiles = []
+        self.testerrs = ''
+        self.testouts = ''
         self.daemon = threading.Thread(target=self.run_daemon, args=(in_cond, in_queue, out_cond, out_queue, crash_cond, crash_queue))
         self.daemon.daemon = True
         self.daemon.start()
@@ -288,12 +296,17 @@ class Tester(object):
         if workitem.Aborted:
             return True
 
+        if testinfo.get("failcount", 0) > 30: # arbitrary high number
+            workitem.UpdateTestStatus(testinfo, "Cannot get this item to successfully run for 30 times! Giving up", Failed=True)
+            return True
+
         console_errors = []
         if os.path.exists("console_errors_lookup.json"):
             try:
                 with open("console_errors_lookup.json", "r") as errfile:
                     console_errors = json.load(errfile)
             except: # any error really
+                self.logger.error("Failure loading console errors description?")
                 pass
 
         timeout = testinfo.get("timeout", -1)
