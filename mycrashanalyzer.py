@@ -316,13 +316,9 @@ class Crasher(object):
         self.logger.info("Started crasher daemon")
         while True:
             in_cond.acquire()
-            self.logger.info("got in_cond")
             while in_queue.empty():
-                self.logger.info("Waiting for more jobs")
                 in_cond.wait()
-            self.logger.info("Crasher items in the queue: " + str(in_queue.qsize()))
             self.Busy = True
-            self.logger.info("before in_queue.get")
             job = in_queue.get()
             self.logger.info("Remaining Crasher items in the queue left: " + str(in_queue.qsize()))
             in_cond.release()
@@ -335,11 +331,8 @@ class Crasher(object):
             result = self.crash_worker(crashfilename, testinfo, distro, arch, workitem)
             self.logger.info("Finished crash job for id " + str(workitem.buildnr))
             out_cond.acquire()
-            self.logger.info("got out_cond " + str(workitem.buildnr))
             out_queue.put(workitem)
-            self.logger.info("item put " + str(workitem.buildnr))
             out_cond.notify()
-            self.logger.info("notify " + str(workitem.buildnr))
             out_cond.release()
             self.logger.info("Returned to management queue for id " + str(workitem.buildnr))
             self.Busy = False
@@ -433,6 +426,7 @@ class Crasher(object):
             files = workitem.change['revisions'][str(workitem.change['current_revision'])]['files']
         else:
             # debug files = ['lustre/osc/osc_object.c']
+            self.logger.warning("This was not a review test, not posting crash comments")
             return True # Nowhere to post changes, bail out
 
         try:
@@ -442,6 +436,7 @@ class Crasher(object):
             self.logger.warning("Build " + str(workitem.buildnr) + " no decoded crash bt?")
             return True # No crash bt so cannot decode, bail out
 
+
         lines = crashlog.splitlines()
         reviews = {}
         i = 1 # Skip first line
@@ -450,10 +445,12 @@ class Crasher(object):
             i += 1
             # Skip spurious file info and exceptions
             if line[0] != '#':
+                #print("Not a bt line: " + str(line))
                 continue
             tokens = line.split(' ', 5)
             if len(tokens) < 6: # No kernel module info - skip
                 i += 1 # Kernel always have debug info in my case, so skip it too
+                #print("no modules bt line: " + str(line))
                 continue
             if tokens[5] in lustremodules:
                 # Ok, it's a lustre module, let's make sure it's not
@@ -468,6 +465,7 @@ class Crasher(object):
                 i += 1
                 # Sanity check:
                 if not tokens[0].startswith("/") or not tokens[1].isdigit():
+                    #print("not a file/line: " + str(tokens[0]) + " " + str(tokens[1]))
                     continue # not a file and line info, huh?
                 # Config variable!
                 filename = tokens[0].replace("/home/green/git/lustre-release/", "")
@@ -479,8 +477,13 @@ class Crasher(object):
                     path_comments = reviews.setdefault(filename, [])
                     comment = "Crash with latest lustre function %s in backtrace called here:\n\n " % (function)
                     path_comments.append({'line':fileline, 'message': comment + entirecrash})
+                    break
+                else:
+                    #print("function in unknown file " + str(filename) + " " + str(fileline))
 
         if reviews: # there's at least some match and we have not seen it too much - let's print it as immediate message comment?
+            self.logger.warning("Looks like we are going to try to post urgent review here")
+            #print(str(reviews))
             message = "Crash in %s@%s" % (testinfo['test'], testinfo['fstype'])
             if testinfo.get('DNE', False):
                 message += "+DNE"
