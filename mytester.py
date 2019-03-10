@@ -301,6 +301,8 @@ class Tester(object):
             timeout = 5*3600 # we are willing to wait up to 5 hours for unknown tests
         fstype = testinfo.get("fstype", "ldiskfs")
         DNE = testinfo.get("DNE", False)
+        SELINUX = testinfo.get("SELINUX", False)
+        SSK = testinfo.get("SSK", False)
         serverkernel = artifactdir +"/kernel-%s-%s" % (serverdistro, self.serverarch)
         clientkernel = artifactdir +"/kernel-%s-%s" % (clientdistro, self.clientarch)
         serverinitrd = artifactdir +"/initrd-%s-%s.img" % (serverdistro, self.serverarch)
@@ -309,6 +311,10 @@ class Tester(object):
         testresultsdir = outdir + "/" + testname + "-" + fstype
         if DNE:
             testresultsdir += "-DNE"
+        if SSK:
+            testresultsdir += "-SSK"
+        if SELINUX:
+            testresultsdir += "-SELINUX"
 
         testresultsdir += "-" + serverdistro + "_" + self.serverarch
         testresultsdir += "-" + clientdistro + "_" + self.clientarch
@@ -348,6 +354,8 @@ class Tester(object):
         client = Node(self.clientnetname, testresultsdir)
 
         workitem.UpdateTestStatus(testinfo, None, ResultsDir=testresultsdir)
+
+        # SELinux check here since it needs a command line argument
 
         try:
             server.process = Popen([self.serverruncommand, server.name, serverkernel, serverinitrd, serverbuild, testresultsdir], close_fds=True, stdin=PIPE, stdout=PIPE, stderr=PIPE, universal_newlines=True)
@@ -410,14 +418,24 @@ class Tester(object):
             else:
                 DNEStr = " "
 
+            if SSK:
+                SSKSTR = " SHARED_KEY=true "
+            else:
+                SSKSTR = " "
+            if SELINUX:
+                SELINUXSTR = " " # XXX
+            else:
+                SELINUXSTR = " "
+
             TESTPARAMS = testinfo.get('testparam', '')
             # XXX - this stuff should be in some config
             args = ["ssh", "-tt", "-o", "StrictHostKeyChecking=no", "root@" + self.clientnetname,
                     'PDSH="pdsh -S -Rssh -w" mds_HOST=' + self.servernetname +
                     " ost_HOST=" + self.servernetname + " MDSDEV1=/dev/vdc " +
                     "OSTDEV1=/dev/vde OSTDEV2=/dev/vdf LOAD_MODULES_REMOTE=true " +
-                    "FSTYPE=" + fstype + DNEStr + "MDSSIZE=0 OSTSIZE=0 " +
-                    "MGSSIZE=0 "
+                    "FSTYPE=" + fstype + DNEStr + SSKSTR + SELINUXSTR +
+                    "MDSSIZE=0 OSTSIZE=0 " +
+                    "MGSSIZE=0 " +
                     "NAME=ncli /home/green/git/lustre-release/lustre/tests/auster -D /tmp/testlogs/ -r -k " + testname + " " + TESTPARAMS ]
             testprocess = Popen(args, close_fds=True, stdin=PIPE, stdout=PIPE, stderr=PIPE, universal_newlines=True)
         except (OSError) as details:
