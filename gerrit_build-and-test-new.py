@@ -160,13 +160,15 @@ def is_notknow_howto_test(filelist):
             return True
     return False
 
-def populate_testlist_from_array(testlist, testarray, LDiskfsOnly, ZFSOnly, DNE=True, Force=False):
+def populate_testlist_from_array(testlist, testarray, LDiskfsOnly, ZFSOnly, DNE=True, Force=False, SSK=False, SELINUX=False):
     for item in testarray:
         def getemptytest(item):
             test = {}
             test['test'] = item[0]
             test['timeout'] = item[1]
             test['testparam'] = item[2]
+            test['SSK'] = SSK
+            test['SELINUX'] = SELINUX
             return test
 
         try:
@@ -907,16 +909,18 @@ class Reviewer(object):
                         zfsonly = command.get("zfs", True)
                         ldiskfsonly = command.get("ldiskfs", True)
                         DNE = command.get("DNE", True)
+                        SSK = command.get("SSK", False)
+                        SELINUX = command.get("SELINUX", False)
                         workitem.tests = []
                         # Force to ensure we test what was requested even if disabled
-                        workitem.initial_tests = populate_testlist_from_array([], testarray, ldiskfsonly, zfsonly, DNE=DNE, Force=True)
+                        workitem.initial_tests = populate_testlist_from_array([], testarray, ldiskfsonly, zfsonly, DNE=DNE, Force=True, SSK=SSK, SELINUX=SELINUX)
                     else:
                         # copy existing tests
                         for tlist in (workitem.initial_tests, workitem.tests):
                             testarray = []
                             for item in tlist:
                                 titem = {}
-                                for elem in ('test', 'timeout', 'testparam', 'fstype', 'DNE'):
+                                for elem in ('test', 'timeout', 'testparam', 'fstype', 'DNE', 'SSK', 'SELINUX'):
                                     if item.get(elem):
                                         titem[elem] = item[elem]
                                 testarray.append(titem)

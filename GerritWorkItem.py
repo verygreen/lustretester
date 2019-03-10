@@ -137,6 +137,10 @@ class GerritWorkItem(object):
             htmlteststable += test['test'] + '@' + test['fstype']
             if test.get('DNE', False):
                 htmlteststable += '+DNE'
+            if test.get('SSK', False):
+                htmlteststable += '+SharedKey'
+            if test.get('SELINUX', False):
+                htmlteststable += '+SELinux'
             # Ugh, double checking
             color = ""
             if test.get('Finished', False):
@@ -269,6 +273,10 @@ class GerritWorkItem(object):
             testlist += test['test'] + '@' + test['fstype']
             if test.get('DNE', False):
                 testlist += '+DNE'
+            if test.get('SSK', False):
+                testlist += '+SharedKey'
+            if test.get('SELINUX', False):
+                testlist += '+SELinux'
             testlist += " "
         self.lock.release()
         return testlist
@@ -282,6 +290,10 @@ class GerritWorkItem(object):
             testname = test['test'] + '@' + test['fstype']
             if test.get('DNE', False):
                 testname += '+DNE'
+            if test.get('SSK', False):
+                testname += '+SharedKey'
+            if test.get('SELINUX', False):
+                testname += '+SELinux'
             testname += " "
 
             if not test['Failed']:
