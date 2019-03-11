@@ -12,3 +12,10 @@ options zfs zfs_multihost_fail_intervals=20
 
 update postgres config to enable = null to is null:
 transform_null_equals = on in /var/lib/pgsql/data/postgresql.conf
+
+# enable zswap:
+in grub: zswap.enabled=1
+to rc.local: echo lz4 >/sys/module/zswap/parameters/compressor
+
+faster emulation in grub:
+noibrs noibpb nopti l1tf=off
