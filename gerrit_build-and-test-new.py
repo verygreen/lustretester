@@ -1054,14 +1054,14 @@ def print_WorkList_to_HTML():
     for workitem in WorkList:
         workitems += '<tr><td>'
         if workitem.artifactsdir:
-            workitems += '<a href="' + workitem.artifactsdir.replace(fsconfig['root_path_offset'], "") + '">'
+            workitems += '<a href="' + workitem.artifactsdir.replace(fsconfig['root_path_offset'], "") + "/" + workitem.get_results_filename() + '">'
         workitems += str(workitem.buildnr)
         if workitem.artifactsdir:
             workitems += '</a>'
         workitems += '</td><td>'
 
         if workitem.artifactsdir:
-            workitems += '<a href="' + workitem.artifactsdir.replace(fsconfig['root_path_offset'], "") + '">'
+            workitems += '<a href="' + workitem.artifactsdir.replace(fsconfig['root_path_offset'], "") + "/" + workitem.get_results_filename() + '">'
         workitems += workitem.change['subject']
         if workitem.artifactsdir:
             workitems += '</a>'
