@@ -19,3 +19,7 @@ to rc.local: echo lz4 >/sys/module/zswap/parameters/compressor
 
 faster emulation in grub:
 noibrs noibpb nopti l1tf=off
+
+ksmtuned - install
+service ksmtuned start
+chkconfig ksmtuned on
