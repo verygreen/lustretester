@@ -755,8 +755,6 @@ class Reviewer(object):
             return False
 
         current_revision = change.get('current_revision')
-        self._debug("change_needs_review: current_revision = '%s'",
-                    current_revision)
         if not current_revision:
             return False
 
@@ -768,9 +766,11 @@ class Reviewer(object):
 
         # Have we already checked this revision?
         if self.in_history(change['id'], current_revision):
-            self._debug("change_needs_review: already reviewed")
+            #self._debug("change_needs_review: already reviewed")
             return False
 
+        self._debug("change_needs_review: current_revision = '%s'",
+                    current_revision)
 
         return True
 
@@ -825,12 +825,12 @@ class Reviewer(object):
         """
         new_timestamp = _now()
         age = 1 # Age
-        self._debug("update: age = %d", age)
+        #self._debug("update: age = %d", age)
 
         open_changes = self.get_changes({'status':'open',
                                          '-age':str(age) + 'h',
                                          '-label':'Code-Review=-2'})
-        self._debug("update: got %d open_changes", len(open_changes))
+        #self._debug("update: got %d open_changes", len(open_changes))
 
         for change in open_changes:
             if self.change_needs_review(change):
