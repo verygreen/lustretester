@@ -24,15 +24,19 @@ fi
 
 EXTRADEV=
 if [ -e "$MDT1DEV" ] ; then
+	blkdiscard "${MDT1DEV}"
 	EXTRADEV+="-drive file=${MDT1DEV},format=raw,if=none,id=drive-virtio-disk2,cache=none -device virtio-blk-pci,scsi=off,bus=pci.0,addr=0x7,drive=drive-virtio-disk2,id=virtio-disk2,write-cache=on "
 fi
 if [ -e "$MDT2DEV" ] ; then
+	blkdiscard "${MDT2DEV}"
 	EXTRADEV+="-drive file=${MDT2DEV},format=raw,if=none,id=drive-virtio-disk3,cache=none -device virtio-blk-pci,scsi=off,bus=pci.0,addr=0x8,drive=drive-virtio-disk3,id=virtio-disk3,write-cache=on "
 fi
 if [ -e "$OST1DEV" ] ; then
+	blkdiscard "${OST1DEV}"
 	EXTRADEV+="-drive file=${OST1DEV},format=raw,if=none,id=drive-virtio-disk4,cache=none -device virtio-blk-pci,scsi=off,bus=pci.0,addr=0x9,drive=drive-virtio-disk4,id=virtio-disk4,write-cache=on "
 fi
 if [ -e "$OST2DEV" ] ; then
+	blkdiscard "${OST2DEV}"
 	EXTRADEV+="-drive file=${OST2DEV},format=raw,if=none,id=drive-virtio-disk5,cache=none -device virtio-blk-pci,scsi=off,bus=pci.0,addr=0xa,drive=drive-virtio-disk5,id=virtio-disk5,write-cache=on "
 fi
 
