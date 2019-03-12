@@ -51,6 +51,8 @@ if __name__ == "__main__":
             # 0 id means error
             if not newid:
                 print("Cannot store new crash info!")
+            else:
+                print("Filed as %d and it was seen %d times before" % (newid, numreports))
         else:
             print("Got a match, it's " + result + " extrainfo " + extrainfo)
 
