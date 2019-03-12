@@ -20,6 +20,7 @@ class Node(object):
         self.name = name # Node name
         # XXX we probably want a better way eventually.
         self.consolelogfile = outputdir + "/" + name + "-console.txt"
+        self.outputdir = outputdir
         self.process = None # Popen object
         self.outs = '' # full accumulated stdout output
         self.errs = '' # full accumulated stderr output
@@ -102,6 +103,22 @@ class Node(object):
         self.errs += errs
         return False
 
+    def dump_core(self, prefix):
+        """ This dumps core and asks the qemu to quit, assumes qemu """
+        if not self.process or not self.check_node_alive():
+            return False
+        outs = ''
+        errs = ''
+        # \1c is to trigger monitor mode
+        command = '\1c\ndump-guest-memory -l %s/%s-%s-core\nquit\n' % ( self.outputdir, self.name, prefix)
+        try:
+            outs, errs = self.process.communicate(input=command, timeout=1)
+        except TimeoutExpired:
+            pass
+        self.outs += outs
+        self.errs += errs
+        return True
+
 class Tester(object):
     def setup_custom_logger(self, name):
         formatter = logging.Formatter(fmt='%(asctime)s %(levelname)-8s %(message)s',
@@ -139,8 +156,11 @@ class Tester(object):
             result = self.test_worker(testinfo, workitem)
             # same the test output if any
             if self.testresultsdir and self.testouts:
-                with open(self.testresultsdir + "/test.stdout") as sout:
-                    sout.write(self.testouts)
+                try:
+                    with open(self.testresultsdir + "/test.stdout", "w") as sout:
+                        sout.write(self.testouts)
+                except OSError:
+                    pass # what can we do
             if result:
                 sleep_on_error = 15 # Reset the backoff time after successful run
                 self.collect_syslogs()
@@ -464,6 +484,8 @@ class Tester(object):
 
         startTime = time.time()
         deadlinetime = startTime + timeout
+        Timeout = False
+        message = ""
         while testprocess.returncode is None: # XXX add a timer
             try:
                 # This is a very ugly workaround to the fact that when you call
@@ -485,11 +507,11 @@ class Tester(object):
                 if not server.check_node_alive():
                     self.logger.info(server.name + " died while processing test job")
                     self.error = True
-                    workitem.UpdateTestStatus(testinfo, "Server crashed", Crash=True)
+                    message = "Server crashed"
                     break
                 if not client.check_node_alive():
                     self.logger.info(client.name + " died while processing test job")
-                    workitem.UpdateTestStatus(testinfo, "Client crashed", Crash=True)
+                    message = "Client crashed"
                     self.error = True
                     break
 
@@ -500,7 +522,7 @@ class Tester(object):
                         if server.match_console_string(item['error']) or client.match_console_string(item['error']):
                             self.logger.warning("Matched fatal error in logs: " + item['error'])
                             self.error = True
-                            workitem.UpdateTestStatus(testinfo, "Fatal Error", Failed=True)
+                            message = "Fatal Error"
                             break
                 if self.error:
                     break # the above break only breaks from the for loop
@@ -509,7 +531,18 @@ class Tester(object):
                 if time.time() > deadlinetime:
                     self.logger.warning("Job timed out, terminating")
                     self.error = True
-                    workitem.UpdateTestStatus(testinfo, "Timeout", Timeout=True)
+                    message = "Timeout"
+                    Timeout = True
+                    # Now lets dump qemu crashdumps of the server and client
+                    client.dump_core("timeout")
+                    server.dump_core("timeout")
+                    counter = 0
+                    while client.check_node_alive() and server.check_node_alive():
+                        if counter > 60:
+                            self.logger.warning("Timeout waiting for crashdump generation on timeout")
+                            break
+                        counter += 1
+                    # XXX kick some additional analyzer for backtraces or such
                     break
             else:
                 self.testouts += outs
@@ -524,6 +557,43 @@ class Tester(object):
                     server.terminate()
                     client.terminate()
                     return False
+                # We also have this "File exists" error out of nowhere at times,
+                # seems to be some generic failure, so skip it.
+                if ".ko: File exists" in self.testouts:
+                    self.logger.warning("Cannot insert module Fle Exists, restarting")
+                    server.terminate()
+                    client.terminate()
+                    return False
+
+                # It's also possible either a client or server are dead or
+                # are dying (crashdumping), need to check for it here
+                kdump_start_message = "Starting Kdump Vmcore Save Service"
+                kdump_end_message = "kdump: saving vmcore complete"
+                counter = 0
+                if server.match_console_string(kdump_start_message):
+                    self.logger.info(server.name + " died while processing test job")
+                    self.error = True
+                    message = "Server crashed"
+                    # wait for kdump to finish
+                    while server.is_alive():
+                        if server.match_console_string(kdump_end_message):
+                            break
+                        if counter > 60: # 5 minutes max for crashdump
+                            message += "(crashdump timeout)"
+                            break
+                        time.sleep(5)
+                        counter += 1
+                elif client.match_console_string(kdump_start_message):
+                    self.logger.info(client.name + " died while processing test job")
+                    self.error = True
+                    message = "Client crashed"
+                    while client.is_alive():
+                        if client.match_console_string(kdump_end_message):
+                            break
+                        if counter > 60: # 5 minutes max for crashdump
+                            message += "(crashdump timeout)"
+                            break
+                        time.sleep(5)
 
         if workitem.Aborted:
             try:
@@ -537,7 +607,6 @@ class Tester(object):
 
         failedsubtests = ""
         skippedsubtests = ""
-        message = ""
         if self.error:
             Failure = True
             try:
@@ -585,11 +654,11 @@ class Tester(object):
                         elif yamltest.get('status', '') == "SKIP":
                             message = "Skipped"
 
-        if testprocess.returncode is not 0:
-            Failure = True
-            message += " Test script terminated with error " + str(testprocess.returncode)
-        elif not Failure and not message:
-            message = "Success"
+            if testprocess.returncode is not 0:
+                Failure = True
+                message += " Test script terminated with error " + str(testprocess.returncode)
+            elif not Failure and not message:
+                message = "Success"
 
         duration = int(time.time() - startTime)
         message += "(" + str(duration) + "s)"
@@ -624,9 +693,6 @@ class Tester(object):
         self.collect_crashdumps(server)
         self.collect_crashdumps(client)
 
-        # If self.error is set that means we already updated the errors state,
-        # But we still want them to fall through here to collect the crashdumps
-        if not self.error:
-            workitem.UpdateTestStatus(testinfo, message, Finished=True, Crash=self.CrashDetected, TestStdOut=self.testouts, TestStdErr=self.testerrs, Failed=Failure, Subtests=failedsubtests, Skipped=skippedsubtests)
+        workitem.UpdateTestStatus(testinfo, message, Finished=True, Crash=self.CrashDetected, TestStdOut=self.testouts, TestStdErr=self.testerrs, Failed=Failure, Subtests=failedsubtests, Skipped=skippedsubtests, Timeout=Timeout)
 
         return True
