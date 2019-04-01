@@ -49,7 +49,6 @@ import re
 import operator
 import mybuilder
 import mytester
-import mycrashanalyzer
 from datetime import datetime
 import dateutil.parser
 import shutil
@@ -114,8 +113,6 @@ testing_queue = Queue.PriorityQueue()
 testing_condition = threading.Condition()
 managing_queue = Queue.Queue()
 managing_condition = threading.Condition()
-crashing_queue = Queue.Queue()
-crashing_condition = threading.Condition()
 reviewer = None
 
 fsconfig = {}
@@ -1279,13 +1276,7 @@ if __name__ == "__main__":
     for worker in workers:
         worker['thread'] = mytester.Tester(worker, fsconfig, testing_condition,\
                                            testing_queue, managing_condition, \
-                                           managing_queue, crashing_condition,
-                                           crashing_queue)
-
-    # XXX - hardcode to 3 for now:
-    crashers = []
-    for crasher in [1, 2, 3]:
-        crashers.append(mycrashanalyzer.Crasher(fsconfig, crashing_condition, crashing_queue, managing_condition, managing_queue))
+                                           managing_queue)
 
     managerthread = threading.Thread(target=run_workitem_manager, args=())
     managerthread.daemon = True

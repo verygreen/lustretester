@@ -34,14 +34,20 @@ xzcat "${BUILDDIR}/debug-vmlinux${SUFFIX}.xz" >${TEMPDIR}/vmlinux
 tar -C ${TEMPDIR} -a -x -f "${BUILDDIR}/source-and-binaries${SUFFIX}".tar*
 mkdir ${TEMPDIR}/modules
 find ${TEMPDIR} -name "*.ko" -exec mv {} ${TEMPDIR}/modules \;
+# XXX - copy other kernel modules here too
 
-echo -e "extend lustre.so\nmod -S ${TEMPDIR}/modules\nlustre -l ${TEMPDIR}/lustre.bin\nbt -l > ${TEMPDIR}/bt.crash" | crash "${COREFILE}" "${TEMPDIR}"/vmlinux > "${TEMPDIR}"/crash.out 2>&1
+echo -e "extend lustre.so\nmod -S ${TEMPDIR}/modules\nlustre -l ${TEMPDIR}/lustre.bin\nbt -l > ${TEMPDIR}/bt.crash\nforeach bt -s -x > ${TEMPDIR}/bt.allthreads\n" | crash "${COREFILE}" "${TEMPDIR}"/vmlinux > "${TEMPDIR}"/crash.out 2>&1
 
 if [ -s "${TEMPDIR}/lustre.bin" ] ; then
 	./lctl df "${TEMPDIR}/lustre.bin" >${COREFILE}-lustredebug.txt
 fi
-cp ${TEMPDIR}/bt.crash ${COREFILE}-decoded-bt.txt
-cp ${TEMPDIR}/crash.out ${COREFILE}-crash.out
+cp ${TEMPDIR}/crash.out "${COREFILE}"-crash.out
+cp ${TEMPDIR}/bt.crash "${COREFILE}"-decoded-bt.txt
+cp ${TEMPDIR}/bt.allthreads "${COREFILE}"-all_threads_traces.txt
+# XXX - sort the threads to only leave unique
+
+# Important for timeout cores
+chmod 644 "${COREFILE}"
 
 if [ "${COMPRESS_CORE_AFTER_DONE}" = "yes" ] ; then
 	xz -9 "$COREFILE"

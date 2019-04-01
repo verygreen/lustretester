@@ -13,7 +13,7 @@ import shutil
 import yaml
 from pprint import pprint
 from subprocess32 import Popen, PIPE, TimeoutExpired
-
+import mycrashanalyzer
 
 class Node(object):
     def __init__(self, name, outputdir):
@@ -106,18 +106,19 @@ class Node(object):
     def dump_core(self, prefix):
         """ This dumps core and asks the qemu to quit, assumes qemu """
         if not self.process or not self.check_node_alive():
-            return False
+            return None
         outs = ''
         errs = ''
+        corename = '%s/%s-%s-core' % (self.outputdir, self.name, prefix)
         # \1c is to trigger monitor mode
-        command = '\1c\ndump-guest-memory -l %s/%s-%s-core\nquit\n' % ( self.outputdir, self.name, prefix)
+        command = '\1c\ndump-guest-memory -l %s\nquit\n' % (corename)
         try:
             outs, errs = self.process.communicate(input=command, timeout=1)
         except TimeoutExpired:
             pass
         self.outs += outs
         self.errs += errs
-        return True
+        return corename
 
 class Tester(object):
     def setup_custom_logger(self, name):
@@ -133,7 +134,7 @@ class Tester(object):
         logger.addHandler(screen_handler)
         return logger
 
-    def run_daemon(self, in_cond, in_queue, out_cond, out_queue, crash_cond, crash_queue):
+    def run_daemon(self, in_cond, in_queue, out_cond, out_queue):
         self.logger = self.setup_custom_logger("tester-%s.log" % (self.name))
         self.logger.info("Started daemon")
         # Would be great to verify all nodes are operational here, but
@@ -166,16 +167,10 @@ class Tester(object):
                 self.collect_syslogs()
                 self.update_permissions()
                 self.logger.info("Finished job buildid " + str(workitem.buildnr) + " test " + testinfo['test'] + '-' + testinfo['fstype'] )
-                # If we had a crash, kick the item to crash processing
-                # thread instead, it will return the item to queue when done
-                if self.CrashDetected and self.crashfiles:
-                    for crashfile in self.crashfiles:
-                        crash_cond.acquire()
-                        # XXX - do real distro from the job and arch from us
-                        self.logger.info("Posting crashfile " + crashfile)
-                        crash_queue.put((crashfile, testinfo, "centos7", "x86_64", workitem))
-                        crash_cond.notify()
-                        crash_cond.release()
+                # If we had a crash or timeout, a separate item was
+                # started that would process it and return to queue.
+                if (self.CrashDetected and self.crashfiles) or self.TimeoutDetected:
+                    pass
                 else:
                     out_cond.acquire()
                     out_queue.put(workitem)
@@ -197,7 +192,7 @@ class Tester(object):
             self.Busy = False
 
 
-    def __init__(self, workerinfo, fsinfo, in_cond, in_queue, out_cond, out_queue, crash_cond, crash_queue):
+    def __init__(self, workerinfo, fsinfo, in_cond, in_queue, out_cond, out_queue):
         self.name = workerinfo['name']
         self.serverruncommand = workerinfo['serverrun']
         self.clientruncommand = workerinfo['clientrun']
@@ -209,10 +204,14 @@ class Tester(object):
         self.fsinfo = fsinfo
         self.Busy = False
         self.CrashDetected = False
+        self.TimeoutDetected = False
         self.crashfiles = []
         self.testerrs = ''
         self.testouts = ''
-        self.daemon = threading.Thread(target=self.run_daemon, args=(in_cond, in_queue, out_cond, out_queue, crash_cond, crash_queue))
+        self.startTime = 0
+        self.out_cond = out_cond
+        self.out_queue = out_queue
+        self.daemon = threading.Thread(target=self.run_daemon, args=(in_cond, in_queue, out_cond, out_queue))
         self.daemon.daemon = True
         self.daemon.start()
 
@@ -239,22 +238,21 @@ class Tester(object):
             except OSError:
                 pass
 
-    def collect_crashdumps(self, node):
+    def collect_crashdump(self, node):
+        crashfilename = None
         if node.returncode() is None:
-            return # It's still alive, so no crashdumps
+            return None # It's still alive, so no crashdumps
 
         crashdirname = self.fsinfo["crashdumps"] + "/" + node.name
         if not os.path.exists(crashdirname):
-            return
+            return None
 
         if not os.path.isdir(crashdirname):
             self.logger.warning("crashdir location not a dir " + crashdirname)
 
         outputlocationpathprefix = self.testresultsdir + "/" + node.name + "-"
 
-        # XXX - maybe eventually compress vmcores?
         for crash in os.listdir(crashdirname):
-            self.CrashDetected = True
             for item in ["vmcore-dmesg.txt", "vmcore"]:
                 filename = crashdirname + "/" + crash + "/" + item
                 if os.path.exists(filename):
@@ -275,19 +273,26 @@ class Tester(object):
                             os.chmod(outputlocationpathprefix + "vmcore", 0644)
                         except OSError:
                             pass # What can we do?
-                        self.crashfiles.append(outputlocationpathprefix + "vmcore")
+                        self.CrashDetected = True
+                        crashfilename = outputlocationpathprefix + "vmcore"
 
                 vmcore_flat.close()
 
         # Now remove the crash data
         shutil.rmtree(crashdirname)
+        return crashfilename
+
+    def get_duration(self):
+        return int(time.time() - self.startTime)
 
     def init_new_run(self):
         self.testerrs = ''
         self.testouts = ''
         self.CrashDetected = False
+        self.TiemoutDetected = False
         self.crashfiles = []
         self.error = False
+        self.startTime = time.time();
         # Cleanup old crashdumps and syslogs
         for nodename in [self.servernetname, self.clientnetname]:
             try:
@@ -482,9 +487,8 @@ class Tester(object):
         # be captured. This is probably fine because Lustre was not involved
         # yet? From this point on all failures are assumed to be test-related
 
-        startTime = time.time()
-        deadlinetime = startTime + timeout
-        Timeout = False
+        self.startTime = time.time()
+        deadlinetime = self.startTime + timeout
         message = ""
         while testprocess.returncode is None: # XXX add a timer
             try:
@@ -519,10 +523,23 @@ class Tester(object):
                 # terminate job sooner as we know it's not healthy anymore
                 for item in console_errors:
                     if item.get('error') and item.get('fatal'):
-                        if server.match_console_string(item['error']) or client.match_console_string(item['error']):
-                            self.logger.warning("Matched fatal error in logs: " + item['error'])
-                            self.error = True
-                            message = "Fatal Error"
+                        for node in [server, client]:
+                            if node.match_console_string(item['error']):
+                                self.logger.warning("Matched fatal error in logs: " + item['error'] + ' on node ' + node.name)
+                                self.error = True
+                                message = "Fatal Error on " + str(node.name)
+                                corefile = node.dump_core("fatalerror")
+                                counter = 0
+                                while node.check_node_alive():
+                                    if counter > 60:
+                                        self.logger.warning("Timeout waiting for crashdump generation on fatalerror on " + str(node.name))
+                                        break
+                                    counter += 1
+                                    time.sleep(5)
+                                # XXX copy arch and distro from testinfo/nodestruct
+                                mycrashanalyzer.Crasher(self.fsinfo, corefile, testinfo, clientdistro, self.clientarch, workitem, message, TIMEOUT=True)
+                        # Cannot break from the above loop
+                        if self.error:
                             break
                 if self.error:
                     break # the above break only breaks from the for loop
@@ -532,16 +549,21 @@ class Tester(object):
                     self.logger.warning("Job timed out, terminating")
                     self.error = True
                     message = "Timeout"
-                    Timeout = True
+                    self.TimeoutDetected = True
                     # Now lets dump qemu crashdumps of the server and client
-                    client.dump_core("timeout")
-                    server.dump_core("timeout")
+                    clientcore = client.dump_core("timeout")
+                    servercore = server.dump_core("timeout")
                     counter = 0
                     while client.check_node_alive() and server.check_node_alive():
                         if counter > 60:
                             self.logger.warning("Timeout waiting for crashdump generation on timeout")
                             break
                         counter += 1
+                        time.sleep(5)
+                    if clientcore:
+                        mycrashanalyzer.Crasher(self.fsinfo, clientcore, testinfo, clientdistro, self.clientarch, workitem, message, TIMEOUT=True)
+                    if servercore:
+                        mycrashanalyzer.Crasher(self.fsinfo, servercore, testinfo, serverdistro, self.serverarch, workitem, message, TIMEOUT=True)
                     # XXX kick some additional analyzer for backtraces or such
                     break
             else:
@@ -551,7 +573,7 @@ class Tester(object):
                 # run. Currently we filter for this message only:
                 # insmod: ERROR: could not insert module /home/green/git/lustre-release/lustre/ptlrpc/ptlrpc.ko: Network is down
                 # Add a config file if this list is to grow
-                portmap_error = "Can't start acceptor on port 988: port already in use"
+                portmap_error = "port 988: port already in use"
                 if server.match_console_string(portmap_error) or client.match_console_string(portmap_error):
                     self.logger.warning("Clash with portmap, restarting")
                     server.terminate()
@@ -613,9 +635,13 @@ class Tester(object):
                 testprocess.terminate()
             except OSError:
                 pass # No such process?
-            outs, errs = testprocess.communicate()
-            self.testouts += outs
-            self.testerrs += errs
+            else:
+                try:
+                    outs, errs = testprocess.communicate()
+                    self.testouts += outs
+                    self.testerrs += errs
+                except:
+                    pass # did it die?
 
         else:
             # Don't go here if we had a panic, it's unimportant.
@@ -660,7 +686,7 @@ class Tester(object):
             elif not Failure and not message:
                 message = "Success"
 
-        duration = int(time.time() - startTime)
+        duration = int(time.time() - self.startTime)
         message += "(" + str(duration) + "s)"
 
         matched_server_errors = []
@@ -690,9 +716,18 @@ class Tester(object):
         #pprint(cerrs)
 
         # See if we have any crashdumps
-        self.collect_crashdumps(server)
-        self.collect_crashdumps(client)
+        crashname = self.collect_crashdump(server)
+        if crashname:
+            mycrashanalyzer.Crasher(self.fsinfo, crashname, testinfo, serverdistro, self.serverarch, workitem, message, COND=self.out_cond, QUEUE=self.out_queue)
 
-        workitem.UpdateTestStatus(testinfo, message, Finished=True, Crash=self.CrashDetected, TestStdOut=self.testouts, TestStdErr=self.testerrs, Failed=Failure, Subtests=failedsubtests, Skipped=skippedsubtests, Timeout=Timeout)
+        crashname = self.collect_crashdump(client)
+        if crashname:
+            mycrashanalyzer.Crasher(self.fsinfo, crashname, testinfo, clientdistro, self.clientarch, workitem, message, COND=self.out_cond, QUEUE=self.out_queue)
+
+        if self.CrashDetected:
+            # These would post stuff separately
+            return True
+
+        workitem.UpdateTestStatus(testinfo, message, Finished=True, Crash=self.CrashDetected, TestStdOut=self.testouts, TestStdErr=self.testerrs, Failed=Failure, Subtests=failedsubtests, Skipped=skippedsubtests)
 
         return True

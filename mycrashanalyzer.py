@@ -4,7 +4,6 @@ import sys
 import os
 import time
 import threading
-import logging
 import Queue
 import shlex
 import json
@@ -297,201 +296,179 @@ def add_new_crash(lasttest, crashtrigger, crashfunction, crashbt, fullcrash, tes
 
 
 class Crasher(object):
-    def setup_custom_logger(self, name):
-        formatter = logging.Formatter(fmt='%(asctime)s %(levelname)-8s %(message)s',
-                                      datefmt='%Y-%m-%d %H:%M:%S')
-        handler = logging.FileHandler(name, mode='a')
-        handler.setFormatter(formatter)
-        screen_handler = logging.StreamHandler(stream=sys.stdout)
-        screen_handler.setFormatter(formatter)
-        logger = logging.getLogger(name)
-        logger.setLevel(logging.DEBUG)
-        logger.addHandler(handler)
-        logger.addHandler(screen_handler)
-        return logger
 
-    def run_daemon(self, in_cond, in_queue, out_cond, out_queue):
-        self.name = threading.current_thread().name
-        self.logger = self.setup_custom_logger("crasher-%s.log" % (self.name))
-        self.logger.info("Started crasher daemon")
-        while True:
-            in_cond.acquire()
-            while in_queue.empty():
-                in_cond.wait()
-            self.Busy = True
-            job = in_queue.get()
-            self.logger.info("Remaining Crasher items in the queue left: " + str(in_queue.qsize()))
-            in_cond.release()
-            crashfilename = job[0]
-            testinfo = job[1]
-            distro = job[2]
-            arch = job[3]
-            workitem = job[4]
-            self.logger.info("Got crash job for id " + str(workitem.buildnr) + " filename " + crashfilename)
-            result = self.crash_worker(crashfilename, testinfo, distro, arch, workitem)
-            self.logger.info("Finished crash job for id " + str(workitem.buildnr))
-            out_cond.acquire()
-            out_queue.put(workitem)
-            out_cond.notify()
-            out_cond.release()
-            self.logger.info("Returned to management queue for id " + str(workitem.buildnr))
-            self.Busy = False
+    def logger(self, message):
+        self.extrainfo += "(%s)" % (message)
 
-    def __init__(self, fsconfig, in_cond, in_queue, out_cond, out_queue):
-        self.Busy = False
+    def __init__(self, fsconfig, corefile, testinfo, distro, arch, workitem, message, COND=None, QUEUE=None, TIMEOUT=False):
         self.fsconfig = fsconfig
-        self.daemon = threading.Thread(target=self.run_daemon, args=(in_cond, in_queue, out_cond, out_queue))
-        self.daemon.daemon = True
+        self.cond = COND
+        self.queue = QUEUE
+        self.Timeout = TIMEOUT
+        self.extrainfo = ''
+        self.daemon = threading.Thread(target=self.crash_worker, args=(corefile, testinfo, distro, arch, workitem, message))
         self.daemon.start()
 
-    def crash_worker(self, crashfilename, testinfo, distro, arch, workitem):
-        # We probably don't want to work on aborted stuff?
-        if workitem.Aborted:
-            return True
-
-        if not testinfo.get('ResultsDir', ""):
-            self.logger.error("Got crash job, but no ResultsDir set?")
-            return True
-
+    def crash_worker(self, crashfilename, testinfo, distro, arch, workitem, testmessage):
         try:
-            with open("crash_processor.json", "r") as blah:
-                crashprocessorinfo = json.load(blah)
-        except OSError: # no file?
-            return False
-
-        command = "%s %s %s %s %s" % (crashprocessorinfo['command'], workitem.artifactsdir, crashfilename, distro, arch)
-        args = shlex.split(command)
-
-        try:
-            processor = Popen(args, close_fds=True, stdin=PIPE, stdout=PIPE, stderr=PIPE, universal_newlines=True)
-        except (OSError) as details:
-            self.logger.warning("Failed to run crash processor " + str(details))
-            return False
-
-        # We will not give any timeout here since we assume it's a well
-        # mannered local job
-        outs, errs = processor.communicate()
-
-        if processor.returncode is not 0:
-            self.logger.warning("Build " + str(workitem.buildnr) + " failed with code " + str(processor.returncode))
-        else:
-            self.logger.info("Build " + str(workitem.buildnr) + " done initial processing")
-
-        try:
-            with open(crashfilename + "-dmesg.txt", "r") as crashfile:
-                (lasttestline, entirecrash, lasttestlogs, crashtrigger, crashfunction, abbreviated_backtrace) = extract_crash_from_dmesg(crashfile)
-        except OSError:
-            self.logger.warning("Build " + str(workitem.buildnr) + "no crash dmesg file")
-            lasttestline = ""
-            entirecrash = ""
-
-        if not entirecrash: # Huh? empty crash?
-            self.logger.error("Cannot extract crash message")
-            return True # no useful data anyway
-
-        # set the bt somewhere and triage it for newedness.
-        (bug, extrainfo) = is_known_crash(lasttestline, crashtrigger, crashfunction, abbreviated_backtrace, entirecrash, lasttestlogs)
-        if bug is not None:
-            # Ok, there was a match, just append it to old message and move on
-            message = "%s" % (bug)
-            if extrainfo:
-                message += "(%s)" % (extrainfo)
-            testinfo['SubtestList'] = message
-            return True # No need to look into decoded bt, this is a known crash
-
-        # Need to generate our link
-        resultsdir = testinfo.get('ResultsDir')
-        if resultsdir:
-            url = resultsdir.replace(self.fsconfig['root_path_offset'], self.fsconfig['http_server'])
-        else:
-            self.logger.warning("Build " + str(workitem.buildnr) + " no url?")
-            url = "Build " + str(workitem.buildnr)
-
-        # Lets record this new or previously seen crash and record status of it
-        (newid, numreports) = add_new_crash(lasttestline, crashtrigger, crashfunction, abbreviated_backtrace, entirecrash, lasttestlogs, url)
-        if newid: # 0 means there was some error
-            message = "(Untriaged #%d, seen %d times before)" % (newid, numreports)
-            testinfo['SubtestList'] = message
-            if numreports > 20: # Frequently hit failure, don't bother posting below
+            # We probably don't want to work on aborted stuff?
+            if workitem.Aborted:
                 return True
-        else:
-            print("DB error")
-            return True
 
-        # Now let's see if any changes in this changeset were in this crash
-        # based on filename only.
-        # Of course we need to keep in mind that there are changes for branches
-        # and those have no filenames
-        if  workitem.change.get('revisions'):
-            files = workitem.change['revisions'][str(workitem.change['current_revision'])]['files']
-        else:
-            # debug files = ['lustre/osc/osc_object.c']
-            self.logger.warning("This was not a review test, not posting crash comments")
-            return True # Nowhere to post changes, bail out
+            if not testinfo.get('ResultsDir', ""):
+                self.logger("Got crash job, but no ResultsDir set?")
+                return True
 
-        try:
-            with open(crashfilename + "-decoded-bt.txt", "r") as crashfile:
-                crashlog = crashfile.read()
-        except OSError:
-            self.logger.warning("Build " + str(workitem.buildnr) + " no decoded crash bt?")
-            return True # No crash bt so cannot decode, bail out
+            try:
+                with open("crash_processor.json", "r") as blah:
+                    crashprocessorinfo = json.load(blah)
+            except OSError: # no file?
+                return False
+
+            command = "%s %s %s %s %s" % (crashprocessorinfo['command'], workitem.artifactsdir, crashfilename, distro, arch)
+            args = shlex.split(command)
+
+            try:
+                processor = Popen(args, close_fds=True, stdin=PIPE, stdout=PIPE, stderr=PIPE, universal_newlines=True)
+            except (OSError) as details:
+                self.logger("Failed to run crash processor " + str(details))
+                return False
+
+            # We will not give any timeout here since we assume it's a well
+            # mannered local job
+            outs, errs = processor.communicate()
+
+            if processor.returncode is not 0:
+                self.logger("Crash processing failed with code " + str(processor.returncode) + " stdout: " + outs + " stderr: " + errs)
+
+            if self.Timeout:
+                # Right now we are done here, perhaps add some more logic here eventually
+                return True
+
+            try:
+                with open(crashfilename + "-dmesg.txt", "r") as crashfile:
+                    (lasttestline, entirecrash, lasttestlogs, crashtrigger, crashfunction, abbreviated_backtrace) = extract_crash_from_dmesg(crashfile)
+            except OSError:
+                self.logger("no crash dmesg file")
+                lasttestline = ""
+                entirecrash = ""
+
+            if not entirecrash: # Huh? empty crash?
+                self.logger("Cannot extract crash message")
+                return True # no useful data anyway
+
+            # set the bt somewhere and triage it for newness.
+            (bug, extrainfo) = is_known_crash(lasttestline, crashtrigger, crashfunction, abbreviated_backtrace, entirecrash, lasttestlogs)
+            if bug is not None:
+                # Ok, there was a match, just append it to old message and move on
+                message = "%s" % (bug)
+                if extrainfo:
+                    message += "(%s)" % (extrainfo)
+                self.logger(message)
+                return True # No need to look into decoded bt, this is a known crash
+
+            # Need to generate our link
+            resultsdir = testinfo.get('ResultsDir')
+            if resultsdir:
+                url = resultsdir.replace(self.fsconfig['root_path_offset'], self.fsconfig['http_server'])
+            else:
+                self.logger("no url?")
+                url = "Build " + str(workitem.buildnr)
+
+            # Lets record this new or previously seen crash and record status of it
+            (newid, numreports) = add_new_crash(lasttestline, crashtrigger, crashfunction, abbreviated_backtrace, entirecrash, lasttestlogs, url)
+            if newid: # 0 means there was some error
+                message = "Untriaged #%d, seen %d times before" % (newid, numreports)
+                self.logger(message)
+                if numreports > 20: # Frequently hit failure, don't bother posting below
+                    return True
+            else:
+                self.logger("DB error")
+                return True
+
+            # Now let's see if any changes in this changeset were in this crash
+            # based on filename only.
+            # Of course we need to keep in mind that there are changes for branches
+            # and those have no filenames
+            if  workitem.change.get('revisions'):
+                files = workitem.change['revisions'][str(workitem.change['current_revision'])]['files']
+            else:
+                # debug files = ['lustre/osc/osc_object.c']
+                print("This was not a review test, not posting crash comments")
+                return True # Nowhere to post changes, bail out
+
+            try:
+                with open(crashfilename + "-decoded-bt.txt", "r") as crashfile:
+                    crashlog = crashfile.read()
+            except OSError:
+                print("Build " + str(workitem.buildnr) + " no decoded crash bt?")
+                return True # No crash bt so cannot decode, bail out
 
 
-        lines = crashlog.splitlines()
-        reviews = {}
-        i = 1 # Skip first line
-        while i < len(lines):
-            line = lines[i].strip()
-            i += 1
-            # Skip spurious file info and exceptions
-            if line[0] != '#':
-                #print("Not a bt line: " + str(line))
-                continue
-            tokens = line.split(' ', 5)
-            if len(tokens) < 6: # No kernel module info - skip
-                i += 1 # Kernel always have debug info in my case, so skip it too
-                #print("no modules bt line: " + str(line))
-                continue
-            if tokens[5] in lustremodules:
-                # Ok, it's a lustre module, let's make sure it's not
-                # LBUG itself
-                if tokens[2] == "lbug_with_loc" and tokens[5] == "[libcfs]":
-                    i += 1 # skip source line too
-                    continue
-
-                function = tokens[2]
-                # Ok, now we know we have a lustre line, let's populate the item
-                tokens = lines[i].strip().split(' ', 1)
+            lines = crashlog.splitlines()
+            reviews = {}
+            i = 1 # Skip first line
+            while i < len(lines):
+                line = lines[i].strip()
                 i += 1
-                # Sanity check:
-                if not tokens[0].startswith("/") or not tokens[1].isdigit():
-                    #print("not a file/line: " + str(tokens[0]) + " " + str(tokens[1]))
-                    continue # not a file and line info, huh?
-                # Config variable!
-                filename = tokens[0].replace("/home/green/git/lustre-release/", "")
-                # Strip final colon
-                nsym = len(filename)
-                filename = filename[:nsym-1]
-                fileline = int(tokens[1])
-                if filename in files: # We got our first hit, so we'll record here
-                    path_comments = reviews.setdefault(filename, [])
-                    comment = "Crash with latest lustre function %s in backtrace called here:\n\n " % (function)
-                    path_comments.append({'line':fileline, 'message': comment + entirecrash})
-                    break
-                else:
-                    #print("function in unknown file " + str(filename) + " " + str(fileline))
-                    pass
+                # Skip spurious file info and exceptions
+                if line[0] != '#':
+                    #print("Not a bt line: " + str(line))
+                    continue
+                tokens = line.split(' ', 5)
+                if len(tokens) < 6: # No kernel module info - skip
+                    i += 1 # Kernel always have debug info in my case, so skip it too
+                    #print("no modules bt line: " + str(line))
+                    continue
+                if tokens[5] in lustremodules:
+                    # Ok, it's a lustre module, let's make sure it's not
+                    # LBUG itself
+                    if tokens[2] == "lbug_with_loc" and tokens[5] == "[libcfs]":
+                        i += 1 # skip source line too
+                        continue
 
-        if reviews: # there's at least some match and we have not seen it too much - let's print it as immediate message comment?
-            self.logger.warning("Looks like we are going to try to post urgent review here")
-            #print(str(reviews))
-            message = "Crash in %s@%s" % (testinfo['test'], testinfo['fstype'])
-            if testinfo.get('DNE', False):
-                message += "+DNE"
+                    function = tokens[2]
+                    # Ok, now we know we have a lustre line, let's populate the item
+                    tokens = lines[i].strip().split(' ', 1)
+                    i += 1
+                    # Sanity check:
+                    if not tokens[0].startswith("/") or not tokens[1].isdigit():
+                        #print("not a file/line: " + str(tokens[0]) + " " + str(tokens[1]))
+                        continue # not a file and line info, huh?
+                    # Config variable!
+                    filename = tokens[0].replace("/home/green/git/lustre-release/", "")
+                    # Strip final colon
+                    nsym = len(filename)
+                    filename = filename[:nsym-1]
+                    fileline = int(tokens[1])
+                    if filename in files: # We got our first hit, so we'll record here
+                        path_comments = reviews.setdefault(filename, [])
+                        comment = "Crash with latest lustre function %s in backtrace called here:\n\n " % (function)
+                        path_comments.append({'line':fileline, 'message': comment + entirecrash})
+                        break
+                    else:
+                        #print("function in unknown file " + str(filename) + " " + str(fileline))
+                        pass
 
-            workitem.post_immediate_review_comment(message, reviews)
-        else:
-            # For now it still might be unrelated so... Just do nothing?
-            pass
+            if reviews: # there's at least some match and we have not seen it too much - let's print it as immediate message comment?
+                print("Looks like we are going to try to post urgent review here")
+                #print(str(reviews))
+                message = "Crash in %s@%s" % (testinfo['test'], testinfo['fstype'])
+                if testinfo.get('DNE', False):
+                    message += "+DNE"
 
-        return True
+                workitem.post_immediate_review_comment(message, reviews)
+            else:
+                # For now it still might be unrelated so... Just do nothing?
+                pass
+
+            return True
+        finally:
+            if self.extrainfo:
+                testinfo['SubtestList'] = self.extrainfo
+            workitem.UpdateTestStatus(testinfo, testmessage, Finished=True, Timeout=self.Timeout, Crash=not self.Timeout, Failed=True)
+            if self.cond is not None:
+                self.cond.acquire()
+                self.queue.put(workitem)
+                self.cond.notify()
+                self.cond.release()
