@@ -23,3 +23,5 @@ noibrs noibpb nopti l1tf=off
 ksmtuned - install
 service ksmtuned start
 chkconfig ksmtuned on
+
+in vm /exports/centos7-base/etc/systemd/journald.conf - edit Storage to none
