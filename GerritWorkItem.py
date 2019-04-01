@@ -83,6 +83,7 @@ class GerritWorkItem(object):
             worklist = self.tests
         else:
             print("Weird state, huh?" + str(vars(self)));
+            worklist = []
 
         item = testinfo # no need to search for it
         if message is None and ResultsDir is not None:
