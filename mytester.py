@@ -338,7 +338,7 @@ class Tester(object):
 
         timeout = testinfo.get("timeout", -1)
         if timeout == -1:
-            timeout = 5*3600 # we are willing to wait up to 5 hours for unknown tests
+            timeout = 7*3600 # we are willing to wait up to 7 hours for unknown tests
         fstype = testinfo.get("fstype", "ldiskfs")
         DNE = testinfo.get("DNE", False)
         SELINUX = testinfo.get("SELINUX", False)
