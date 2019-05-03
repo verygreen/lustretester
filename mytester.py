@@ -603,11 +603,14 @@ class Tester(object):
 
                 # It's also possible either a client or server are dead or
                 # are dying (crashdumping), need to check for it here
-                kdump_start_message = "Starting Kdump Vmcore Save Service"
+                #kdump_start_message = "Starting Kdump Vmcore Save Service"
+                # Need to catch early booting message to be sure, so grab
+                # part of the kdump kernel commandline instead
+                kdump_start_message = "irqpoll nr_cpus=1 reset_devices"
                 kdump_end_message = "kdump: saving vmcore complete"
                 counter = 0
                 if server.match_console_string(kdump_start_message):
-                    self.logger.info(server.name + " died while processing test job")
+                    self.logger.info(server.name + " kdump starting while processing test job")
                     self.error = True
                     message = "Server crashed"
                     # wait for kdump to finish
