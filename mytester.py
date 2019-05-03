@@ -722,6 +722,12 @@ class Tester(object):
         if matched_client_errors:
             message += "(Client: " + ",".join(matched_client_errors) + ")"
 
+        # Probably should make it a configurable item too?
+        if ": double free or corruption " in self.testouts:
+            message += "(userspace memcorruption)"
+        elif "Backtrace: " in self.testouts:
+            message += "(userspace backtrace - please investigate)"
+
         self.logger.info("Job finished with code " + str(testprocess.returncode) + " and message " + message)
         # XXX Also need to add yaml parsing of results with subtests.
 
