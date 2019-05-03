@@ -85,9 +85,13 @@ class Node(object):
             self.process.terminate()
         except OSError: # Already dead? ignore
             pass
-        outs, errs = self.process.communicate()
-        self.outs += outs
-        self.errs += errs
+        # This can actually hang too if the process refuses to die.
+        try:
+            outs, errs = self.process.communicate(timeout=15)
+            self.outs += outs
+            self.errs += errs
+        except TimeoutExpired:
+            print(self.name + " did not die after terminate, leaving it be")
 
     def returncode(self):
         self.process.poll()
@@ -413,12 +417,12 @@ class Tester(object):
         if server.wait_for_login() is not None:
             client.terminate()
             #pprint(server.errs)
-            self.logger.warning("Server did not show login prompt " + str(server.errs) + " " + str(server.outs))
+            self.logger.warning("Server did not show login prompt " + str(server.errs) + " " + str(server.outs) + " " + str([self.serverruncommand, server.name, serverkernel, serverinitrd, serverbuild, testresultsdir]))
             return False
         if client.wait_for_login() is not None:
             server.terminate()
             #pprint(client.errs)
-            self.logger.warning("Client did not show login prompt" + str(client.errs) + " " + str(client.outs))
+            self.logger.warning("Client did not show login prompt" + str(client.errs) + " " + str(client.outs) + " " + str([self.clientruncommand, client.name, clientkernel, clientinitrd, clientbuild, testresultsdir]))
             return False
 
         if workitem.Aborted:
@@ -446,8 +450,15 @@ class Tester(object):
             server.terminate()
             client.terminate()
             return False
+        except TimeoutExpired:
+            self.logger.warning("Timed out mounting nfs")
+            setupprocess.terminate()
+            server.terminate()
+            client.terminate()
+            return False
 
         if workitem.Aborted:
+            self.logger.warning("job for buildid " + str(workitem.buildnr) + " aborted")
             server.terminate()
             client.terminate()
             return True
@@ -503,6 +514,7 @@ class Tester(object):
                 outs, errs = testprocess.communicate(timeout=0.01) # cannot have 0 somehow
             except TimeoutExpired, ValueError:
                 if workitem.Aborted:
+                    self.logger.warning("job for buildid " + str(workitem.buildnr) + " aborted")
                     testprocess.terminate()
                     server.terminate()
                     client.terminate()
@@ -603,23 +615,26 @@ class Tester(object):
                         if server.match_console_string(kdump_end_message):
                             break
                         if counter > 60: # 5 minutes max for crashdump
+                            self.logger.info(server.name + " kdump timeout")
                             message += "(crashdump timeout)"
                             break
                         time.sleep(5)
                         counter += 1
                 elif client.match_console_string(kdump_start_message):
-                    self.logger.info(client.name + " died while processing test job")
+                    self.logger.info(client.name + " kdump starting while processing test job")
                     self.error = True
                     message = "Client crashed"
                     while client.is_alive():
                         if client.match_console_string(kdump_end_message):
                             break
                         if counter > 60: # 5 minutes max for crashdump
+                            self.logger.info(client.name + " kdump timeout")
                             message += "(crashdump timeout)"
                             break
                         time.sleep(5)
 
         if workitem.Aborted:
+            self.logger.warning("job for buildid " + str(workitem.buildnr) + " aborted")
             try:
                 testprocess.terminate()
             except OSError:
