@@ -965,8 +965,11 @@ class Reviewer(object):
                 revision = r.text.split(" ", 2)[1]
                 changenum = int(revision[:8], 16)
             except requests.exceptions.RequestException:
-                revision = "unknown"
+                revision = branch
                 changenum = 1 # all the same - so abort-unsafe
+            except ValueError: # some garbage from gitweb?
+                revision = branch
+                changenum = "1" # all the same - so abort-unsafe
             change = {'branch':branch, '_number':changenum, 'branchwide':True,
                     'id':branch, 'subject':subject, 'current_revision':revision }
             self.review_change(change)
@@ -998,6 +1001,8 @@ class Reviewer(object):
 
 def save_WorkItem(workitem):
     print_WorkList_to_HTML()
+    if workitem not in WorkList: # already removed?
+        return
     with open(SAVEDSTATE_DIR + "/" + str(workitem.buildnr) + ".pickle", "wb") as output:
         workitem.lock.acquire()
         try:
@@ -1008,6 +1013,7 @@ def save_WorkItem(workitem):
 
 def donewith_WorkItem(workitem):
     print_WorkList_to_HTML()
+    print("Trying to be done with buildid " + str(workitem.buildnr))
     try:
         WorkList.remove(workitem)
     except ValueError:
@@ -1128,8 +1134,8 @@ def run_workitem_manager():
             # Mark all earlier revs as aborted first before we add ourselves in
             find_and_abort_duplicates(workitem)
             # Initial workitem save
-            save_WorkItem(workitem)
             WorkList.append(workitem)
+            save_WorkItem(workitem)
             print_WorkList_to_HTML() # Here do it separately to catch the new build
             logger.info("Got new ref " + workitem.ref + " assigned buildid " + str(workitem.buildnr))
             logger.info("for ref " + workitem.ref + " initial tests: " + str(workitem.initial_tests))
