@@ -294,7 +294,7 @@ def convert_new_crash(dbconn, form):
     # and remove all matching reports.
     try:
         cur = dbconn.cursor()
-        cur.execute('DELETE FROM triage WHERE newcrash_id in ' + NEWIDS + EXTRACONDS, EXTRACONDvars)
+        cur.execute('DELETE FROM triage USING new_crashes WHERE newcrash_id in ' + NEWIDS + EXTRACONDS, EXTRACONDvars)
         dbconn.commit()
 
         # Now we need to see if any new crashes have zero triage reports left
