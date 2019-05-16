@@ -19,11 +19,19 @@ def xstr(s):
         return ''
     return str(s)
 
+basenameurl = os.path.basename(os.environ['REQUEST_URI'])
+index = basenameurl.find('?')
+if index != -1:
+    basenameurl = basenameurl[:index]
+
+def is_delete_allowed():
+    return not "external" in os.environ['REQUEST_URI']
+
 def newreport_rows_to_table(rows):
     REPORTS = ""
     for row in rows:
         REPORTS += '<tr><td>%d</td>' % (row[0])
-        REPORTS += '<td><a href="crashdb_ui.py.cgi?newid=%d">%s</a></td><td>%s</td>' % (row[0], cgi.escape(row[1]), cgi.escape(xstr(row[2])))
+        REPORTS += '<td><a href="' + basenameurl + '?newid=%d">%s</a></td><td>%s</td>' % (row[0], cgi.escape(row[1]), cgi.escape(xstr(row[2])))
         REPORTS += '<td>%s</td>' % (row[3].replace('\n', '<br>'))
         REPORTS += '<td>' + str(row[4]) + '</td>'
         REPORTS += '<td>' + str(row[5]) + '</td></tr>'
@@ -54,7 +62,7 @@ def print_new_crashes(dbconn):
         print(e)
         pass
 
-    all_items = {'REPORTS': REPORTS}
+    all_items = {'REPORTS': REPORTS, 'BASENAMEURL':basenameurl}
 
     return template.format(**all_items)
 
@@ -67,7 +75,7 @@ def examine_one_new_crash(dbconn, newid_str):
 <body>
 <H2>Editing crashreport #{NEWCRASHID}</H2>
 <table border=1>
-<form method="post" action=\"crashdb_ui.py.cgi\">
+<form method=\"post\" action=\"{BASENAMEURL}\">
 <tr><th>Reason</th><th>Crashing Function</th><th>Where to cut Backtrace</th><th>Reports Count</th></tr>
 {REPORT}
 </table>
@@ -88,7 +96,7 @@ def examine_one_new_crash(dbconn, newid_str):
 <tr><th>Failing Test</th><th>Full Crash</th><th>Messages before crash</th><th>Comment</th></tr>
 {TRIAGE}
 </table>
-<a href=\"crashdb_ui.py.cgi\">Return to new crashes list</a>
+<a href=\"{BASENAMEURL}\">Return to new crashes list</a>
 </body>
 </html>
     """
@@ -116,7 +124,8 @@ def examine_one_new_crash(dbconn, newid_str):
     TRIAGE = ""
     try:
         cur = dbconn.cursor()
-        cur.execute("SELECT DISTINCT ON (testline) id, testline, fullcrash, testlogs, link FROM triage where newcrash_id = %s order by testline, created_at desc LIMIT 100", [newid])
+        # DISTINCT ON (testline) order by testline
+        cur.execute("SELECT id, testline, fullcrash, testlogs, link FROM triage where newcrash_id = %s order by created_at desc LIMIT 100", [newid])
         rows = cur.fetchall()
         cur.close()
         if not rows:
@@ -139,7 +148,7 @@ def examine_one_new_crash(dbconn, newid_str):
             TRIAGE += '<td><div style="overflow: auto; width:50vw; height:300px;">%s</div></td>' % (cgi.escape(xstr(row[3])).replace('\n', '<br>'))
             TRIAGE += "<td>%s</td</tr>" % (linktext)
 
-    all_items = {'NEWCRASHID':newid_str, 'REPORT': REPORTS, 'TRIAGE':TRIAGE}
+    all_items = {'NEWCRASHID':newid_str, 'REPORT': REPORTS, 'TRIAGE':TRIAGE, 'BASENAMEURL':basenameurl}
 
     return template.format(**all_items)
 
@@ -148,7 +157,7 @@ def convert_new_crash(dbconn, form):
 <body>
 <H2>Converting crashreport #{NEWCRASHID}</H2>
 <table border=1>
-<form method="post" action=\"crashdb_ui.py.cgi\">
+<form method="post" action=\"#{BASENAMEURL}\">
 <h2>Matched {TRACECOUNT} crash traces:</h2>
 <tr><th>ID</th><th>Crash Reason</th><th>Crashing Function</th><th>Matched Backtrace</th><th>Matched Reports Count</th><th>Last report time</th></tr>
 {REPORTS}
@@ -165,7 +174,7 @@ def convert_new_crash(dbconn, form):
 <input type=\"submit\" name=\"newconvert_submit\" value=\"Confirm Adding to Known bugs\"/>
 </form>
 <p>
-<a href=\"crashdb_ui.py.cgi?newid={NEWCRASHID}\">Return to view ID {NEWCRASHID}</a> | <a href=\"crashdb_ui.py.cgi\">Return to new crashes list</a>
+<a href=\"{BASENAMEURL}?newid={NEWCRASHID}\">Return to view ID {NEWCRASHID}</a> | <a href=\"{BASENAMEURL}\">Return to new crashes list</a>
 </body>
 </html>
     """
@@ -269,13 +278,15 @@ def convert_new_crash(dbconn, form):
         TRACECOUNT = 0
 
     if confirm != "yes":
-        all_items = {'NEWCRASHID':newid_str, 'REPORTS': REPORTS, 'TRACECOUNT':TRACECOUNT, 'INLOGS':inlogs_cleaned, 'BUGDESCRIPTION':bugdescription, 'EXTRAINFO':extrainfo, 'TESTLINE':testline, 'INFULLBT':infullbt_cleaned, 'BTLINE':btline_str, 'DELETEREPORT':deletereport}
+        all_items = {'NEWCRASHID':newid_str, 'REPORTS': REPORTS, 'TRACECOUNT':TRACECOUNT, 'INLOGS':inlogs_cleaned, 'BUGDESCRIPTION':bugdescription, 'EXTRAINFO':extrainfo, 'TESTLINE':testline, 'INFULLBT':infullbt_cleaned, 'BTLINE':btline_str, 'DELETEREPORT':deletereport, 'BASENAMEURL':basenameurl}
         return template.format(**all_items)
+    elif not is_delete_allowed():
+        return "Actual deleting on external scripts is disabled"
 
     template = """<html><head><title>Converting new crash report</title></head>
 <body>
 <H2>Converting crashreport #{NEWCRASHID}</H2>
-<a href=\"crashdb_ui.py.cgi\">Return to new crashes list</a>
+<a href=\"{BASENAMEURL}\">Return to new crashes list</a>
 </body>
 </html>
 """
@@ -305,7 +316,7 @@ def convert_new_crash(dbconn, form):
     except psycopg2.DatabaseError as e:
         return "DB Error on delete " + str(e)
 
-    all_items = {'NEWCRASHID':', '.join(ids)}
+    all_items = {'NEWCRASHID':', '.join(ids), 'BASENAMEURL':basenameurl}
     return template.format(**all_items)
 
 
