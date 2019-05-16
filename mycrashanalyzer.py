@@ -240,7 +240,7 @@ def add_known_crash(lasttest, crashtrigger, crashfunction, crashbt, inlogs, infu
         cur.execute("SELECT id FROM known_crashes WHERE reason=%s AND func=%s AND testline=%s AND strpos(backtrace, %s) > 0 AND inlogs=%s AND infullbt=%s", (crashtrigger, crashfunction, lasttest, crashbt, inlogs, infullbt))
         if cur.rowcount > 0:
             id = cur.fetchone()[0]
-            print("Huh, adding a known crash that is already matching what we have at id: " + id)
+            print("Huh, adding a known crash that is already matching what we have at id: " + str(id))
             return False
         cur.execute("INSERT INTO known_crashes(reason, func, testline, backtrace, inlogs, infullbt, bug, extrainfo) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)", (crashtrigger, crashfunction, lasttest, crashbt, inlogs, infullbt, bug, extrainfo))
 
@@ -255,9 +255,8 @@ def add_known_crash(lasttest, crashtrigger, crashfunction, crashbt, inlogs, infu
 
     return True
 
-def add_new_crash(lasttest, crashtrigger, crashfunction, crashbt, fullcrash, testlogs, link, DBCONN=None):
-    """ Check if we have a matching crash and add it, if we have a new one,
-        add a new one """
+def check_untriaged_crash(lasttest, crashtrigger, crashfunction, crashbt, fullcrash, testlogs, DBCONN=None):
+    """ Identify a matching untriaged crash in the db """
     newid = 0
     numreports = 0
     if not crashfunction:
@@ -277,7 +276,36 @@ def add_new_crash(lasttest, crashtrigger, crashfunction, crashbt, fullcrash, tes
             row = cur.fetchone()
             newid = row[0]
             numreports = row[1]
-        else:
+        dbconn.commit()
+        cur.close()
+    except psycopg2.DatabaseError as e:
+        print(str(e))
+        return (None, None) # huh, and what am I supposed to do here?
+    finally:
+        if not DBCONN and dbconn:
+            dbconn.close()
+    return newid, numreports
+
+def add_new_crash(lasttest, crashtrigger, crashfunction, crashbt, fullcrash, testlogs, link, DBCONN=None):
+    """ Check if we have a matching crash and add it, if we have a new one,
+        add a new one """
+    if not crashfunction:
+        crashfunction = None
+    if not lasttest:
+        lasttest = None
+
+    dbconn = DBCONN
+
+    newid, numreports = check_untriaged_crash(lasttest, crashtrigger, crashfunction, crashbt, fullcrash, testlogs, DBCONN=dbconn)
+
+    if newid is None: # Error? bail out
+        return newid, numreports
+
+    try:
+        if not dbconn:
+            dbconn = psycopg2.connect(dbname="crashinfo", user="crashinfo", password="blah", host="localhost")
+        cur = dbconn.cursor()
+        if newid == 0:
             # Need to add it
             cur.execute("INSERT INTO new_crashes(reason, func, backtrace) VALUES(%s, %s, %s) RETURNING id", (crashtrigger, crashfunction, crashbt))
             newid = cur.fetchone()[0]
