@@ -552,7 +552,7 @@ class Tester(object):
                                     counter += 1
                                     time.sleep(5)
                                 # XXX copy arch and distro from testinfo/nodestruct
-                                mycrashanalyzer.Crasher(self.fsinfo, corefile, testinfo, clientdistro, self.clientarch, workitem, message, TIMEOUT=True)
+                                mycrashanalyzer.Crasher(self.fsinfo, corefile, testinfo, clientdistro, self.clientarch, workitem, message, TIMEOUT=True, COND=self.out_cond, QUEUE=self.out_queue)
                         # Cannot break from the above loop
                         if self.error:
                             break
@@ -576,9 +576,9 @@ class Tester(object):
                         counter += 1
                         time.sleep(5)
                     if clientcore:
-                        mycrashanalyzer.Crasher(self.fsinfo, clientcore, testinfo, clientdistro, self.clientarch, workitem, message, TIMEOUT=True)
+                        mycrashanalyzer.Crasher(self.fsinfo, clientcore, testinfo, clientdistro, self.clientarch, workitem, message, TIMEOUT=True, COND=self.out_cond, QUEUE=self.out_queue)
                     if servercore:
-                        mycrashanalyzer.Crasher(self.fsinfo, servercore, testinfo, serverdistro, self.serverarch, workitem, message, TIMEOUT=True)
+                        mycrashanalyzer.Crasher(self.fsinfo, servercore, testinfo, serverdistro, self.serverarch, workitem, message, TIMEOUT=True, COND=self.out_cond, QUEUE=self.out_queue)
                     # XXX kick some additional analyzer for backtraces or such
                     break
             else:
