@@ -4,5 +4,6 @@
 	{"error":"is waiting for obd_unlinked_exports more than 256 seconds. The obd refcount","message":"OBD stuck on fini", "fatal":true},
 	{"error":"Kdump: Executing default action kdump_emergency_shell","message":"kdump failure", "fatal":true},
 	{"error":"rcu_sched detected stalls on CPUs/tasks","message":"RCU stall"},
+	{"error":" at lib/list_debug.c","message":"Linked list warning message"},
 	{"error":"VFS: Busy inodes after unmount of ","message":"Busy inodes on umount"}
 ]
