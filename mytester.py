@@ -174,6 +174,7 @@ class Tester(object):
                 # If we had a crash or timeout, a separate item was
                 # started that would process it and return to queue.
                 if (self.CrashDetected and self.crashfiles) or self.TimeoutDetected:
+                    self.logger.info("crash detected or timeout, they will post their stuff separately")
                     pass
                 else:
                     out_cond.acquire()

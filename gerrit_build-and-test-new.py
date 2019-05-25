@@ -1118,6 +1118,7 @@ def run_workitem_manager():
         workitem = managing_queue.get()
 
         managing_condition.release()
+        logger.info("ref " + workitem.ref + " build " + str(workitem.buildnr)  + " popped out of queue for next steps")
 
         #teststr = vars(workitem)
         #pprint(teststr)
@@ -1211,6 +1212,7 @@ def run_workitem_manager():
             # More than one initial test enqueued, just wait for more
             # completions.
             # XXX racy if some parallel thing updates the status?
+            logger.warning("ref " + workitem.ref + " build " + str(workitem.buildnr)  + " only partial initial test completion")
             continue
 
         if workitem.InitialTestingDone and workitem.InitialTestingError:
