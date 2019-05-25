@@ -474,6 +474,8 @@ def add_review_comment(WorkItem):
         if WorkItem.AbortDone:
             # We already printed everything in the past, just exit
             return
+
+        WorkItem.AbortDone = True
         if WorkItem.BuildDone:
             # No messages were printed anywhere, pretend we did not even see it
             return
