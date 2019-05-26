@@ -800,7 +800,7 @@ class Reviewer(object):
             return
 
         try:
-            commit_message = workitem.change['revisions'][str(workitem.revision)]['commit']['message']
+            commit_message = change['revisions'][str(current_revision)]['commit']['message']
         except:
             commit_message = ""
 
@@ -1312,32 +1312,32 @@ if __name__ == "__main__":
     for savedstateitem in os.listdir(SAVEDSTATE_DIR):
         with open(SAVEDSTATE_DIR + "/" + savedstateitem, "rb") as blah:
             try:
-                workitem = pickle.load(blah)
+                saveitem = pickle.load(blah)
             except:
                 # delete bad item.
                 os.unlink(SAVEDSTATE_DIR + "/" + savedstateitem)
 
             sys.stdout.flush()
-            if workitem.Aborted: # Kill it
+            if saveitem.Aborted: # Kill it
                 os.unlink(SAVEDSTATE_DIR + "/" + savedstateitem)
-            elif not workitem.BuildDone:
+            elif not saveitem.BuildDone:
                 # Need to clean up build dir
                 try:
-                    shutil.rmtree(fsconfig["outputs"] + "/" + str(workitem.buildnr))
+                    shutil.rmtree(fsconfig["outputs"] + "/" + str(saveitem.buildnr))
                 except OSError:
                     pass # Ok if it's not there
-            elif workitem.BuildError or (workitem.InitialTestingError and workitem.InitialTestingDone) or (workitem.TestingError and workitem.TestingDone):
+            elif saveitem.BuildError or (saveitem.InitialTestingError and saveitem.InitialTestingDone) or (saveitem.TestingError and saveitem.TestingDone):
                 pass # just insert for final notify
-            elif workitem.InitialTestingStarted and not workitem.InitialTestingDone:
+            elif saveitem.InitialTestingStarted and not saveitem.InitialTestingDone:
                 # To reinsert it we just need to unmark initial testing started
-                workitem.InitialTestingStarted = False
-            elif workitem.TestingStarted and not workitem.TestingDone:
+                saveitem.InitialTestingStarted = False
+            elif saveitem.TestingStarted and not saveitem.TestingDone:
                 # Same here
-                workitem.TestingStarted = False
+                saveitem.TestingStarted = False
 
-            WorkList.append(workitem)
+            WorkList.append(saveitem)
             managing_condition.acquire()
-            managing_queue.put(workitem)
+            managing_queue.put(saveitem)
             managing_condition.notify()
             managing_condition.release()
 
