@@ -339,18 +339,21 @@ def is_trivial_requested(message):
     for line in message.splitlines():
         if trivial_re.match(line):
             return True
+    return False
 
 def is_buildonly_requested(message):
     trivial_re = re.compile("^Test-Parameters:.*forbuildonly")
     for line in message.splitlines():
         if trivial_re.match(line):
             return True
+    return False
 
 def is_testonly_requested(message):
     trivial_re = re.compile("^Test-Parameters:.*fortestonly")
     for line in message.splitlines():
         if trivial_re.match(line):
             return True
+    return False
 
 def parse_checkpatch_output(out, path_line_comments, warning_count):
     """
@@ -1014,7 +1017,7 @@ def save_WorkItem(workitem):
         workitem.lock.acquire()
         try:
             pickle.dump(workitem, output, pickle.HIGHEST_PROTOCOL )
-        except RuntimeError,v:
+        except RuntimeError:
             pass # We just want to avoid the crash. next iteration will write it out.
         workitem.lock.release()
 
