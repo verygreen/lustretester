@@ -504,6 +504,7 @@ class Tester(object):
         self.startTime = time.time()
         deadlinetime = self.startTime + timeout
         message = ""
+        warnings = ""
         while testprocess.returncode is None: # XXX add a timer
             try:
                 # This is a very ugly workaround to the fact that when you call
@@ -719,15 +720,15 @@ class Tester(object):
                 if client.match_console_string(item['error']):
                     matched_client_errors.append(item['message'])
         if matched_server_errors:
-            message += "(Server: " + ",".join(matched_server_errors) + ")"
+            warnings += "(Server: " + ",".join(matched_server_errors) + ")"
         if matched_client_errors:
-            message += "(Client: " + ",".join(matched_client_errors) + ")"
+            warnings += "(Client: " + ",".join(matched_client_errors) + ")"
 
         # Probably should make it a configurable item too?
         if ": double free or corruption " in self.testouts:
-            message += "(userspace memcorruption)"
+            warnings += "(userspace memcorruption)"
         elif "Backtrace: " in self.testouts:
-            message += "(userspace backtrace - please investigate)"
+            warnings += "(userspace backtrace - please investigate)"
 
         self.logger.info("Job finished with code " + str(testprocess.returncode) + " and message " + message)
         # XXX Also need to add yaml parsing of results with subtests.
@@ -755,6 +756,10 @@ class Tester(object):
             # These would post stuff separately
             return True
 
-        workitem.UpdateTestStatus(testinfo, message, Finished=True, Crash=self.CrashDetected, TestStdOut=self.testouts, TestStdErr=self.testerrs, Failed=Failure, Subtests=failedsubtests, Skipped=skippedsubtests)
+        # We crashed, but did not find the crash file, huh?
+        if self.Crashed:
+            self.logger.warning("job for buildid " + str(workitem.buildnr) + " We had a crash " + message + "but no crashdumps?")
+
+        workitem.UpdateTestStatus(testinfo, message, Finished=True, Crash=self.CrashDetected, TestStdOut=self.testouts, TestStdErr=self.testerrs, Failed=Failure, Subtests=failedsubtests, Skipped=skippedsubtests, Warnings=warnings)
 
         return True

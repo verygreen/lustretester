@@ -75,7 +75,7 @@ class GerritWorkItem(object):
     def UpdateTestStatus(self, testinfo, message, Failed=False, Crash=False,
                          ResultsDir=None, Finished=False, Timeout=False,
                          TestStdOut=None, TestStdErr=None, Subtests=None,
-                         Skipped=None):
+                         Skipped=None, Warnings=None):
         self.lock.acquire()
         if self.InitialTestingStarted and not self.InitialTestingDone:
             worklist = self.initial_tests
@@ -120,6 +120,11 @@ class GerritWorkItem(object):
                 item["SubtestList"] = Subtests
             if Skipped:
                 item["SkippedSubtests"] = Skipped
+            if Warnings:
+                if item.get("Warnings"):
+                    item["Warnings"] += Warnings
+                else:
+                    item["Warnings"] = Warnings
 
         print("Build " + str(self.buildnr) + " Updated test element " + str(item))
         self.Write_HTML_Status()
@@ -174,9 +179,13 @@ class GerritWorkItem(object):
                     htmlteststable += 'Aborted'
                 else:
                     htmlteststable += 'Success'
+                if test.get("Warnings"):
+                    htmlteststable += test['Warnings']
             else: # Not finished, if results dir is set, then we at least started
                 if test.get('ResultsDir'):
                     htmlteststable += 'Running'
+                if test.get("Warnings"):
+                    htmlteststable += test['Warnings']
 
             if test.get('ResultsDir'):
                 htmlteststable += '</a>'
@@ -292,24 +301,26 @@ class GerritWorkItem(object):
         passedtests = ""
         failedtests = ""
         skippedtests = ""
+        warningtests = ""
         self.lock.acquire()
         for test in sorted(tests, key=operator.itemgetter('test', 'fstype')):
-            testname = test['test'] + '@' + test['fstype']
+            testname = test['name'] + '@' + test['fstype']
             if test.get('DNE', False):
                 testname += '+DNE'
             if test.get('SSK', False):
                 testname += '+SharedKey'
             if test.get('SELINUX', False):
                 testname += '+SELinux'
-            testname += " "
 
             if not test['Failed']:
                 if test.get('Skipped'):
-                    skippedtests += testname
+                    skippedtests += testname + " "
+                elif test.get('Warnings'):
+                    warningtests += testname + test['Warnings'] + " "
                 else:
-                    passedtests += testname
+                    passedtests += testname + " "
             else:
-                failedtests += "> " + testname
+                failedtests += "> " + testname + " "
                 if not test.get('StatusMessage', ''):
                     if test['Timeout']:
                         failedtests += " Timed out"
@@ -317,7 +328,10 @@ class GerritWorkItem(object):
                         failedtests += " Crash"
                     else:
                         failedtests += " Failed"
-                failedtests += " " + test['StatusMessage']
+                else:
+                    failedtests += test['StatusMessage']
+                failedtests += test.get('Warnings','')
+
                 if test.get('SubtestList', ''):
                     failedtests += "\n- " + test['SubtestList']
                 # Only print one URL at theend for everything
@@ -331,6 +345,8 @@ class GerritWorkItem(object):
         testlist = ""
         if failedtests:
             testlist = "\n" + failedtests
+        if warningtests:
+            testlist += "\nTests with Warning messages:\n- " + warningtests + "\n"
         if passedtests:
             testlist += "\nSucceeded:\n- " + passedtests + "\n"
         if skippedtests:
