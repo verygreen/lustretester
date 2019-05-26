@@ -1318,7 +1318,9 @@ if __name__ == "__main__":
                 os.unlink(SAVEDSTATE_DIR + "/" + savedstateitem)
 
             sys.stdout.flush()
-            if not workitem.BuildDone:
+            if workitem.Aborted: # Kill it
+                os.unlink(SAVEDSTATE_DIR + "/" + savedstateitem)
+            elif not workitem.BuildDone:
                 # Need to clean up build dir
                 try:
                     shutil.rmtree(fsconfig["outputs"] + "/" + str(workitem.buildnr))
