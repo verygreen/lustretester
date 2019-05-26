@@ -207,9 +207,12 @@ def populate_testlist_from_array(testlist, testarray, LDiskfsOnly, ZFSOnly, DNE=
 
     return testlist
 
+def is_branch_merge(commit_message):
+    return "Merge branch" in commit_message
 
-def determine_testlist(filelist, trivial_requested):
+def determine_testlist(filelist, commit_message):
     """ Try to guess what tests to run based on the changes """
+    trivial_requested = is_trivial_requested(commit_message)
     DoNothing = True
     NonTestFilesToo = False
     modified_test_files = []
@@ -250,9 +253,10 @@ def determine_testlist(filelist, trivial_requested):
         ZFSOnly = True
 
     # Override for testing
-    if GERRIT_FORCEALLTESTS:
+    if GERRIT_FORCEALLTESTS or is_branch_merge(commit_message):
         FullRun = True
         LNetOnly = True
+        DoNothing = False
 
     if FullRun:
         LDiskfsOnly = True
@@ -808,7 +812,7 @@ class Reviewer(object):
             files = ['everything']
         else:
             files = change['revisions'][str(current_revision)].get('files', [])
-        (DoNothing, ilist, clist) = determine_testlist(files, is_trivial_requested(commit_message))
+        (DoNothing, ilist, clist) = determine_testlist(files, commit_message)
 
         # For testonly changes only do very minimal testing for now
         # Or not.
