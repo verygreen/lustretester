@@ -146,7 +146,7 @@ class GerritWorkItem(object):
         htmlteststable = '<table border="1"><tr><th>Test</th><th>Status/results</th><th>Extra info</th></tr>'
         for test in sorted(tests, key=operator.itemgetter('test', 'fstype')):
             htmlteststable += '<tr><td>'
-            htmlteststable += test['test'] + '@' + test['fstype']
+            htmlteststable += test['name'] + '@' + test['fstype']
             if test.get('DNE', False):
                 htmlteststable += '+DNE'
             if test.get('SSK', False):
@@ -286,7 +286,7 @@ class GerritWorkItem(object):
         testlist = ""
         self.lock.acquire()
         for test in sorted(tests, key=operator.itemgetter('test', 'fstype')):
-            testlist += test['test'] + '@' + test['fstype']
+            testlist += test['name'] + '@' + test['fstype']
             if test.get('DNE', False):
                 testlist += '+DNE'
             if test.get('SSK', False):

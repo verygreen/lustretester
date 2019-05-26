@@ -320,8 +320,8 @@ class Tester(object):
         outdir = workitem.testresultsdir
 
         # XXX Incorporate distro into this somehow?
-        testname = testinfo.get("test", None)
-        if testname is None:
+        testscript = testinfo.get("test", None)
+        if testscript is None:
             workitem.UpdateTestStatus(testinfo, "Invalid testinfo!", Failed=True)
             return True # No point in retrying an invalid test
 
@@ -353,7 +353,8 @@ class Tester(object):
         serverinitrd = artifactdir +"/initrd-%s-%s.img" % (serverdistro, self.serverarch)
         clientinitrd = artifactdir +"/initrd-%s-%s.img" % (clientdistro, self.clientarch)
 
-        testresultsdir = outdir + "/" + testname + "-" + fstype
+        # testscript is just the script, but there might be a symbolic name too
+        testresultsdir = outdir + "/" + testinfo.get('name', testscript) + "-" + fstype
         if DNE:
             testresultsdir += "-DNE"
         if SSK:
@@ -480,6 +481,7 @@ class Tester(object):
                 SELINUXSTR = " "
 
             TESTPARAMS = testinfo.get('testparam', '')
+            ENVPARAMS = testinfo.get('env', '')
             # XXX - this stuff should be in some config
             args = ["ssh", "-tt", "-o", "StrictHostKeyChecking=no", "root@" + self.clientnetname,
                     'PDSH="pdsh -S -Rssh -w" mds_HOST=' + self.servernetname +
@@ -487,8 +489,8 @@ class Tester(object):
                     "OSTDEV1=/dev/vde OSTDEV2=/dev/vdf LOAD_MODULES_REMOTE=true " +
                     "FSTYPE=" + fstype + DNEStr + SSKSTR + SELINUXSTR +
                     "MDSSIZE=0 OSTSIZE=0 " +
-                    "MGSSIZE=0 " +
-                    "NAME=ncli /home/green/git/lustre-release/lustre/tests/auster -D /tmp/testlogs/ -r -k " + testname + " " + TESTPARAMS ]
+                    "MGSSIZE=0 " + ENVPARAMS + " "
+                    "NAME=ncli /home/green/git/lustre-release/lustre/tests/auster -D /tmp/testlogs/ -r -k " + testscript + " " + TESTPARAMS ]
             testprocess = Popen(args, close_fds=True, stdin=PIPE, stdout=PIPE, stderr=PIPE, universal_newlines=True)
         except (OSError) as details:
             self.logger.warning("Failed to run test " + str(details))
@@ -678,7 +680,7 @@ class Tester(object):
                     self.logger.error("Exception when trying to read results.yml: " + str(e))
                 else:
                     for yamltest in testresults.get('Tests', []):
-                        if yamltest.get('name', '') != testname:
+                        if yamltest.get('name', '') != testscript:
                             self.logger.warning("Skipping unexpected test results for " + yamltest.get('name', 'EMPTYNAME'))
                             continue
                         try:

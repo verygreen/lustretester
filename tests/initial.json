@@ -1,3 +1,4 @@
 [
-	["runtests", 600, ""]
+	{"test":"runtests", "timeout":600},
+	{"name":"runtests-ssk-ldiskfs","test":"runtests", "timeout":800, "SSK":true, "fstype":"ldiskfs"}
 ]

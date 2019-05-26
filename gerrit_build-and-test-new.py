@@ -157,29 +157,39 @@ def is_notknow_howto_test(filelist):
             return True
     return False
 
-def populate_testlist_from_array(testlist, testarray, LDiskfsOnly, ZFSOnly, DNE=True, Force=False, SSK=False, SELINUX=False):
+def populate_testlist_from_array(testlist, testarray, LDiskfsOnly, ZFSOnly, DNE=True, Force=False):
     for item in testarray:
         def getemptytest(item):
             test = {}
-            test['test'] = item[0]
-            test['timeout'] = item[1]
-            test['testparam'] = item[2]
-            test['SSK'] = SSK
-            test['SELINUX'] = SELINUX
+
+            # Must always have these two
+            test['test'] = item['test']
+            test['timeout'] = item['timeout']
+            for elem in ('name','testparam','DNE','env','SSK','SELINUX','fstype'):
+                if item.get(elem):
+                    test[elem] = item[elem]
+
+            if not test.get("name"):
+                test['name'] = test['test']
+
             return test
 
-        try:
-            # See if this test is disabled
-            if item[3] and not Force:
-                continue
-        except IndexError:
-            pass # No disabled element = we are all fine
+        if item.get('disabled') and not Force:
+            continue
+        if not DNE and item.get('DNE'):
+            continue
+
+        if item.get('fstype'):
+            test = getemptytest(item)
+            # Items that specify fstype are self contained and are not expanded
+            testlist.append(test)
+            continue
         if LDiskfsOnly:
             test = getemptytest(item)
             test['fstype'] = "ldiskfs"
             test['DNE'] = DNE
             testlist.append(test)
-        if ZFSOnly:
+        if ZFSOnly :
             test = getemptytest(item)
             test['fstype'] = "zfs"
             testlist.append(test)
@@ -272,15 +282,12 @@ def determine_testlist(filelist, trivial_requested):
             for item in modified_test_files:
                 Found = False
                 for test in initialtestlist + fulltestlist + lnettestlist + zfstestlist + ldiskfstestlist:
-                    if item == test[0]:
+                    if item == test['test']:
                         foundtests.append(test)
                         # To avoid doubletesting, mark it as disabled in the
                         # regular list too - ok to do sice we reread the list
                         # every time
-                        if len(test) < 4:
-                            test.append(True)
-                        else:
-                            test[3] = True
+                        test['disabled'] = True
                         Found = True
                         break
                 if not Found:
@@ -901,18 +908,16 @@ class Reviewer(object):
                         for item in command['testlist'].split(','):
                             item = item.strip()
                             for test in initialtestlist + fulltestlist + lnettestlist + zfstestlist + ldiskfstestlist:
-                                if item == test[0]:
+                                if item == test['test']:
                                     testarray.append(test)
                                     break
 
                         zfsonly = command.get("zfs", True)
                         ldiskfsonly = command.get("ldiskfs", True)
                         DNE = command.get("DNE", True)
-                        SSK = command.get("SSK", False)
-                        SELINUX = command.get("SELINUX", False)
                         workitem.tests = []
                         # Force to ensure we test what was requested even if disabled
-                        workitem.initial_tests = populate_testlist_from_array([], testarray, ldiskfsonly, zfsonly, DNE=DNE, Force=True, SSK=SSK, SELINUX=SELINUX)
+                        workitem.initial_tests = populate_testlist_from_array([], testarray, ldiskfsonly, zfsonly, DNE=DNE, Force=True)
                     else:
                         # copy existing tests
                         for tlist in (workitem.initial_tests, workitem.tests):
