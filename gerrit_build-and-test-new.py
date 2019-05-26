@@ -723,7 +723,7 @@ class Reviewer(object):
         """
         return change_id + ' ' + revision in self.history
 
-    def get_changes(self, query):
+    def get_changes(self, query, Absolute=False):
         """
         GET a list of ChangeInfo()s for all changes matching query.
 
@@ -732,12 +732,13 @@ class Reviewer(object):
             [ChangeInfo()...]
         """
         query = dict(query)
-        project = query.get('project', self.project)
-        query['project'] = urllib.quote(project, safe='')
-        branch = query.get('branch', self.branch)
-        query['branch'] = urllib.quote(branch, safe='')
-        if GERRIT_FORCETOPIC and not GERRIT_CHANGE_NUMBER:
-            query['topic'] = GERRIT_FORCETOPIC
+        if not Absolute:
+            project = query.get('project', self.project)
+            query['project'] = urllib.quote(project, safe='')
+            branch = query.get('branch', self.branch)
+            query['branch'] = urllib.quote(branch, safe='')
+            if GERRIT_FORCETOPIC:
+                query['topic'] = GERRIT_FORCETOPIC
 
         path = ('/changes/?q=' +
                 '+'.join(k + ':' + v for k, v in query.iteritems()) +
@@ -868,7 +869,13 @@ class Reviewer(object):
                 pass
             if not command:
                 continue
-            if command.get("retest-item"):
+            if command.get("test-ref"):
+                desiredchange = str(command['test-ref'])
+                if not desiredchange:
+                    continue
+                print("Asking for single change " + desiredchange)
+                reviewer.update_single_change(desiredchange)
+            elif command.get("retest-item"):
                 retestitem = str(command['retest-item'])
                 self._debug("Asked to retest build id: " + retestitem)
                 # This is a retest request, see if we got new test list
@@ -993,7 +1000,7 @@ class Reviewer(object):
         self.load_history()
 
         open_changes = self.get_changes({'status':'open',
-                                         'change':change})
+                                         'change':change}, Absolute=True)
         self._debug("update: got %d open_changes", len(open_changes))
 
         for change in open_changes:
