@@ -1126,6 +1126,7 @@ def run_workitem_manager():
         current_build += 1
 
     while True:
+        sys.stdout.flush()
         managing_condition.acquire()
         while managing_queue.empty():
             managing_condition.wait()
