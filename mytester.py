@@ -53,7 +53,7 @@ class Node(object):
         fl = fcntl.fcntl(fd, fcntl.F_GETFL)
         fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
 
-        deadlinetime = time.time() + 90 # IF a node did not come up in 90 seconds, something is wrong with it anyway
+        deadlinetime = time.time() + 180 # IF a node did not come up in 3 minutes, something is wrong with it anyway
         while time.time() <= deadlinetime:
             try:
                 string = self.process.stdout.read()
