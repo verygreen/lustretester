@@ -210,7 +210,8 @@ class Tester(object):
         self.testresultsdir = ""
         self.fsinfo = fsinfo
         self.Busy = False
-        self.CrashDetected = False
+        self.CrashDetected = False # This is for wen core was detected
+        self.Crashed = False # This is when something died
         self.TimeoutDetected = False
         self.crashfiles = []
         self.testerrs = ''
@@ -285,8 +286,19 @@ class Tester(object):
 
                 vmcore_flat.close()
 
-        # Now remove the crash data
-        shutil.rmtree(crashdirname)
+        # Now remove the crash data if we detected something
+        if self.CrashDetected:
+            shutil.rmtree(crashdirname)
+        elif self.Crashed:
+            try:
+                shutil.copytree(crashdirname, outputlocationpathprefix + crashdirname + "-unprocessed")
+            except:
+                self.logger.warning("Cannot move for analysis, making local copy")
+                try:
+                    os.rename(crashdirname, crashdirname + "-unprocessed")
+                except:
+                    pass
+
         return crashfilename
 
     def get_duration(self):
@@ -296,10 +308,11 @@ class Tester(object):
         self.testerrs = ''
         self.testouts = ''
         self.CrashDetected = False
-        self.TiemoutDetected = False
+        self.Crashed = False
+        self.TimeoutDetected = False
         self.crashfiles = []
         self.error = False
-        self.startTime = time.time();
+        self.startTime = time.time()
         # Cleanup old crashdumps and syslogs
         for nodename in [self.servernetname, self.clientnetname]:
             try:
@@ -529,11 +542,13 @@ class Tester(object):
                 if not server.check_node_alive():
                     self.logger.info(server.name + " died while processing test job")
                     self.error = True
+                    self.Crashed = True
                     message = "Server crashed"
                     break
                 if not client.check_node_alive():
                     self.logger.info(client.name + " died while processing test job")
                     message = "Client crashed"
+                    self.Crashed = True
                     self.error = True
                     break
 
@@ -545,7 +560,7 @@ class Tester(object):
                             if node.match_console_string(item['error']):
                                 self.logger.warning("Matched fatal error in logs: " + item['error'] + ' on node ' + node.name)
                                 self.error = True
-                                message = "Fatal Error on " + str(node.name)
+                                message = "Fatal Error " + item['error'] + " on " + str(node.name)
                                 corefile = node.dump_core("fatalerror")
                                 counter = 0
                                 while node.check_node_alive():
@@ -588,8 +603,7 @@ class Tester(object):
                 self.testouts += outs
                 self.testerrs += errs
                 # We finished normally, let's see if it was an invalid
-                # run. Currently we filter for this message only:
-                # insmod: ERROR: could not insert module /home/green/git/lustre-release/lustre/ptlrpc/ptlrpc.ko: Network is down
+                # run.
                 # Add a config file if this list is to grow
                 portmap_error = "port 988: port already in use"
                 if server.match_console_string(portmap_error) or client.match_console_string(portmap_error):
@@ -597,6 +611,7 @@ class Tester(object):
                     server.terminate()
                     client.terminate()
                     return False
+
                 # We also have this "File exists" error out of nowhere at times,
                 # seems to be some generic failure, so skip it.
                 if ".ko: File exists" in self.testouts:
@@ -617,13 +632,15 @@ class Tester(object):
                     self.logger.info(server.name + " kdump starting while processing test job")
                     self.error = True
                     message = "Server crashed"
+                    self.Crashed = True
                     # wait for kdump to finish
                     while server.is_alive():
                         if server.match_console_string(kdump_end_message):
+                            self.logger.info(server.name + " kdump done")
                             break
                         if counter > 60: # 5 minutes max for crashdump
                             self.logger.info(server.name + " kdump timeout")
-                            message += "(crashdump timeout)"
+                            warnings += "(crashdump timeout)"
                             break
                         time.sleep(5)
                         counter += 1
@@ -631,12 +648,14 @@ class Tester(object):
                     self.logger.info(client.name + " kdump starting while processing test job")
                     self.error = True
                     message = "Client crashed"
+                    self.Crashed = True
                     while client.is_alive():
                         if client.match_console_string(kdump_end_message):
+                            self.logger.info(client.name + " kdump done")
                             break
                         if counter > 60: # 5 minutes max for crashdump
                             self.logger.info(client.name + " kdump timeout")
-                            message += "(crashdump timeout)"
+                            warnings += "(crashdump timeout)"
                             break
                         time.sleep(5)
 
