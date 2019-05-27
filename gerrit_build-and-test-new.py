@@ -263,6 +263,7 @@ def determine_testlist(filelist, commit_message):
         ZFSOnly = True
         LNetOnly = True
         BuildOnly = False
+        trivial_requested = False
 
     # Always reload testlists
     with open("tests/initial.json", "r") as blah:
@@ -284,6 +285,13 @@ def determine_testlist(filelist, commit_message):
             UnknownItems = NonTestFilesToo
             foundtests = []
             for item in modified_test_files:
+                if item == 'test-framework': # This needs a full run
+                    LDiskfsOnly = True
+                    ZFSOnly = True
+                    LNetOnly = True
+                    BuildOnly = False
+                    trivial_requested = False
+                    continue
                 Found = False
                 for test in initialtestlist + fulltestlist + lnettestlist + zfstestlist + ldiskfstestlist:
                     if item == test['test']:
@@ -293,7 +301,6 @@ def determine_testlist(filelist, commit_message):
                         # every time
                         test['disabled'] = True
                         Found = True
-                        break
                 if not Found:
                     UnknownItems = True
 
@@ -311,6 +318,7 @@ def determine_testlist(filelist, commit_message):
             else:
                 # Hm, not sure what to do here? Probably run everything
                 # as requested in addition to modified test files?
+                trivial_requested = False
                 pass
 
         # Careful, if initial test list was filled above, we presume it's
