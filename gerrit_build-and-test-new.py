@@ -165,7 +165,7 @@ def populate_testlist_from_array(testlist, testarray, LDiskfsOnly, ZFSOnly, DNE=
             # Must always have these two
             test['test'] = item['test']
             test['timeout'] = item['timeout']
-            for elem in ('name','testparam','DNE','env','SSK','SELINUX','fstype'):
+            for elem in ('name','testparam','DNE','env','SSK','SELINUX','fstype', 'austerparam'):
                 if item.get(elem):
                     test[elem] = item[elem]
 

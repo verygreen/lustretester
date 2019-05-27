@@ -173,7 +173,7 @@ class Tester(object):
                 sleep_on_error = 15 # Reset the backoff time after successful run
                 self.collect_syslogs()
                 self.update_permissions()
-                self.logger.info("Finished job buildid " + str(workitem.buildnr) + " test " + testinfo['test'] + '-' + testinfo['fstype'] )
+                self.logger.info("Finished job buildid " + str(workitem.buildnr) + " test " + testinfo['name'] + '-' + testinfo['fstype'] )
                 # If we had a crash or timeout, a separate item was
                 # started that would process it and return to queue.
                 if (self.CrashDetected and self.crashfiles) or self.TimeoutDetected:
@@ -498,6 +498,7 @@ class Tester(object):
 
             TESTPARAMS = testinfo.get('testparam', '')
             ENVPARAMS = testinfo.get('env', '')
+            AUSTERPARAMS = testinfo.get('austerparam', '')
             # XXX - this stuff should be in some config
             args = ["ssh", "-tt", "-o", "StrictHostKeyChecking=no", "root@" + self.clientnetname,
                     'PDSH="pdsh -S -Rssh -w" mds_HOST=' + self.servernetname +
@@ -506,7 +507,7 @@ class Tester(object):
                     "FSTYPE=" + fstype + DNEStr + SSKSTR + SELINUXSTR +
                     "MDSSIZE=0 OSTSIZE=0 " +
                     "MGSSIZE=0 " + ENVPARAMS + " "
-                    "NAME=ncli /home/green/git/lustre-release/lustre/tests/auster -D /tmp/testlogs/ -r -k " + testscript + " " + TESTPARAMS ]
+                    "NAME=ncli /home/green/git/lustre-release/lustre/tests/auster -D /tmp/testlogs/ -r -k " + AUSTERPARAMS + " " + testscript + " " + TESTPARAMS ]
             testprocess = Popen(args, close_fds=True, stdin=PIPE, stdout=PIPE, stderr=PIPE, universal_newlines=True)
         except (OSError) as details:
             self.logger.warning("Failed to run test " + str(details))
