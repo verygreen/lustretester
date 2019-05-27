@@ -850,7 +850,7 @@ class Reviewer(object):
         #self._debug("update: age = %d", age)
 
         open_changes = self.get_changes({'status':'open',
-                                         '-age':str(age) + 'h',
+                                         '-age':str(age) + 'd',
                                          '-label':'Code-Review=-2'})
         #self._debug("update: got %d open_changes", len(open_changes))
 
