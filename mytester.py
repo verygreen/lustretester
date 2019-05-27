@@ -86,8 +86,11 @@ class Node(object):
         except OSError: # Already dead? ignore
             pass
         # This can actually hang too if the process refuses to die.
+        # 3 minutes sounds like an extreme, but we want to avoid making
+        # it available until it's truly dead or until the timoeut has triggered.
+        # Helps us to save crashdumps and whatnot I guess
         try:
-            outs, errs = self.process.communicate(timeout=15)
+            outs, errs = self.process.communicate(timeout=180)
             self.outs += outs
             self.errs += errs
         except TimeoutExpired:
