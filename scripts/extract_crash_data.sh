@@ -50,7 +50,7 @@ cp ${TEMPDIR}/bt.allthreads "${COREFILE}"-all_threads_traces.txt
 chmod 644 "${COREFILE}"
 
 if [ "${COMPRESS_CORE_AFTER_DONE}" = "yes" ] ; then
-	nice -n 19 xz -9 "$COREFILE"
+	nice -n 19 xz -9 "$COREFILE" >/dev/null 2>&1 </dev/null &
 fi
 
 rm -rf "$TEMPDIR"
