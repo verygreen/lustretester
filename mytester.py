@@ -551,7 +551,7 @@ class Tester(object):
                     break
                 if not client.check_node_alive():
                     self.logger.info(client.name + " died while processing test job")
-                    message = "Client crashed"
+                    message += "Client crashed"
                     self.Crashed = True
                     self.error = True
                     break
@@ -648,10 +648,10 @@ class Tester(object):
                             break
                         time.sleep(5)
                         counter += 1
-                elif client.match_console_string(kdump_start_message):
+                if client.match_console_string(kdump_start_message):
                     self.logger.info(client.name + " kdump starting while processing test job")
                     self.error = True
-                    message = "Client crashed"
+                    message += "Client crashed"
                     self.Crashed = True
                     while client.is_alive():
                         if client.match_console_string(kdump_end_message):
