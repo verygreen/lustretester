@@ -143,8 +143,10 @@ class Builder(object):
             return False
 
         try:
-            # Typically build takes 4-5 minutes, so 10 minutes should be aplenty
-            outs, errs = builder.communicate(timeout=600)
+            # Typically build takes 4-5 minutes, so 30 minutes should be aplenty
+            # This is because we run our builders at the lowest priority and
+            # so procuring enough cpu time might be hard under load.
+            outs, errs = builder.communicate(timeout=1800)
         except TimeoutExpired:
             self.logger.info("Build " + str(buildnr) + " timed out, killing")
             builder.terminate()
