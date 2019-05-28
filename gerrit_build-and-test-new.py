@@ -1269,9 +1269,11 @@ def run_workitem_manager():
                 # save/restart logic:
                 if testinfo.get('Finished', False):
                     continue
-                # First 100 is second priority. perhaps sort by timeout instead?
-                # could lead to prolonged stragglers.
-                testing_queue.put([100, testinfo, workitem])
+                # We sort by build id so the jobs that come in first are served
+                # first for comprehensive testing (initial still in front)
+                # And if there are any free nodes - then subsequent jobs
+                # can come in and do stuff too.
+                testing_queue.put([workitem.buildnr, testinfo, workitem])
                 testing_condition.notify()
             testing_condition.release()
             continue
