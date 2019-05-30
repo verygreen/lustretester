@@ -816,9 +816,11 @@ class Reviewer(object):
 
         if change.get('branchwide'):
             files = ['everything']
+            isMerge = True
         else:
             files = change['revisions'][str(current_revision)].get('files', [])
-        isMerge = len(change['revisions'][str(current_revision)]['commit']['parents']) > 1
+            isMerge = len(change['revisions'][str(current_revision)]['commit']['parents']) > 1
+
         (DoNothing, ilist, clist) = determine_testlist(files, commit_message,
                                                        ForceFull=isMerge)
 
