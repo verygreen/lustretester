@@ -110,7 +110,7 @@ class GerritWorkItem(object):
             item["Finished"] = Finished
             if self.Aborted:
                 item["Aborted"] = True
-            if message is not None:
+            if message is not None and not message in item.get("StatusMessage", ""):
                 item["StatusMessage"] = message
             if TestStdOut is not None:
                 item["TestStdOut"] = TestStdOut
