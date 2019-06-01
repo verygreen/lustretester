@@ -42,8 +42,7 @@ class Node(object):
     def is_alive(self):
         if self.process is not None:
             self.process.poll()
-            if self.process.returncode is not None:
-                return False
+            return self.process.returncode is None # None = did not terminate yet
         return False
 
     def wait_for_login(self):
