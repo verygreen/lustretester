@@ -262,7 +262,9 @@ class Tester(object):
 
         outputlocationpathprefix = self.testresultsdir + "/" + node.name + "-"
 
+        haveCrashfiles = False
         for crash in os.listdir(crashdirname):
+            haveCrashfiles = True
             for item in ["vmcore-dmesg.txt", "vmcore"]:
                 filename = crashdirname + "/" + crash + "/" + item
                 if os.path.exists(filename):
@@ -291,9 +293,12 @@ class Tester(object):
         # Now remove the crash data if we detected something
         if self.CrashDetected:
             shutil.rmtree(crashdirname)
-        elif self.Crashed:
+        elif haveCrashfiles:
+            if not self.Crashed:
+                self.logger.warning("Not marked crashed, but have a crash file?")
+
             try:
-                shutil.copytree(crashdirname, outputlocationpathprefix + crashdirname + "-unprocessed")
+                shutil.copytree(crashdirname, outputlocationpathprefix + "unprocessed")
             except:
                 self.logger.warning("Cannot move for analysis, making local copy")
                 try:
@@ -618,7 +623,7 @@ class Tester(object):
                 # We also have this "File exists" error out of nowhere at times,
                 # seems to be some generic failure, so skip it.
                 if ".ko: File exists" in self.testouts:
-                    self.logger.warning("Cannot insert module Fle Exists, restarting")
+                    self.logger.warning("Cannot insert module file Exists, restarting")
                     server.terminate()
                     client.terminate()
                     return False
