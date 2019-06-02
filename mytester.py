@@ -161,7 +161,7 @@ class Tester(object):
             workitem = job[2]
             self.logger.info("Got job buildid " + str(workitem.buildnr) + " test " + str(testinfo) )
             result = self.test_worker(testinfo, workitem)
-            # same the test output if any
+            # save the test output if any
             if self.testresultsdir and self.testouts:
                 try:
                     with open(self.testresultsdir + "/test.stdout", "w") as sout:
