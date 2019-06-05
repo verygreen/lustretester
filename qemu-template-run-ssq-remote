@@ -63,6 +63,10 @@ ssh -o StrictHostKeyChecking=no root@${SERVERHOST} mkswap -f -L SWAP "${SWAPDEV}
 
 # run listener - exit after first connection dies
 PORT=$((RANDOM + 1025))
+while fuser ${PORT}/tcp ; do
+	# if port is busy, try another one
+	PORT=$((RANDOM + 1025))
+done
 nice --19 nc -l --no-shutdown -o "${RUNDIR}"/"${NAME}"-console.txt -4 0.0.0.0 $PORT >/dev/null </dev/null 2>&1 &
 
 NCPID=$!
