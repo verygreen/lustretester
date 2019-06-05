@@ -391,7 +391,7 @@ class Tester(object):
         if not os.path.exists(serverbuild) or not os.path.exists(clientbuild) or \
            not os.path.exists(serverkernel) or not os.path.exists(serverinitrd) or \
            not os.path.exists(clientkernel) or not os.path.exists(clientinitrd):
-            self.logger.error("Our build artifacts are missing?")
+            self.logger.error("Our build artifacts are missing for build" + str(workitem.buildnr))
             workitem.UpdateTestStatus("Build artifacts missing", Failed=True)
             return True # If we don't see 'em, nobody can see 'em
 
@@ -426,25 +426,25 @@ class Tester(object):
         try:
             server.process = Popen([self.serverruncommand, server.name, serverkernel, serverinitrd, serverbuild, testresultsdir], close_fds=True, stdin=PIPE, stdout=PIPE, stderr=PIPE, universal_newlines=True)
         except (OSError) as details:
-            self.logger.warning("Failed to run server " + str(details))
+            self.logger.warning("Buildid " + str(workitem.buildnr) + " test " + testinfo['name'] + '-' + testinfo['fstype'] + " Failed to run server " + str(details))
             return False
 
         try:
             client.process = Popen([self.clientruncommand, client.name, clientkernel, clientinitrd, clientbuild, testresultsdir], close_fds=True, stdin=PIPE, stdout=PIPE, stderr=PIPE, universal_newlines=True)
         except (OSError) as details:
-            self.logger.warning("Failed to run client " + str(details))
+            self.logger.warning("Buildid " + str(workitem.buildnr) + " test " + testinfo['name'] + '-' + testinfo['fstype'] + " Failed to run client " + str(details))
             server.terminate()
             return False
         # Now we need to wait until both have booted and gave us login prompt
         if server.wait_for_login() is not None:
             client.terminate()
             #pprint(server.errs)
-            self.logger.warning("Server did not show login prompt " + str(server.errs) + " " + str(server.outs) + " " + str([self.serverruncommand, server.name, serverkernel, serverinitrd, serverbuild, testresultsdir]))
+            self.logger.warning("Buildid " + str(workitem.buildnr) + " test " + testinfo['name'] + '-' + testinfo['fstype'] + " Server did not show login prompt " + str(server.errs) + " " + str(server.outs) + " " + str([self.serverruncommand, server.name, serverkernel, serverinitrd, serverbuild, testresultsdir]))
             return False
         if client.wait_for_login() is not None:
             server.terminate()
             #pprint(client.errs)
-            self.logger.warning("Client did not show login prompt" + str(client.errs) + " " + str(client.outs) + " " + str([self.clientruncommand, client.name, clientkernel, clientinitrd, clientbuild, testresultsdir]))
+            self.logger.warning("Buildid " + str(workitem.buildnr) + " test " + testinfo['name'] + '-' + testinfo['fstype'] + " Client did not show login prompt" + str(client.errs) + " " + str(client.outs) + " " + str([self.clientruncommand, client.name, clientkernel, clientinitrd, clientbuild, testresultsdir]))
             return False
 
         if workitem.Aborted:
@@ -463,17 +463,17 @@ class Tester(object):
             self.testouts += outs
             self.testerrs += errs
             if setupprocess.returncode is not 0:
-                self.logger.warning("Failed to setup test environment: " + self.testerrs + " " + self.testouts)
+                self.logger.warning("Buildid " + str(workitem.buildnr) + " test " + testinfo['name'] + '-' + testinfo['fstype'] + " Failed to setup test environment: " + self.testerrs + " " + self.testouts)
                 server.terminate()
                 client.terminate()
                 return False
         except OSError:
-            self.logger.warning("Failed to run test setup " + str(details))
+            self.logger.warning("Buildid " + str(workitem.buildnr) + " test " + testinfo['name'] + '-' + testinfo['fstype'] + " Failed to run test setup " + str(details))
             server.terminate()
             client.terminate()
             return False
         except TimeoutExpired:
-            self.logger.warning("Timed out mounting nfs")
+            self.logger.warning("Buildid " + str(workitem.buildnr) + " test " + testinfo['name'] + '-' + testinfo['fstype'] + " Timed out mounting nfs")
             setupprocess.terminate()
             server.terminate()
             client.terminate()
@@ -514,7 +514,7 @@ class Tester(object):
                     "NAME=ncli /home/green/git/lustre-release/lustre/tests/auster -D /tmp/testlogs/ -r -k " + AUSTERPARAMS + " " + testscript + " " + TESTPARAMS ]
             testprocess = Popen(args, close_fds=True, stdin=PIPE, stdout=PIPE, stderr=PIPE, universal_newlines=True)
         except (OSError) as details:
-            self.logger.warning("Failed to run test " + str(details))
+            self.logger.warning("Buildid " + str(workitem.buildnr) + " test " + testinfo['name'] + '-' + testinfo['fstype'] + " Failed to run test " + str(details))
             server.terminate()
             client.terminate()
             return False
@@ -548,13 +548,13 @@ class Tester(object):
                 self.testouts += outs
                 self.testerrs += errs
                 if not server.check_node_alive():
-                    self.logger.info(server.name + " died while processing test job")
+                    self.logger.info(server.name + " died while processing test job Buildid " + str(workitem.buildnr) + " test " + testinfo['name'] + '-' + testinfo['fstype'])
                     self.error = True
                     self.Crashed = True
                     message = "Server crashed"
                     break
                 if not client.check_node_alive():
-                    self.logger.info(client.name + " died while processing test job")
+                    self.logger.info(client.name + " died while processing test job Buildid " + str(workitem.buildnr) + " test " + testinfo['name'] + '-' + testinfo['fstype'])
                     message += "Client crashed"
                     self.Crashed = True
                     self.error = True
@@ -566,14 +566,14 @@ class Tester(object):
                     if item.get('error') and item.get('fatal'):
                         for node in [server, client]:
                             if node.match_console_string(item['error']):
-                                self.logger.warning("Matched fatal error in logs: " + item['error'] + ' on node ' + node.name)
+                                self.logger.warning("Matched fatal error in logs: " + item['error'] + ' on node ' + node.name + " Buildid " + str(workitem.buildnr) + " test " + testinfo['name'] + '-' + testinfo['fstype'])
                                 self.error = True
                                 message = "Fatal Error " + item['error'] + " on " + str(node.name)
                                 corefile = node.dump_core("fatalerror")
                                 counter = 0
                                 while node.check_node_alive():
                                     if counter > 60:
-                                        self.logger.warning("Timeout waiting for crashdump generation on fatalerror on " + str(node.name))
+                                        self.logger.warning("Timeout waiting for crashdump generation on fatalerror on " + str(node.name) + " Buildid " + str(workitem.buildnr) + " test " + testinfo['name'] + '-' + testinfo['fstype'])
                                         break
                                     counter += 1
                                     time.sleep(5)
@@ -587,7 +587,7 @@ class Tester(object):
 
                 # Also timeout
                 if time.time() > deadlinetime:
-                    self.logger.warning("Job timed out, terminating")
+                    self.logger.warning("Buildid " + str(workitem.buildnr) + " test " + testinfo['name'] + '-' + testinfo['fstype'] + " Job timed out, terminating")
                     self.error = True
                     message = "Timeout"
                     self.TimeoutDetected = True
@@ -597,7 +597,7 @@ class Tester(object):
                     counter = 0
                     while client.check_node_alive() and server.check_node_alive():
                         if counter > 60:
-                            self.logger.warning("Timeout waiting for crashdump generation on timeout")
+                            self.logger.warning("Buildid " + str(workitem.buildnr) + " test " + testinfo['name'] + '-' + testinfo['fstype'] + " Timeout waiting for crashdump generation on timeout")
                             break
                         counter += 1
                         time.sleep(5)
@@ -615,7 +615,7 @@ class Tester(object):
                 # Add a config file if this list is to grow
                 portmap_error = "port 988: port already in use"
                 if server.match_console_string(portmap_error) or client.match_console_string(portmap_error):
-                    self.logger.warning("Clash with portmap, restarting")
+                    self.logger.warning("Buildid " + str(workitem.buildnr) + " test " + testinfo['name'] + '-' + testinfo['fstype'] + " Clash with portmap, restarting")
                     server.terminate()
                     client.terminate()
                     return False
@@ -623,7 +623,7 @@ class Tester(object):
                 # We also have this "File exists" error out of nowhere at times,
                 # seems to be some generic failure, so skip it.
                 if ".ko: File exists" in self.testouts:
-                    self.logger.warning("Cannot insert module file Exists, restarting")
+                    self.logger.warning("Buildid " + str(workitem.buildnr) + " test " + testinfo['name'] + '-' + testinfo['fstype'] + " Cannot insert module file Exists, restarting")
                     server.terminate()
                     client.terminate()
                     return False
@@ -637,32 +637,32 @@ class Tester(object):
                 kdump_end_message = "kdump: saving vmcore complete"
                 counter = 0
                 if server.match_console_string(kdump_start_message):
-                    self.logger.info(server.name + " kdump starting while processing test job")
+                    self.logger.info(server.name + " kdump starting while processing test job Buildid " + str(workitem.buildnr) + " test " + testinfo['name'] + '-' + testinfo['fstype'])
                     self.error = True
                     message = "Server crashed"
                     self.Crashed = True
                     # wait for kdump to finish
                     while server.is_alive():
                         if server.match_console_string(kdump_end_message):
-                            self.logger.info(server.name + " kdump done")
+                            self.logger.info(server.name + " kdump done Buildid " + str(workitem.buildnr) + " test " + testinfo['name'] + '-' + testinfo['fstype'])
                             break
                         if counter > 60: # 5 minutes max for crashdump
-                            self.logger.info(server.name + " kdump timeout")
+                            self.logger.info(server.name + " kdump timeout Buildid " + str(workitem.buildnr) + " test " + testinfo['name'] + '-' + testinfo['fstype'])
                             warnings += "(crashdump timeout)"
                             break
                         time.sleep(5)
                         counter += 1
                 if client.match_console_string(kdump_start_message):
-                    self.logger.info(client.name + " kdump starting while processing test job")
+                    self.logger.info(client.name + " kdump starting while processing test job Buildid " + str(workitem.buildnr) + " test " + testinfo['name'] + '-' + testinfo['fstype'])
                     self.error = True
                     message += "Client crashed"
                     self.Crashed = True
                     while client.is_alive():
                         if client.match_console_string(kdump_end_message):
-                            self.logger.info(client.name + " kdump done")
+                            self.logger.info(client.name + " kdump done Buildid " + str(workitem.buildnr) + " test " + testinfo['name'] + '-' + testinfo['fstype'])
                             break
                         if counter > 60: # 5 minutes max for crashdump
-                            self.logger.info(client.name + " kdump timeout")
+                            self.logger.info(client.name + " kdump timeout Buildid " + str(workitem.buildnr) + " test " + testinfo['name'] + '-' + testinfo['fstype'])
                             warnings += "(crashdump timeout)"
                             break
                         time.sleep(5)
@@ -704,11 +704,11 @@ class Tester(object):
                         fldata = fl.read()
                         testresults = yaml.load(fldata.replace('\\', ''))
                 except (OSError, ImportError) as e:
-                    self.logger.error("Exception when trying to read results.yml: " + str(e))
+                    self.logger.error("Buildid " + str(workitem.buildnr) + " test " + testinfo['name'] + '-' + testinfo['fstype'] + " Exception when trying to read results.yml: " + str(e))
                 else:
                     for yamltest in testresults.get('Tests', []):
                         if yamltest.get('name', '') != testscript:
-                            self.logger.warning("Skipping unexpected test results for " + yamltest.get('name', 'EMPTYNAME'))
+                            self.logger.warning("Buildid " + str(workitem.buildnr) + " test " + testinfo['name'] + '-' + testinfo['fstype'] + " Skipping unexpected test results for " + yamltest.get('name', 'EMPTYNAME'))
                             continue
                         try:
                             for subtest in yamltest.get('SubTests', []):
@@ -759,7 +759,7 @@ class Tester(object):
         elif "Backtrace: " in self.testouts:
             warnings += "(userspace backtrace - please investigate)"
 
-        self.logger.info("Job finished with code " + str(testprocess.returncode) + " and message " + message)
+        self.logger.info("Buildid " + str(workitem.buildnr) + " test " + testinfo['name'] + '-' + testinfo['fstype'] + " Job finished with code " + str(testprocess.returncode) + " and message " + message)
         # XXX Also need to add yaml parsing of results with subtests.
 
         #pprint(self.testerrs)
@@ -787,7 +787,7 @@ class Tester(object):
 
         # We crashed, but did not find the crash file, huh?
         if self.Crashed:
-            self.logger.warning("job for buildid " + str(workitem.buildnr) + " We had a crash " + message + "but no crashdumps?")
+            self.logger.warning("job for buildid " + str(workitem.buildnr) + " test " + testinfo['name'] + '-' + testinfo['fstype'] + " We had a crash " + message + "but no crashdumps?")
 
         workitem.UpdateTestStatus(testinfo, message, Finished=True, Crash=self.CrashDetected, TestStdOut=self.testouts, TestStdErr=self.testerrs, Failed=Failure, Subtests=failedsubtests, Skipped=skippedsubtests, Warnings=warnings)
 
