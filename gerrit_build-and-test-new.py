@@ -1284,7 +1284,16 @@ def run_workitem_manager():
                 # first for comprehensive testing (initial still in front)
                 # And if there are any free nodes - then subsequent jobs
                 # can come in and do stuff too.
-                testing_queue.put([workitem.buildnr, testinfo, workitem])
+                # jobs with timeouts less than 1000 seconds are fast and it's
+                # worth letting them in first anyway to keep a pool of nodes
+                # that would complete fast for use by later lower priority tests
+                if testinfo['timeout'] > 0 and testinfo['timeout'] <= 1000:
+                    priority = workitem.buildnr
+                else:
+                    # space them out every 100 so we can later add some
+                    # additional prioritization if desired.
+                    priority = workitem.buildnr * 100
+                testing_queue.put([priority, testinfo, workitem])
                 testing_condition.notify()
             testing_condition.release()
             continue
