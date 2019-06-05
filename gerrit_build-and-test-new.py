@@ -486,16 +486,6 @@ def review_input_and_score(path_line_comments, warning_count):
             'notify': 'NONE',
             }, score
 
-def path_to_url(path):
-    url = fsconfig['http_server']
-    offset = fsconfig['root_path_offset']
-    cut = len(offset)
-    if path[:cut] != offset:
-        # Somethign is really wrong here
-        return "Error path substitution, server misconfiguration!"
-    url += path[cut:]
-    return url
-
 def add_review_comment(WorkItem):
     """
     Convert { PATH: { LINE: [COMMENT, ...] }, ... }, [11] to a gerrit
@@ -534,7 +524,7 @@ def add_review_comment(WorkItem):
                 message = WorkItem.BuildMessage
             else:
                 message = 'Build failed\n'
-            message += ' Job output URL: ' + path_to_url(WorkItem.artifactsdir) + "/" + WorkItem.get_results_filename()
+            message += ' Job output URL: ' + WorkItem.get_base_url() + "/" + WorkItem.get_results_filename()
             score = -1
             review_comments = WorkItem.ReviewComments
         else:
@@ -542,7 +532,7 @@ def add_review_comment(WorkItem):
                 message = "This is a retest #%d\n" % (WorkItem.retestiteration)
             else:
                 message = 'Build for x86_64 centos7 successful\n'
-            message += 'Job output URL: ' + path_to_url(WorkItem.artifactsdir) + '/' + WorkItem.get_results_filename() + '\n\n'
+            message += 'Job output URL: ' + WorkItem.get_base_url() + '/' + WorkItem.get_results_filename() + '\n\n'
             if WorkItem.initial_tests:
                 message += ' Commencing initial testing: ' + WorkItem.requested_tests_string(WorkItem.initial_tests)
             else:
