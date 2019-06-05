@@ -1367,6 +1367,8 @@ if __name__ == "__main__":
                 # Same here
                 saveitem.TestingStarted = False
 
+            saveitem.Reviewer = reviewer # Since it cannot be saved otherwise
+
             WorkList.append(saveitem)
             managing_condition.acquire()
             managing_queue.put(saveitem)
