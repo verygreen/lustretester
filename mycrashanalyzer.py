@@ -481,11 +481,12 @@ class Crasher(object):
             if reviews: # there's at least some match and we have not seen it too much - let's print it as immediate message comment?
                 print("Looks like we are going to try to post urgent review here")
                 #print(str(reviews))
-                message = "Crash in %s@%s" % (testinfo['test'], testinfo['fstype'])
+                message = "Crash (id %d seen %d) in %s@%s" % (newid, numreports, testinfo['test'], testinfo['fstype'])
                 if testinfo.get('DNE', False):
                     message += "+DNE"
+                message += "\n- Failed run: " + workitem.get_url_for_test(testinfo)
 
-                workitem.post_immediate_review_comment(message, reviews)
+                workitem.post_immediate_review_comment(message, reviews, newid)
             else:
                 # For now it still might be unrelated so... Just do nothing?
                 pass

@@ -24,7 +24,7 @@ class GerritWorkItem(object):
         self.BuildError = False
         self.BuildMessage = ""
         self.ReviewComments = {}
-        self.artifactsdir = None
+        self.artifactsdir = ""
         self.InitialTestingStarted = False
         self.InitialTestingError = False
         self.InitialTestingDone = False
@@ -35,7 +35,7 @@ class GerritWorkItem(object):
         self.tests = testlist
         self.lock = threading.Lock()
         self.retestiteration = 0
-        self.UrgentReviewPrinted = False
+        self.crash_ids_reported = []
 
     def __getstate__(self):
         state = self.__dict__.copy()
@@ -56,10 +56,24 @@ class GerritWorkItem(object):
             htmlfile = "results.html"
         return htmlfile
 
+    def get_base_url(self):
+        url = self.fsconfig['http_server']
+        offset = self.fsconfig['root_path_offset']
+        cut = len(offset)
+        path = self.artifactsdir
+        if path[:cut] != offset:
+            return "Error path substitution, server misconfiguration!"
+        url += path[cut:]
+        return url
+
+    def get_url_for_test(self, testinfo):
+        return self.get_base_url() + testinfo.get('ResultsDir', '').replace(self.artifactsdir, '')
+
     # This just prints a rate-limited message
-    def post_immediate_review_comment(self, message, review):
-        #if self.UrgentReviewPrinted:
-        #    return # for now only do it once
+    def post_immediate_review_comment(self, message, review, newid):
+        if newid in self.crash_ids_reported:
+            # We printed message about this one already, do nothing.
+            return
         if not self.Reviewer: # Well, no object = nothing to do
             print("No reviewer")
             return
@@ -68,7 +82,7 @@ class GerritWorkItem(object):
             return # Not printing empty reviews
 
         if self.Reviewer.post_review(self.change, self.revision, {'message':message, 'notify':'OWNER', 'labels':{'Code-Review':0}, 'comments':review}):
-            self.UrgentReviewPrinted = True
+            self.crash_ids_reported.append(newid)
         else:
             print("Failure posting review")
 
