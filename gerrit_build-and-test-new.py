@@ -212,12 +212,12 @@ def determine_testlist(filelist, commit_message, ForceFull=False):
     trivial_requested = is_trivial_requested(commit_message)
     DoNothing = True
     NonTestFilesToo = False
-    modified_test_files = []
     BuildOnly = False
     LNetOnly = False
     ZFSOnly = False
     LDiskfsOnly = False
     FullRun = False
+    requested_tests = testlist_from_commit_message(commit_message)
 
     for item in sorted(filelist):
         # I wish there was a way to detect deleted files, but alas, not in our gerrit?
@@ -225,7 +225,10 @@ def determine_testlist(filelist, commit_message, ForceFull=False):
             continue # with deletion would set BuildOnly
         DoNothing = False
         if match_fnmatch_list(item, TEST_SCRIPT_FILES):
-            modified_test_files.append(os.path.basename(item).replace('.sh',''))
+            testname = os.path.basename(item).replace('.sh','')
+            # if it was already requested by the test-params, don't add it again
+            if not testname in requested_tests:
+                requested_tests.append(testname)
             continue
         NonTestFilesToo = True
         if match_fnmatch_list(item, BUILD_ONLY_FILES):
@@ -248,6 +251,11 @@ def determine_testlist(filelist, commit_message, ForceFull=False):
     # to ensure actual Lustre operations still work.
     if LNetOnly and not FullRun and not LDiskfsOnly and not ZFSOnly:
         ZFSOnly = True
+
+    # any changes outside the build only -> do testing too.
+    # FullRun will reset everything separately below
+    if BuildOnly and (requested_tests or LNetOnly or LDiskfsOnly or ZFSOnly):
+        BuildOnly = False
 
     # Override for testing
     if GERRIT_FORCEALLTESTS or ForceFull:
@@ -278,10 +286,10 @@ def determine_testlist(filelist, commit_message, ForceFull=False):
     comprehensive = []
 
     if not DoNothing and not BuildOnly:
-        if modified_test_files:
+        if requested_tests:
             UnknownItems = NonTestFilesToo
             foundtests = []
-            for item in modified_test_files:
+            for item in requested_tests:
                 if item == 'test-framework': # This needs a full run
                     LDiskfsOnly = True
                     ZFSOnly = True
@@ -349,6 +357,17 @@ def is_trivial_requested(message):
         if trivial_re.match(line):
             return True
     return False
+
+def testlist_from_commit_message(message):
+    testlist = []
+    testlist_re = re.compile("^Test-Parameters:.*testlist=([-a-zA-Z0-9_,\.]+)")
+    # XXX Need to do austeroptions, envdefinitions and perhaps more from
+    # https://wiki.whamcloud.com/display/PUB/Changing+Test+Parameters+with+Gerrit+Commit+Messages
+    for line in message.splitlines():
+        result = testlist_re.match(line)
+        if result:
+            testlist.append(result.group(1))
+    return testlist
 
 def is_buildonly_requested(message):
     trivial_re = re.compile("^Test-Parameters:.*forbuildonly")
@@ -947,7 +966,7 @@ class Reviewer(object):
                             testarray = []
                             for item in tlist:
                                 titem = {}
-                                for elem in ('test', 'timeout', 'testparam', 'fstype', 'DNE', 'SSK', 'SELINUX'):
+                                for elem in ('name', 'test', 'timeout', 'testparam', 'fstype', 'DNE', 'SSK', 'SELINUX', 'env', 'austerparam'):
                                     if item.get(elem):
                                         titem[elem] = item[elem]
                                 testarray.append(titem)
