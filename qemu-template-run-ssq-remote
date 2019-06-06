@@ -7,11 +7,17 @@ MAC=
 SWAPDEV=
 KERNEL=$2
 INITRD=$3
-EXPORT=
+DISTRO=${DISTRO:-"centos7"}
+EXPORT="/exports/${DISTRO}-base"
 NFSSERVER=
 
 if [ -z "$STORAGEPOOL" -o -z "$SERVERHOST" ] ; then
 	echo "Must have STORAGEPOOL and SERVERHOST set"
+	exit 1
+fi
+
+if [ -z "${EXPORT}" ] ; then
+	echo "Export ${EXPORT} for distro ${DISTRO} does not exist"
 	exit 1
 fi
 if [ ! -f "$HOMEDATA" -o -z "$NAME" -o ! -f "$KERNEL" -o ! -f "$INITRD" ] ; then

@@ -7,12 +7,18 @@ MAC=
 SWAPDEV=
 KERNEL=$2
 INITRD=$3
-EXPORT=
+DISTRO=${DISTRO:-"centos7"}
+EXPORT="/exports/${DISTRO}-base"
 NFSSERVER=
 STORAGEPOOL=zstorage
 
 if [ ! -f "$HOMEDATA" -o -z "$NAME" -o ! -f "$KERNEL" -o ! -f "$INITRD" ] ; then
 	echo "Usage $0 VMNAME kernel initrd lustrebuild.tar.xz LOGDIR"
+	exit 1
+fi
+
+if [ -z "${EXPORT}" ] ; then
+	echo "Export ${EXPORT} for distro ${DISTRO} does not exist"
 	exit 1
 fi
 
