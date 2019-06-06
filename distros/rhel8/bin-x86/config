@@ -1,0 +1,7 @@
+CONFIGDIR=/home/green/config
+INCOMINGDIR=/tmp/compressor/incoming
+OUTGOINGDIR=/tmp/compressor/outgoing
+COMPRESSOR="xz -9"
+CSUFFIX=".xz"
+SRCLOCATION=/home/green/git/lustre-release-base
+TGTBUILD=/home/green/git/lustre-release
