@@ -18,7 +18,7 @@ in grub: zswap.enabled=1
 to rc.local: echo lz4 >/sys/module/zswap/parameters/compressor
 
 faster emulation in grub:
-noibrs noibpb nopti l1tf=off
+noibrs noibpb audit=0 pti=off spectre_v2=off l1tf=off nospec_store_bypass_disable
 
 ksmtuned - install
 service ksmtuned start
@@ -28,3 +28,12 @@ in vm /exports/centos7-base/etc/systemd/journald.conf - edit Storage to none
 
 To fix zfs kdump troubles:
 rm -rf usr/lib/dracut/modules.d/90zfs
+
+# Make suze zfs does not spawn and end processes all the time:
+# cat /etc/modprobe.d/zfs.conf
+# prevent storm of thread spawning
+options spl spl_taskq_thread_dynamic=0
+
+sysctl:
+vm.swappiness=0 # to reduce swappiness as VMs use all the RAM
+
