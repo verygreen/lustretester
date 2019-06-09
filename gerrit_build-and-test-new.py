@@ -1042,13 +1042,7 @@ def save_WorkItem(workitem):
     print_WorkList_to_HTML()
     if workitem not in WorkList: # already removed?
         return
-    with open(SAVEDSTATE_DIR + "/" + str(workitem.buildnr) + ".pickle", "wb") as output:
-        workitem.lock.acquire()
-        try:
-            pickle.dump(workitem, output, pickle.HIGHEST_PROTOCOL )
-        except RuntimeError:
-            pass # We just want to avoid the crash. next iteration will write it out.
-        workitem.lock.release()
+    workitem.save(SAVEDSTATE_DIR)
 
 def donewith_WorkItem(workitem):
     print_WorkList_to_HTML()
@@ -1059,11 +1053,10 @@ def donewith_WorkItem(workitem):
         pass # We are not in the list, e.g. because this is a duplicate hit for like a crash processing
 
     try:
-        os.unlink(SAVEDSTATE_DIR + "/" + str(workitem.buildnr) + ".pickle")
+        os.unlink(SAVEDSTATE_DIR + "/" + workitem.get_saved_name())
     except OSError:
         pass
-    with open(DONEWITH_DIR + "/" + str(workitem.buildnr) + ".pickle", "wb") as output:
-        pickle.dump(workitem, output, pickle.HIGHEST_PROTOCOL)
+    workitem.save(DONEWITH_DIR)
 
 def print_WorkList_to_HTML():
     template = """

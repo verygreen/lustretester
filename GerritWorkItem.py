@@ -4,6 +4,7 @@ import os
 from pprint import pprint
 import threading
 import operator
+import cPickle as pickle
 
 class GerritWorkItem(object):
     def __init__(self, change, initialtestlist, testlist, fsconfig, EmptyJob=False, Reviewer=None):
@@ -370,3 +371,22 @@ class GerritWorkItem(object):
         testlist += "\nAll results and logs: " + allresults.replace(self.fsconfig['root_path_offset'], self.fsconfig['http_server'])
 
         return testlist
+
+    def get_saved_name(self):
+        name = str(self.buildnr)
+        if self.retestiteration:
+            name += str(self.retestiteration)
+        name += ".pickle"
+        return name
+
+    def save(self, path):
+        """ Saves the item with common name """
+        name = self.get_saved_name()
+
+        with open(path + "/" + name, "wb") as output:
+            self.lock.acquire()
+            try:
+                pickle.dump(self, output, pickle.HIGHEST_PROTOCOL )
+            except RuntimeError:
+                pass # We just want to avoid the crash. next iteration will write it out.
+            self.lock.release()
