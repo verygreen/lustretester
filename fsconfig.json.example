@@ -1,4 +1,5 @@
 {
+	"mylogsdir":"./logs",
 	"outputs":"/exports/testreports",
 	"crashdumps":"/tmp/kcrashes",
 	"syslogdir":"/tmp/syslogs",

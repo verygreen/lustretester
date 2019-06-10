@@ -127,10 +127,10 @@ class Node(object):
         return corename
 
 class Tester(object):
-    def setup_custom_logger(self, name):
+    def setup_custom_logger(self, name, logdir):
         formatter = logging.Formatter(fmt='%(asctime)s %(levelname)-8s %(message)s',
                                       datefmt='%Y-%m-%d %H:%M:%S')
-        handler = logging.FileHandler(name, mode='a')
+        handler = logging.FileHandler(logdir + name, mode='a')
         handler.setFormatter(formatter)
         screen_handler = logging.StreamHandler(stream=sys.stdout)
         screen_handler.setFormatter(formatter)
@@ -141,7 +141,7 @@ class Tester(object):
         return logger
 
     def run_daemon(self, in_cond, in_queue, out_cond, out_queue):
-        self.logger = self.setup_custom_logger("tester-%s.log" % (self.name))
+        self.logger = self.setup_custom_logger("tester-%s.log" % (self.name), self.fsinfo.get("mylogsdir", "logs") + "/")
         self.logger.info("Started daemon")
         # Would be great to verify all nodes are operational here, but
         # Alas, need kernels and initrds for that. Perhaps require some

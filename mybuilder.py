@@ -12,10 +12,10 @@ from subprocess32 import Popen, PIPE, TimeoutExpired
 
 
 class Builder(object):
-    def setup_custom_logger(self, name):
+    def setup_custom_logger(self, name, logdir):
         formatter = logging.Formatter(fmt='%(asctime)s %(levelname)-8s %(message)s',
                                       datefmt='%Y-%m-%d %H:%M:%S')
-        handler = logging.FileHandler(name, mode='a')
+        handler = logging.FileHandler(logdir + name, mode='a')
         handler.setFormatter(formatter)
         screen_handler = logging.StreamHandler(stream=sys.stdout)
         screen_handler.setFormatter(formatter)
@@ -27,7 +27,7 @@ class Builder(object):
 
     def run_daemon(self, in_cond, in_queue, out_cond, out_queue):
         self.name = threading.current_thread().name
-        self.logger = self.setup_custom_logger("builder-%s.log" % (self.name))
+        self.logger = self.setup_custom_logger("builder-%s.log" % (self.name), self.fsinfo.get("mylogsdir", "logs") + "/")
         self.logger.info("Started daemon")
         while True:
             in_cond.acquire()
