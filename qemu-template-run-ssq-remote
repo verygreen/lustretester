@@ -10,7 +10,7 @@ INITRD=$3
 DISTRO=${DISTRO:-"centos7"}
 EXPORT="/exports/${DISTRO}-base"
 NFSSERVER=
-MLOCK=${MLOCK:-"-realtime mlock=on"}
+MLOCK=${MLOCK:-"-realtime mlock=off"}
 
 if [ -z "$STORAGEPOOL" -o -z "$SERVERHOST" ] ; then
 	echo "Must have STORAGEPOOL and SERVERHOST set"
@@ -35,19 +35,19 @@ fi
 EXTRADEV=
 if [ -n "$MDT1DEV" ] ; then
 	ssh -o StrictHostKeyChecking=no root@${SERVERHOST} blkdiscard "${MDT1DEV}"
-	EXTRADEV+="-drive file=${MDT1DEV},format=raw,if=none,id=drive-virtio-disk2,cache=none -device virtio-blk-pci,scsi=off,bus=pci.0,addr=0x7,drive=drive-virtio-disk2,id=virtio-disk2,write-cache=on "
+	EXTRADEV+="-drive file=${MDT1DEV},format=raw,if=none,id=drive-virtio-disk2,cache=unsafe -device virtio-blk-pci,scsi=off,bus=pci.0,addr=0x7,drive=drive-virtio-disk2,id=virtio-disk2,write-cache=on "
 fi
 if [ -n "$MDT2DEV" ] ; then
 	ssh -o StrictHostKeyChecking=no root@${SERVERHOST} blkdiscard "${MDT2DEV}"
-	EXTRADEV+="-drive file=${MDT2DEV},format=raw,if=none,id=drive-virtio-disk3,cache=none -device virtio-blk-pci,scsi=off,bus=pci.0,addr=0x8,drive=drive-virtio-disk3,id=virtio-disk3,write-cache=on "
+	EXTRADEV+="-drive file=${MDT2DEV},format=raw,if=none,id=drive-virtio-disk3,cache=unsafe -device virtio-blk-pci,scsi=off,bus=pci.0,addr=0x8,drive=drive-virtio-disk3,id=virtio-disk3,write-cache=on "
 fi
 if [ -n "$OST1DEV" ] ; then
 	ssh -o StrictHostKeyChecking=no root@${SERVERHOST} blkdiscard "${OST1DEV}"
-	EXTRADEV+="-drive file=${OST1DEV},format=raw,if=none,id=drive-virtio-disk4,cache=none -device virtio-blk-pci,scsi=off,bus=pci.0,addr=0x9,drive=drive-virtio-disk4,id=virtio-disk4,write-cache=on "
+	EXTRADEV+="-drive file=${OST1DEV},format=raw,if=none,id=drive-virtio-disk4,cache=unsafe -device virtio-blk-pci,scsi=off,bus=pci.0,addr=0x9,drive=drive-virtio-disk4,id=virtio-disk4,write-cache=on "
 fi
 if [ -n "$OST2DEV" ] ; then
 	ssh -o StrictHostKeyChecking=no root@${SERVERHOST} blkdiscard "${OST2DEV}"
-	EXTRADEV+="-drive file=${OST2DEV},format=raw,if=none,id=drive-virtio-disk5,cache=none -device virtio-blk-pci,scsi=off,bus=pci.0,addr=0xa,drive=drive-virtio-disk5,id=virtio-disk5,write-cache=on "
+	EXTRADEV+="-drive file=${OST2DEV},format=raw,if=none,id=drive-virtio-disk5,cache=unsafe -device virtio-blk-pci,scsi=off,bus=pci.0,addr=0xa,drive=drive-virtio-disk5,id=virtio-disk5,write-cache=on "
 fi
 
 if [ -z "$NFSSERVER" -o -z "$EXPORT" ] ; then
@@ -86,7 +86,7 @@ MEM=${MEM:-4078}
 EXTRAKERNELARGS=${EXTRAKERNELARGS:-""}
 
 echo "Starting Qemu for $NAME"
-exec ssh -tt -o StrictHostKeyChecking=no root@${SERVERHOST} qemu-system-x86_64 -nographic -nodefaults -no-reboot ${MLOCK} -nic bridge,model=virtio,mac=${MAC},br=br1 -name guest=${NAME},debug-threads=on -machine pc-i440fx-1.6,accel=kvm,usb=off,dump-guest-core=off -m ${MEM} -realtime mlock=off -smp 8,sockets=1,cores=4,threads=2 -rtc base=utc -chardev stdio,mux=on,id=char0 -mon chardev=char0,mode=readline -serial chardev:char0 -serial tcp:"$HOSTNAME":"$PORT",nodelay -drive file="${HOMEDATA}",format=file,locking=off,if=none,id=drive-virtio-disk0 -device virtio-blk-pci,scsi=off,bus=pci.0,addr=0x5,drive=drive-virtio-disk0,id=virtio-disk0,write-cache=on -drive file="${SWAPDEV}",format=raw,if=none,id=drive-virtio-disk1,cache=none ${EXTRADEV} -device virtio-blk-pci,scsi=off,bus=pci.0,addr=0x6,drive=drive-virtio-disk1,id=virtio-disk1,write-cache=on $EXTRADEVS -msg timestamp=on -kernel "${KERNEL}" -initrd "${INITRD}" -append '"rd.shell root=nfs:'${NFSSERVER}:${EXPORT}' ro crashkernel=128M panic=1 nomodeset ipmtu=9000 noibrs noibpb nopti console=ttyS1,115200 '${EXTRAKERNELARGS}'"' \; echo 'dead bees know no mercy' \| nc $HOSTNAME $PORT 2\>/dev/null
+exec ssh -tt -o StrictHostKeyChecking=no root@${SERVERHOST} nice -n 10 qemu-system-x86_64 -nographic -nodefaults -no-reboot ${MLOCK} -nic bridge,model=virtio,mac=${MAC},br=br1 -name guest=${NAME},debug-threads=on -machine pc-i440fx-1.6,accel=kvm,usb=off,dump-guest-core=off -m ${MEM} -realtime mlock=off -smp 4,sockets=1,cores=2,threads=2 -rtc base=utc -chardev stdio,mux=on,id=char0 -mon chardev=char0,mode=readline -serial chardev:char0 -serial tcp:"$HOSTNAME":"$PORT",nodelay -drive file="${HOMEDATA}",format=file,locking=off,if=none,id=drive-virtio-disk0 -device virtio-blk-pci,scsi=off,bus=pci.0,addr=0x5,drive=drive-virtio-disk0,id=virtio-disk0,write-cache=on -drive file="${SWAPDEV}",format=raw,if=none,id=drive-virtio-disk1,cache=unsafe ${EXTRADEV} -device virtio-blk-pci,scsi=off,bus=pci.0,addr=0x6,drive=drive-virtio-disk1,id=virtio-disk1,write-cache=on $EXTRADEVS -msg timestamp=on -kernel "${KERNEL}" -initrd "${INITRD}" -append '"rd.shell root=nfs:'${NFSSERVER}:${EXPORT}' ro crashkernel=128M panic=1 nomodeset ipmtu=9000 noibrs noibpb nopti console=ttyS1,115200 '${EXTRAKERNELARGS}'"' \; echo 'dead bees know no mercy' \| nc $HOSTNAME $PORT 2\>/dev/null
 
 # this is for the case ssh terminating without starting the qemu successfully
 #kill $NCPID >/dev/null 2>&1

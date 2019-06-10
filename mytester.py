@@ -52,7 +52,7 @@ class Node(object):
         fl = fcntl.fcntl(fd, fcntl.F_GETFL)
         fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
 
-        deadlinetime = time.time() + 180 # IF a node did not come up in 3 minutes, something is wrong with it anyway
+        deadlinetime = time.time() + 300 # IF a node did not come up in 5 minutes, something is wrong with it anyway. Only this long because initial nfs mount for client state is somewhat slow.
         while time.time() <= deadlinetime:
             try:
                 string = self.process.stdout.read()
@@ -788,6 +788,8 @@ class Tester(object):
         # We crashed, but did not find the crash file, huh?
         if self.Crashed:
             self.logger.warning("job for buildid " + str(workitem.buildnr) + " test " + testinfo['name'] + '-' + testinfo['fstype'] + " We had a crash " + message + "but no crashdumps?")
+            self.logger.warning("client stderr: " + client.errs)
+            self.logger.warning("server stderr: " + server.errs)
 
         workitem.UpdateTestStatus(testinfo, message, Finished=True, Crash=self.CrashDetected, TestStdOut=self.testouts, TestStdErr=self.testerrs, Failed=Failure, Subtests=failedsubtests, Skipped=skippedsubtests, Warnings=warnings)
 
