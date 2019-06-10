@@ -46,6 +46,7 @@ import Queue
 import threading
 import pwd
 import re
+import random
 import operator
 import mybuilder
 import mytester
@@ -117,7 +118,6 @@ reviewer = None
 
 fsconfig = {}
 
-distros = ["centos7"]
 architectures = ["x86_64"]
 
 ZFS_ONLY_FILES = [ 'lustre/osd-zfs/*.[ch]', 'lustre/utils/libmount_utils_zfs.c', 'config/lustre-build-zfs.m4' ]
@@ -1306,6 +1306,7 @@ if __name__ == "__main__":
     # Start our working threads
     with open("./test-nodes-config.json") as nodes_file:
         workers = json.load(nodes_file)
+        random.shuffle(workers) # to spread the load at least a bit initially
     with open("./fsconfig.json") as fsconfig_file:
         fsconfig = json.load(fsconfig_file)
 
@@ -1318,12 +1319,11 @@ if __name__ == "__main__":
     fsconfig["testoutputowneruid"] = testoutputowner_uid
 
     builders = []
-    for distro in distros:
-        for arch in architectures:
-            with open("builders-" + distro + "-" + arch + ".json") as buildersfile:
-                buildersinfo = json.load(buildersfile)
-                for builderinfo in buildersinfo:
-                    builders.append(mybuilder.Builder(builderinfo, fsconfig, build_condition, build_queue, managing_condition, managing_queue))
+    for arch in architectures:
+        with open("builders-" + arch + ".json") as buildersfile:
+            buildersinfo = json.load(buildersfile)
+            for builderinfo in buildersinfo:
+                builders.append(mybuilder.Builder(builderinfo, fsconfig, build_condition, build_queue, managing_condition, managing_queue))
 
     for worker in workers:
         worker['thread'] = mytester.Tester(worker, fsconfig, testing_condition,\
