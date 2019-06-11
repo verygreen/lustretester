@@ -1005,10 +1005,11 @@ class Reviewer(object):
                 changenum = int(revision[:8], 16)
             except requests.exceptions.RequestException:
                 revision = branch
-                changenum = 1 # all the same - so abort-unsafe
+                changenum = str(random.randint(1, 10000000))
             except ValueError: # some garbage from gitweb?
                 revision = branch
-                changenum = "1" # all the same - so abort-unsafe
+                # This happens when we have merge commit at the top
+                changenum = (random.randint(1, 10000000))
             change = {'branch':branch, '_number':changenum, 'branchwide':True,
                     'id':branch, 'subject':subject, 'current_revision':revision }
             self.review_change(change)
