@@ -452,14 +452,14 @@ class Tester(object):
             client.terminate()
             return True
 
-        # Now mount NFS in VM
+        # Now perform initial preparations like starting kdump and mount NFS in VM
         try:
             command = "ssh -o StrictHostKeyChecking=no root@" + self.clientnetname + \
-                    " 'mkdir /tmp/testlogs ; mount 192.168.10.252:/" + \
+                    " 'systemctl start kdump ; mkdir /tmp/testlogs ; mount 192.168.200.253:/" + \
                     testresultsdir + " /tmp/testlogs -t nfs'"
             args = shlex.split(command)
             setupprocess = Popen(args, close_fds=True, stdin=PIPE, stdout=PIPE, stderr=PIPE, universal_newlines=True)
-            outs, errs = setupprocess.communicate(timeout=100) # XXX timeout handling
+            outs, errs = setupprocess.communicate(timeout=600) # XXX timeout handling
             self.testouts += outs
             self.testerrs += errs
             if setupprocess.returncode is not 0:
