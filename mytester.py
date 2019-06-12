@@ -537,7 +537,10 @@ class Tester(object):
                 # XXX - perhaps consider doing some sort of a manual select call?
                 time.sleep(5) # every 5 seconds, not ideal because that becomes our latency
                 outs, errs = testprocess.communicate(timeout=0.01) # cannot have 0 somehow
-            except (TimeoutExpired, ValueError):
+            except ValueError:
+                testprocess.poll()
+                break # dead already?
+            except TimeoutExpired:
                 if workitem.Aborted:
                     self.logger.warning("job for buildid " + str(workitem.buildnr) + " aborted")
                     testprocess.terminate()
