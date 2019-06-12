@@ -231,7 +231,7 @@ class Tester(object):
             path = self.testresultsdir + "/" + filename
             if not os.path.isdir(path):
                 try:
-                    os.chmod(path, 0644)
+                    os.chmod(path, 0o644)
                 except OSError:
                     pass # what can we do
 
@@ -244,7 +244,7 @@ class Tester(object):
                 return
             shutil.copy(syslogfilename, self.testresultsdir + "/")
             try:
-                os.chmod(self.testresultsdir + "/" + node + ".syslog.log", 0644)
+                os.chmod(self.testresultsdir + "/" + node + ".syslog.log", 0o644)
             except OSError:
                 pass
 
@@ -282,7 +282,7 @@ class Tester(object):
                         self.logger.warning("Failed processing of core file " + filename + " to " + outputlocationpathprefix + "vmcore with " + outs + " and " + errs)
                     else:
                         try:
-                            os.chmod(outputlocationpathprefix + "vmcore", 0644)
+                            os.chmod(outputlocationpathprefix + "vmcore", 0o644)
                         except OSError:
                             pass # What can we do?
                         self.CrashDetected = True
@@ -408,7 +408,7 @@ class Tester(object):
             # Make it writeable for the tests
             os.chown(testresultsdir, self.fsinfo["testoutputowneruid"], -1)
             # Don't let them delete other files
-            os.chmod(testresultsdir, 01755)
+            os.chmod(testresultsdir, 0o1755)
         except OSError:
             self.logger.error("Huh, cannot create test results dir: " + testresultsdir)
             return False
