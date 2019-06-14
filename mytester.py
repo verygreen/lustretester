@@ -166,6 +166,8 @@ class Tester(object):
                 try:
                     with open(self.testresultsdir + "/test.stdout", "w") as sout:
                         sout.write(self.testouts)
+                    with open(self.testresultsdir + "/test.stderr", "w") as serr:
+                        serr.write(self.testerrs)
                 except OSError:
                     pass # what can we do
             if result:
