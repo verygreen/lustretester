@@ -157,7 +157,7 @@ def is_notknow_howto_test(filelist):
             return True
     return False
 
-def populate_testlist_from_array(testlist, testarray, LDiskfsOnly, ZFSOnly, DNE=True, Force=False):
+def populate_testlist_from_array(testlist, testarray, LDiskfsOnly, ZFSOnly, DNE=True, Force=False, Branch=None):
     for item in testarray:
         def getemptytest(item):
             test = {}
@@ -176,6 +176,10 @@ def populate_testlist_from_array(testlist, testarray, LDiskfsOnly, ZFSOnly, DNE=
 
         if item.get('disabled') and not Force:
             continue
+        # Exclude somestuff that only partially landed.
+        if item.get('onlybranch') and Branch:
+            if not Branch.startswith(item.get('onlybranch')):
+                continue
         if not DNE and item.get('DNE'):
             continue
 
@@ -207,7 +211,7 @@ def populate_testlist_from_array(testlist, testarray, LDiskfsOnly, ZFSOnly, DNE=
 
     return testlist
 
-def determine_testlist(filelist, commit_message, ForceFull=False):
+def determine_testlist(filelist, commit_message, ForceFull=False, Branch=None):
     """ Try to guess what tests to run based on the changes """
     trivial_requested = is_trivial_requested(commit_message)
     DoNothing = True
@@ -296,6 +300,7 @@ def determine_testlist(filelist, commit_message, ForceFull=False):
                     LNetOnly = True
                     BuildOnly = False
                     trivial_requested = False
+                    NonTestFilesToo = True # To force runtests
                     continue
                 Found = False
                 for test in initialtestlist + fulltestlist + lnettestlist + zfstestlist + ldiskfstestlist:
@@ -309,7 +314,7 @@ def determine_testlist(filelist, commit_message, ForceFull=False):
                 if not Found:
                     UnknownItems = True
 
-            populate_testlist_from_array(initial, foundtests, True, True, Force=True)
+            populate_testlist_from_array(initial, foundtests, True, True, Force=True, Branch=Branch)
             if not UnknownItems:
                 # We just populate out test list from the changed scripts
                 # we detected that we run in all possible configs
@@ -330,24 +335,24 @@ def determine_testlist(filelist, commit_message, ForceFull=False):
         # comprehensive but if we have any other files modified that are
         # non-test - add standard initial testing too.
         if not initial or NonTestFilesToo:
-            populate_testlist_from_array(initial, initialtestlist, LDiskfsOnly, ZFSOnly)
+            populate_testlist_from_array(initial, initialtestlist, LDiskfsOnly, ZFSOnly, Branch=Branch)
 
         if LNetOnly:
             # For items in this list we don't care about fs as it's supposed
             # to be fs-neutral Lnet-only stuff like lnet-selftest
-            populate_testlist_from_array(comprehensive, lnettestlist, False, True, DNE=False)
+            populate_testlist_from_array(comprehensive, lnettestlist, False, True, DNE=False, Branch=Branch)
 
         if ZFSOnly:
             # For items in this list we don't care about fs as it's supposed
             # to be fs-neutral Lnet-only stuff like lnet-selftest
-            populate_testlist_from_array(comprehensive, zfstestlist, False, True)
+            populate_testlist_from_array(comprehensive, zfstestlist, False, True, Branch=Branch)
         if LDiskfsOnly:
             # For items in this list we don't care about fs as it's supposed
             # to be fs-neutral Lnet-only stuff like lnet-selftest
-            populate_testlist_from_array(comprehensive, ldiskfstestlist, True, False)
+            populate_testlist_from_array(comprehensive, ldiskfstestlist, True, False, Branch=Branch)
 
         if not trivial_requested or GERRIT_FORCEALLTESTS:
-            populate_testlist_from_array(comprehensive, fulltestlist, LDiskfsOnly, ZFSOnly)
+            populate_testlist_from_array(comprehensive, fulltestlist, LDiskfsOnly, ZFSOnly, Branch=Branch)
 
     return (DoNothing, initial, comprehensive)
 
@@ -831,7 +836,8 @@ class Reviewer(object):
             isMerge = len(change['revisions'][str(current_revision)]['commit']['parents']) > 1
 
         (DoNothing, ilist, clist) = determine_testlist(files, commit_message,
-                                                       ForceFull=isMerge)
+                                                       ForceFull=isMerge,
+                                                       Branch=change.get('branch'))
 
         # For testonly changes only do very minimal testing for now
         # Or not.
@@ -949,7 +955,7 @@ class Reviewer(object):
                         DNE = command.get("DNE", True)
                         workitem.tests = []
                         # Force to ensure we test what was requested even if disabled
-                        workitem.initial_tests = populate_testlist_from_array([], testarray, ldiskfsonly, zfsonly, DNE=DNE, Force=True)
+                        workitem.initial_tests = populate_testlist_from_array([], testarray, ldiskfsonly, zfsonly, DNE=DNE, Force=True, Branch=workitem.change.get('branch'))
                     else:
                         # copy existing tests
                         for tlist in (workitem.initial_tests, workitem.tests):
