@@ -199,15 +199,23 @@ class GerritWorkItem(object):
             else: # Not finished, if results dir is set, then we at least started
                 if test.get('ResultsDir'):
                     htmlteststable += 'Running'
+                if test.get('NewWarnings'):
+                    htmlteststable += '<div style="background-color:red;">' + "".join(test['NewWarnings']) + '</div>'
                 if test.get("Warnings"):
-                    htmlteststable += test['Warnings']
+                    htmlteststable += '<div style="background-color:yellow;">' + test['Warnings'] + '</div>'
 
             if test.get('ResultsDir'):
                 htmlteststable += '</a>'
 
             htmlteststable += '</td><td>'
             if test.get("Failed", False):
-                htmlteststable += test.get('SubtestList', '')
+                newstuff = test.get('NewFailures')
+                if newstuff:
+                    htmlteststable += '<div style="background-color:red;">' + " ".join(newstuff) + "</div>"
+                htmlteststable += "<div>" + test.get('SubtestList', '') + "</div>"
+                oldstuff = test.get('OldFailures')
+                if oldstuff:
+                    htmlteststable += '<div style="background-color:yellow;">' + " ".join(oldstuff) + "</div>"
             else:
                 htmlteststable += test.get('SkippedSubtests', '')
             htmlteststable += '</td></tr>'
@@ -317,6 +325,7 @@ class GerritWorkItem(object):
         failedtests = ""
         skippedtests = ""
         warningtests = ""
+        newfailures = ""
         self.lock.acquire()
         for test in sorted(tests, key=operator.itemgetter('test', 'fstype')):
             testname = test['name'] + '@' + test['fstype']
@@ -330,11 +339,14 @@ class GerritWorkItem(object):
             if not test['Failed']:
                 if test.get('Skipped'):
                     skippedtests += testname + " "
-                elif test.get('Warnings'):
-                    warningtests += testname + test['Warnings'] + " "
+                elif test.get('NewWarnings'):
+                    warningtests += testname + ",".join(test['NewWarnings']) + " "
                 else:
                     passedtests += testname + " "
             else:
+                newstuff = test.get('NewFailures')
+                if newstuff:
+                    newfailures += "- " + testname + ":" + ", ".join(newstuff) + "\n"
                 failedtests += "> " + testname + " "
                 if not test.get('StatusMessage', ''):
                     if test['Timeout']:
@@ -358,10 +370,12 @@ class GerritWorkItem(object):
         self.lock.release()
 
         testlist = ""
+        if newfailures:
+            testlist += "IMPORTANT: these tests appear to be new failures unique to this patch\n" + newfailures + "\n"
         if failedtests:
-            testlist = "\n" + failedtests
+            testlist += "\n" + failedtests
         if warningtests:
-            testlist += "\nTests with Warning messages:\n- " + warningtests + "\n"
+            testlist += "\nTests with NEW Warning messages:\n- " + warningtests + "\n"
         if passedtests:
             testlist += "\nSucceeded:\n- " + passedtests + "\n"
         if skippedtests:

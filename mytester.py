@@ -14,6 +14,8 @@ import yaml
 from pprint import pprint
 from subprocess32 import Popen, PIPE, TimeoutExpired
 import mycrashanalyzer
+from mytestdatadb import process_results
+from mytestdatadb import process_warning
 
 class Node(object):
     def __init__(self, name, outputdir):
@@ -735,6 +737,12 @@ class Tester(object):
                             message = "Failure"
                         elif yamltest.get('status', '') == "SKIP":
                             message = "Skipped"
+                    # second pass for bug db, we probably might want to do it a single pass?
+                    new, old = process_results(testresults, workitem, workitem.get_url_for_test(testinfo), testinfo['fstype'])
+                    if len(new):
+                        testinfo['NewFailures'] = new
+                    if len(old):
+                        testinfo['OldFailures'] = old
 
             if testprocess.returncode is not 0:
                 Failure = True
@@ -747,6 +755,7 @@ class Tester(object):
 
         matched_server_errors = []
         matched_client_errors = []
+        uniq_warns = []
         for item in console_errors:
             if item.get('error') and item.get('message'):
                 if server.match_console_string(item['error']):
@@ -754,15 +763,58 @@ class Tester(object):
                 if client.match_console_string(item['error']):
                     matched_client_errors.append(item['message'])
         if matched_server_errors:
-            warnings += "(Server: " + ",".join(matched_server_errors) + ")"
+            oldwarns = []
+            for warn in matched_server_errors:
+                warnmsg = "Server: " + warn
+                uniq = process_warning(testinfo['name'], warnmsg,
+                                       workitem.change,
+                                       workitem.get_url_for_test(testinfo),
+                                       testinfo['fstype'])
+                if uniq:
+                    uniq_warns.append(warnmsg)
+                else:
+                    oldwarns.append(warn)
+            if oldwarns:
+                warnings += "(Server: " + ",".join(oldwarns) + ")"
         if matched_client_errors:
-            warnings += "(Client: " + ",".join(matched_client_errors) + ")"
+            oldwarns = []
+            for warn in matched_client_errors:
+                warnmsg = "Client: " + warn
+                uniq = process_warning(testinfo['name'], warnmsg,
+                                       workitem.change,
+                                       workitem.get_url_for_test(testinfo),
+                                       testinfo['fstype'])
+                if uniq:
+                    uniq_warns.append(warnmsg)
+                else:
+                    oldwarns.append(warn)
+            if oldwarns:
+                warnings += "(Client: " + ",".join(oldwarns) + ")"
 
         # Probably should make it a configurable item too?
         if ": double free or corruption " in self.testouts:
-            warnings += "(userspace memcorruption)"
+            warnmsg = "userspace memcorruption"
+            uniq = process_warning(testinfo['name'], warnmsg,
+                                   workitem.change,
+                                   workitem.get_url_for_test(testinfo),
+                                   testinfo['fstype'])
+            if uniq:
+                uniq_warns.append(warnmsg)
+            else:
+                warnings += "(%s)" % (warnmsg)
         elif "Backtrace: " in self.testouts:
-            warnings += "(userspace backtrace - please investigate)"
+            warnmsg += "userspace backtrace - please investigate"
+            uniq = process_warning(testinfo['name'], warnmsg,
+                                   workitem.change,
+                                   workitem.get_url_for_test(testinfo),
+                                   testinfo['fstype'])
+            if uniq:
+                uniq_warns.append(warnmsg)
+            else:
+                warnings += "(%s)" % (warnmsg)
+
+        if uniq_warns:
+            testinfo['NewWarnings'] = uniq_warns
 
         self.logger.info("Buildid " + str(workitem.buildnr) + " test " + testinfo['name'] + '-' + testinfo['fstype'] + " Job finished with code " + str(testprocess.returncode) + " and message " + message)
         # XXX Also need to add yaml parsing of results with subtests.

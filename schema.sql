@@ -4,3 +4,10 @@ create table triage (id serial PRIMARY KEY, link varchar(200) NOT NULL, testline
 create index on known_crashes (reason, func, testline);
 create index on new_crashes (reason, func);
 
+# For failure info
+create table failures (id serial unique, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), branch varchar(30), GerritID integer, test varchar(50), subtest varchar(50), fstype varchar(20), duration integer DEFAULT 0, error text, Link text);
+CREATE TABLE warnings (id serial unique, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), branch varchar(30), GerritID integer, test varchar(50), warning text, fstype varchar(20), Link text);
+create index on failures (GerritID);
+create index on failures (test, subtest, fstype, error, branch);
+create index on failures (created_at);
+
