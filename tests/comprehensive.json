@@ -1,5 +1,5 @@
 [
-{"test":"sanity", "testparam":"--except '225,255,256,400a,420'", "timeout":15000},
+{"test":"sanity", "testparam":"--except '225,255,256,400a'", "timeout":15000},
 {"name":"sanity-slow", "test":"sanity", "testparam":"--only '27m,51b,64b,68,71,115,255,300o'", "austerparam":"-s", "timeout":15000},
 {"test":"sanityn", "timeout":5500,"testparam":"--except '27'"},
 {"test":"sanity-pfl", "timeout":1200},
