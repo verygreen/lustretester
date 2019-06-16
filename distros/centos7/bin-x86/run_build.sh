@@ -26,9 +26,9 @@ NCPUS=$(grep -c ^processor /proc/cpuinfo)
 LAVG=$(cut -f 1 -d '.' </proc/loadavg)
 # If the system is busy, e.g. with other builds or VMs or such,
 # probably a good idea to reduce compile load
-if [ $LAVG -gt 2 ] ; then
-	NCPUS=$((NCPUS/3))
-fi
+#if [ $LAVG -gt 2 ] ; then
+#	NCPUS=$((NCPUS/2))
+#fi
 
 if [ -z "$REF" -o -z "$BUILDNR" ] ; then
 	echo usage: $0 gerit_reference build_nr
