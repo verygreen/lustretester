@@ -77,8 +77,8 @@ def process_one(testname, subtestname, error, duration, branch, gerritid, result
             if cur.rowcount:
                 lasthit = cur.fetchone()[1]
                 msg = "%d fails in 30d" % (cur.rowcount)
-                if lasthit > datetime.now() - timedelta(days=2):
-                    msg += ", last  %s" % (datetime.strptime(lasthit, '%Y-%m-%d'))
+                if lasthit.replace(tzinfo=None) > datetime.now() - timedelta(days=2):
+                    msg += ", last  %s" % (lasthit.strftime('%Y-%m-%d'))
             else:
                 unique = True
                 msg = "NEW unseen before"
@@ -130,9 +130,9 @@ def process_results(results, workitem, resultlink, fstype):
                         else:
                             KnownMsgs.append(element)
 
-                except TypeError:
+                except TypeError as e:
                     pass # Nothing to do here for a broken result
-        except TypeError:
+        except TypeError as e:
             pass # Nothing to do here for a broken result
 
         return (UniqMsgs, KnownMsgs)
