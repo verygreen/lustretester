@@ -336,11 +336,11 @@ class GerritWorkItem(object):
             if test.get('SELINUX', False):
                 testname += '+SELinux'
 
+            if test.get('NewWarnings'):
+                warningtests += testname + "(" + ",".join(test['NewWarnings']) + ") "
             if not test['Failed']:
                 if test.get('Skipped'):
                     skippedtests += testname + " "
-                elif test.get('NewWarnings'):
-                    warningtests += testname + ",".join(test['NewWarnings']) + " "
                 else:
                     passedtests += testname + " "
             else:
@@ -357,7 +357,6 @@ class GerritWorkItem(object):
                         failedtests += " Failed"
                 else:
                     failedtests += test['StatusMessage']
-                failedtests += test.get('Warnings','')
 
                 if test.get('SubtestList', ''):
                     failedtests += "\n- " + test['SubtestList']

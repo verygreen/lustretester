@@ -49,7 +49,7 @@ def process_one(testname, subtestname, error, duration, branch, gerritid, result
     branch_next = branch.endswith("-next")
 
     if branch_next:
-        branch.replace("-next", "")
+        branch = branch.replace("-next", "")
 
     try:
         dbconn = psycopg2.connect(dbname="testinfo", user="testinfo", password="blah1", host="localhost", Time=None)
@@ -96,7 +96,7 @@ def process_one(testname, subtestname, error, duration, branch, gerritid, result
     finally:
         dbconn.close()
 
-    return unique, msg
+    return (unique, msg)
 
 def process_results(results, workitem, resultlink, fstype):
     """ Go over all test results, log failures and see if they were seen before """
@@ -135,4 +135,4 @@ def process_results(results, workitem, resultlink, fstype):
         except TypeError:
             pass # Nothing to do here for a broken result
 
-        return UniqMsgs, KnownMsgs
+        return (UniqMsgs, KnownMsgs)
