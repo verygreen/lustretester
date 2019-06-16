@@ -2,11 +2,13 @@
 """
 import sys
 import os
+import io
 import fcntl
 import time
 import threading
 import logging
 import Queue
+import re
 import shlex
 import json
 import shutil
@@ -27,18 +29,34 @@ class Node(object):
         self.outs = '' # full accumulated stdout output
         self.errs = '' # full accumulated stderr output
         self.consoleoutput = ""
+        self.consolelogdesc = None
+        self.last_test_line_time = time.time()
 
     def match_console_string(self, string):
         # Right now we assume the output cannot be changing as we are called
         # at the end. This migth change eventually I guess
         if not os.path.exists(self.consolelogfile):
             return False
-        if os.stat(self.consolelogfile).st_size > len(self.consoleoutput):
+
+        if not self.consolelogdesc:
             try:
-                with open(self.consolelogfile, "r") as consolefile:
-                    self.consoleoutput = consolefile.read()
+                self.consolelogdesc = io.open(self.consolelogfile, "r", encoding="utf-8")
             except OSError:
                 return False
+            fd = self.consolelogdesc.fileno()
+            fl = fcntl.fcntl(fd, fcntl.F_GETFL)
+            fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
+
+        newdata = self.consolelogdesc.read()
+
+        if not newdata:
+            return False
+
+        if "Lustre: DEBUG MARKER: == " in newdata:
+            self.last_test_line_time = time.time()
+
+        self.consoleoutput += newdata
+
         return string in self.consoleoutput
 
     def is_alive(self):
@@ -368,6 +386,9 @@ class Tester(object):
         timeout = testinfo.get("timeout", -1)
         if timeout == -1:
             timeout = 7*3600 # we are willing to wait up to 7 hours for unknown tests
+        # 1 hour by default for a single test to sit there doing nothing before timing out.
+        single_subtest_timeout = testinfo.get("singletimeout", 3600)
+
         fstype = testinfo.get("fstype", "ldiskfs")
         DNE = testinfo.get("DNE", False)
         SELINUX = testinfo.get("SELINUX", False)
@@ -592,8 +613,9 @@ class Tester(object):
                 if self.error:
                     break # the above break only breaks from the for loop
 
-                # Also timeout
-                if time.time() > deadlinetime:
+                # Also timeout both full test and single subtest
+                if (time.time() > deadlinetime) or \
+                   (time.time() - client.last_test_line_time > single_subtest_timeout):
                     self.logger.warning("Buildid " + str(workitem.buildnr) + " test " + testinfo['name'] + '-' + testinfo['fstype'] + " Job timed out, terminating")
                     self.error = True
                     message = "Timeout"
