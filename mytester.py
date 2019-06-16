@@ -354,12 +354,13 @@ class Tester(object):
             except:
                 pass # duh, no syslog file yet?
 
-    def test_worker(self, testinfo, workitem,
-                    clientdistro="centos7", serverdistro="centos7"):
+    def test_worker(self, testinfo, workitem):
         """ Returns False if the test should be retried because had some unrelated problemi """
         self.init_new_run()
         artifactdir = workitem.artifactsdir
         outdir = workitem.testresultsdir
+        clientdistro = workitem.distro
+        serverdistro = workitem.distro
 
         # XXX Incorporate distro into this somehow?
         testscript = testinfo.get("test", None)
@@ -448,14 +449,22 @@ class Tester(object):
 
         # SELinux check here since it needs a command line argument
 
+        env = os.environ
+        if testinfo.get("vmparams"):
+            VMPARAMS = dict(re.findall(r'(\S+)=(".*?"|\S+)', testinfo.get['vmparams']))
+            for p in VMPARAMS:
+                env[p] = VMPARAMS[p]
+
         try:
-            server.process = Popen([self.serverruncommand, server.name, serverkernel, serverinitrd, serverbuild, testresultsdir], close_fds=True, stdin=PIPE, stdout=PIPE, stderr=PIPE, universal_newlines=True)
+            env['DISTRO'] = serverdistro
+            server.process = Popen([self.serverruncommand, server.name, serverkernel, serverinitrd, serverbuild, testresultsdir], close_fds=True, stdin=PIPE, stdout=PIPE, stderr=PIPE, universal_newlines=True, env=env)
         except (OSError) as details:
             self.logger.warning("Buildid " + str(workitem.buildnr) + " test " + testinfo['name'] + '-' + testinfo['fstype'] + " Failed to run server " + str(details))
             return False
 
         try:
-            client.process = Popen([self.clientruncommand, client.name, clientkernel, clientinitrd, clientbuild, testresultsdir], close_fds=True, stdin=PIPE, stdout=PIPE, stderr=PIPE, universal_newlines=True)
+            env['DISTRO'] = clientdistro
+            client.process = Popen([self.clientruncommand, client.name, clientkernel, clientinitrd, clientbuild, testresultsdir], close_fds=True, stdin=PIPE, stdout=PIPE, stderr=PIPE, universal_newlines=True, env=env)
         except (OSError) as details:
             self.logger.warning("Buildid " + str(workitem.buildnr) + " test " + testinfo['name'] + '-' + testinfo['fstype'] + " Failed to run client " + str(details))
             server.terminate()

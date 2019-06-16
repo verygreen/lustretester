@@ -112,7 +112,6 @@ class Builder(object):
 
     def build_worker(self, builddata, workitem):
         # Might need to make this per-arch?
-        # XXX Also add distro here
 
         # Only check at the start.
         if workitem.Aborted:
@@ -136,7 +135,9 @@ class Builder(object):
         os.chown(outdir, self.fsinfo["testoutputowneruid"], -1)
 
         try:
-            builder = Popen(args, close_fds=True, stdin=PIPE, stdout=PIPE, stderr=PIPE, universal_newlines=True)
+            env = os.environ
+            env['DISTRO'] = workitem.distro
+            builder = Popen(args, close_fds=True, stdin=PIPE, stdout=PIPE, stderr=PIPE, universal_newlines=True, env=env)
         except (OSError) as details:
             self.logger.warning("Failed to run builder " + str(details))
             self.put_error("Failed to run builder", workitem)

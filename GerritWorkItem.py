@@ -7,7 +7,7 @@ import operator
 import cPickle as pickle
 
 class GerritWorkItem(object):
-    def __init__(self, change, initialtestlist, testlist, fsconfig, EmptyJob=False, Reviewer=None):
+    def __init__(self, change, initialtestlist, testlist, fsconfig, EmptyJob=False, Reviewer=None, DISTRO=None):
         self.change = change
         self.revision = change.get('current_revision')
         if change.get('branchwide'):
@@ -19,6 +19,10 @@ class GerritWorkItem(object):
         self.Reviewer = Reviewer
         self.fsconfig = fsconfig
         self.EmptyJob = EmptyJob
+        if DISTRO:
+            self.distro = DISTRO
+        else:
+            self.distro = fsconfig['defaultdistro']
         self.Aborted = False
         self.AbortDone = False
         self.BuildDone = False
@@ -49,6 +53,8 @@ class GerritWorkItem(object):
         self.Reviewer = None
         if not self.__dict__.get('retestiteration'):
             self.retestiteration = 0
+        if not self.__dict__.get('distro'):
+            self.distro = "centos7" # only matters for old items
 
     def get_results_filename(self):
         if self.retestiteration:
@@ -261,7 +267,7 @@ class GerritWorkItem(object):
         else:
             buildstatus = "Success"
         # XXX - hardcoded arch/distro
-        buildinfo = '<h3>Build %s <a href="build-centos7-x86_64.console">build console</a></h3>' % (buildstatus)
+        buildinfo = '<h3>Build %s <a href="build-%s-x86_64.console">build console</a></h3>' % (self.distro, buildstatus)
         all_items['buildinfo'] = buildinfo
 
         if self.initial_tests:
@@ -388,7 +394,7 @@ class GerritWorkItem(object):
     def get_saved_name(self):
         name = str(self.buildnr)
         if self.retestiteration:
-            name += str(self.retestiteration)
+            name += "-" + str(self.retestiteration)
         name += ".pickle"
         return name
 

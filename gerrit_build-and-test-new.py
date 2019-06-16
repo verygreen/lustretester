@@ -617,6 +617,59 @@ def _now():
     """_"""
     return long(time.time())
 
+def make_requested_testlist(requestedlistparams, branch):
+    # XXX - this is a copy from another func. need to
+    # have it all in a single place
+    with open("tests/initial.json", "r") as blah:
+        initialtestlist = json.load(blah)
+    with open("tests/comprehensive.json", "r") as blah:
+        fulltestlist = json.load(blah)
+    with open("tests/lnet.json", "r") as blah:
+        lnettestlist = json.load(blah)
+    with open("tests/zfs.json", "r") as blah:
+        zfstestlist = json.load(blah)
+    with open("tests/ldiskfs.json", "r") as blah:
+        ldiskfstestlist = json.load(blah)
+
+    testarray = []
+    for item in requestedlistparams['testlist'].split(','):
+        item = item.strip()
+        for test in initialtestlist + fulltestlist + lnettestlist + zfstestlist + ldiskfstestlist:
+            testname = test.get("name", test['test'])
+            if item == testname:
+                for i in ("DNE","fstype","testparam","austerparam","vmparams","env",'SSK','SELINUX'):
+                    if requestedlistparams.get(i):
+                        test[i] = requestedlistparams[i]
+
+                testarray.append(test)
+                break
+
+    zfsonly = requestedlistparams.get("zfs", True)
+    ldiskfsonly = requestedlistparams.get("ldiskfs", True)
+    DNE = requestedlistparams.get("DNE", True)
+    # Force to ensure we test what was requested even if disabled
+    initial_tests = populate_testlist_from_array([], testarray, ldiskfsonly, zfsonly, DNE=DNE, Force=True, Branch=branch)
+    return initial_tests
+
+def make_change_from_hash(githash, subject, branch):
+    """ Also works for tags and branch names """
+
+    url = "https://git.whamcloud.com/fs/lustre-release.git/patch/" + githash
+    try:
+        r = requests.get(url)
+        revision = r.text.split(" ", 2)[1]
+        changenum = int(revision[:8], 16)
+    except requests.exceptions.RequestException:
+        revision = githash
+        changenum = str(random.randint(1, 10000000))
+    except ValueError: # some garbage from gitweb?
+        revision = githash
+        # This happens when we have merge commit at the top
+        changenum = (random.randint(1, 10000000))
+    change = {'branch':branch, '_number':changenum, 'branchwide':True,
+            'id':githash, 'subject':subject, 'current_revision':revision }
+
+    return change
 
 class Reviewer(object):
     """
@@ -807,7 +860,7 @@ class Reviewer(object):
 
         return True
 
-    def review_change(self, change):
+    def review_change(self, change, DISTRO=None):
         """
         Review the current revision of change.
         * Pipe the patch through checkpatch(es).
@@ -846,7 +899,7 @@ class Reviewer(object):
         if is_buildonly_requested(commit_message):
             clist = []
             ilist = []
-        workItem = GerritWorkItem(change, ilist, clist, fsconfig, EmptyJob=DoNothing, Reviewer=self)
+        workItem = GerritWorkItem(change, ilist, clist, fsconfig, EmptyJob=DoNothing, Reviewer=self, DISTRO=DISTRO)
         if DoNothing:
             add_review_comment(workItem)
         else:
@@ -893,13 +946,43 @@ class Reviewer(object):
                 pass
             if not command:
                 continue
-            if command.get("test-ref"):
+            change = {}
+            testlist = command.get("testlist")
+            distro = command.get("distro")
+            subject = command.get("subject")
+            if command.get("test-commit"):
+                branch = command.get("branch")
+                if not branch:
+                    print("Asked for commit, but not branch to match, skipping")
+                    continue
+                githash = command['test-commit']
+                if not subject:
+                    subject = "githash test request " + str(command)
+                change = make_change_from_hash(githash, subject, branch)
+            elif command.get("test-ref"):
                 desiredchange = str(command['test-ref'])
                 if not desiredchange:
                     continue
                 print("Asking for single change " + desiredchange)
-                reviewer.update_single_change(desiredchange)
-            elif command.get("retest-item"):
+                open_changes = self.get_changes({'status':'open',
+                                                 'change':change},
+                                                 Absolute=True)
+                if open_changes:
+                    change = open_changes[0]
+
+            if change:
+                if testlist:
+                    tlist = make_requested_testlist(command, change.get('branch'))
+                    workitem = GerritWorkItem(change, tlist, [], fsconfig, Reviewer=self, DISTRO=distro)
+                    managing_condition.acquire()
+                    managing_queue.put(workitem)
+                    managing_condition.notify()
+                    managing_condition.release()
+                else:
+                    self.review_change(change, DISTRO=distro)
+                continue
+
+            if command.get("retest-item"):
                 retestitem = str(command['retest-item'])
                 self._debug("Asked to retest build id: " + retestitem)
                 # This is a retest request, see if we got new test list
@@ -919,7 +1002,12 @@ class Reviewer(object):
                     self._debug("Build id: " + retestitem + " has no successful build")
                     # Cannot retest a failed build
                     continue
-                workitem.retestiteration += 1
+
+                # We don't know how many times it was retested so need to find
+                # out by checkign the done with place.
+                while os.path.exists(DONEWITH_DIR + "/" + workitem.get_saved_name()):
+                    workitem.retestiteration += 1
+
                 workitem.TestingDone = False
                 workitem.TestingStarted = False
                 workitem.TestingError = False
@@ -928,34 +1016,9 @@ class Reviewer(object):
                 workitem.InitialTestingStarted = False
 
                 try:
-                    if command.get("testlist"):
-                        # XXX - this is a copy from another func. need to
-                        # have it all in a single place
-                        with open("tests/initial.json", "r") as blah:
-                            initialtestlist = json.load(blah)
-                        with open("tests/comprehensive.json", "r") as blah:
-                            fulltestlist = json.load(blah)
-                        with open("tests/lnet.json", "r") as blah:
-                            lnettestlist = json.load(blah)
-                        with open("tests/zfs.json", "r") as blah:
-                            zfstestlist = json.load(blah)
-                        with open("tests/ldiskfs.json", "r") as blah:
-                            ldiskfstestlist = json.load(blah)
-
-                        testarray = []
-                        for item in command['testlist'].split(','):
-                            item = item.strip()
-                            for test in initialtestlist + fulltestlist + lnettestlist + zfstestlist + ldiskfstestlist:
-                                if item == test['test']:
-                                    testarray.append(test)
-                                    break
-
-                        zfsonly = command.get("zfs", True)
-                        ldiskfsonly = command.get("ldiskfs", True)
-                        DNE = command.get("DNE", True)
+                    if testlist:
+                        workitem.initial_tests = make_requested_testlist(command, workitem.change.get('branch'))
                         workitem.tests = []
-                        # Force to ensure we test what was requested even if disabled
-                        workitem.initial_tests = populate_testlist_from_array([], testarray, ldiskfsonly, zfsonly, DNE=DNE, Force=True, Branch=workitem.change.get('branch'))
                     else:
                         # copy existing tests
                         for tlist in (workitem.initial_tests, workitem.tests):
@@ -969,13 +1032,6 @@ class Reviewer(object):
                             tlist = testarray
                 except : # Add some array list here?
                     self._debug("Build id: " + retestitem + " cannot update test list")
-
-                try:
-                    os.unlink(retestfile)
-                except OSError:
-                    # cannot delete - skip
-                    self._debug("Build id: " + retestitem + " cannot delete workitem")
-                    continue
 
                 WorkList.append(workitem)
                 managing_condition.acquire()
@@ -1004,20 +1060,8 @@ class Reviewer(object):
             except OSError:
                 subject = "Cannot read file"
             # XXX
-            url = "https://git.whamcloud.com/fs/lustre-release.git/patch/" + branch
-            try:
-                r = requests.get(url)
-                revision = r.text.split(" ", 2)[1]
-                changenum = int(revision[:8], 16)
-            except requests.exceptions.RequestException:
-                revision = branch
-                changenum = str(random.randint(1, 10000000))
-            except ValueError: # some garbage from gitweb?
-                revision = branch
-                # This happens when we have merge commit at the top
-                changenum = (random.randint(1, 10000000))
-            change = {'branch':branch, '_number':changenum, 'branchwide':True,
-                    'id':branch, 'subject':subject, 'current_revision':revision }
+            change = make_change_from_hash(branch, subject, branch)
+
             self.review_change(change)
 
     def update_single_change(self, change):
