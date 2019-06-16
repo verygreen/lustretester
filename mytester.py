@@ -215,10 +215,12 @@ class Tester(object):
                 in_queue.put([priority, testinfo, workitem])
                 in_cond.notify()
                 in_cond.release()
+                self.Invalid = True
                 self.logger.info("Going to sleep for " + str(sleep_on_error) + "seconds")
                 time.sleep(sleep_on_error)
                 self.logger.info("Woke after sleep")
                 sleep_on_error *= 2
+                self.Invalid = False
 
             self.Busy = False
 
@@ -234,6 +236,7 @@ class Tester(object):
         self.testresultsdir = ""
         self.fsinfo = fsinfo
         self.Busy = False
+        self.Invalid = False
         self.CrashDetected = False # This is for wen core was detected
         self.Crashed = False # This is when something died
         self.TimeoutDetected = False

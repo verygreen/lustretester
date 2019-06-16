@@ -119,6 +119,8 @@ reviewer = None
 fsconfig = {}
 
 architectures = ["x86_64"]
+builders = []
+workers = []
 
 ZFS_ONLY_FILES = [ 'lustre/osd-zfs/*.[ch]', 'lustre/utils/libmount_utils_zfs.c', 'config/lustre-build-zfs.m4' ]
 LDISKFS_ONLY_FILES = [
@@ -1115,6 +1117,9 @@ def print_WorkList_to_HTML():
 <head><title>Testing and queue status</title></head>
 <body>
 <h2>{status}</h2>
+<b>Builders</b>: {builders}
+<p>
+<b>Test Clusters</b>: {testers}
 <h2>Work Items status</h2>
 <table border=1>
 <tr><th>Build number</th><th>Description</th><th>Status</th></tr>
@@ -1175,7 +1180,46 @@ def print_WorkList_to_HTML():
             else:
                 workitems += "Waiting to build"
 
-    all_items = {'status':status, 'workitems':workitems}
+    idle = 0
+    busy = 0
+    invalid = 0
+    dead = 0
+    for worker in workers:
+        if not worker.daemon.is_alive():
+            dead += 1
+            continue
+        if worker.Busy:
+            if worker.Invalid:
+                invalid += 1
+            else:
+                busy += 1
+        else:
+            idle += 1
+    deadmsg = ""
+    if dead:
+        deadmsg = "(%d dead)" % (dead)
+    testlusters = "Total: %d%s, busy %d, in_error_state %d, idle %d. Items in queue: %d" % (len(workers), deadmsg, busy, invalid, idle, testing_queue.qsize())
+
+    idle = 0
+    busy = 0
+    dead = 0
+    deadmsg = ""
+    for worker in builders:
+        if not worker.daemon.is_alive():
+            dead += 1
+            continue
+        if worker.Busy:
+            busy += 1
+        else:
+            idle += 1
+
+    deadmsg = ""
+    if dead:
+        deadmsg = "(%d dead)" % (dead)
+    buildclusters = "Total: %d%s, busy %d, idle %d. Items in queue: %d" % (len(builders), deadmsg, busy, idle, build_queue.qsize())
+
+    all_items = {'status':status, 'workitems':workitems, 'testers':testlusters,\
+                 'builders':buildclusters}
     with open(fsconfig["outputs"] + "/status.html", "w") as indexfile:
         indexfile.write(template.format(**all_items))
 
@@ -1369,7 +1413,6 @@ if __name__ == "__main__":
 
     fsconfig["testoutputowneruid"] = testoutputowner_uid
 
-    builders = []
     for arch in architectures:
         with open("builders-" + arch + ".json") as buildersfile:
             buildersinfo = json.load(buildersfile)
