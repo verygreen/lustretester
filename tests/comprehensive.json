@@ -11,7 +11,7 @@
 {"name":"conf-sanity-slow", "test":"conf-sanity", "testparam":"--only '32a,32d,32e,45,69,106,111' ", "austerparam":"-s", "timeout":8000},
 {"test":"recovery-small", "timeout":7000, "testparam":"--except '136'"},
 {"test":"replay-ost-single", "timeout":1000},
-{"test":"replay-dual", "timeout":4000},
+{"test":"replay-dual", "timeout":4000, "singletimeout":400},
 {"test":"replay-vbr", "timeout":3600},
 {"test":"insanity", "timeout":3000},
 {"test":"sanity-quota", "timeout":5000, "testparam":"--except '2,4a,63'"},
