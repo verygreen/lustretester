@@ -148,6 +148,7 @@ class GerritWorkItem(object):
                     item["Warnings"] = Warnings
 
         print("Build " + str(self.buildnr) + " Updated test element " + str(item))
+        sys.stdout.flush() # Make sure it's visible in its entirety over a pipe
         self.Write_HTML_Status()
 
         if Finished:
@@ -200,8 +201,10 @@ class GerritWorkItem(object):
                     htmlteststable += 'Aborted'
                 else:
                     htmlteststable += 'Success'
+                if test.get('NewWarnings'):
+                    htmlteststable += '<div style="background-color:red;">' + "".join(test['NewWarnings']) + '</div>'
                 if test.get("Warnings"):
-                    htmlteststable += test['Warnings']
+                    htmlteststable += '<div style="background-color:yellow;">' + test['Warnings'] + '</div>'
             else: # Not finished, if results dir is set, then we at least started
                 if test.get('ResultsDir'):
                     htmlteststable += 'Running'
@@ -390,6 +393,31 @@ class GerritWorkItem(object):
         testlist += "\nAll results and logs: " + allresults.replace(self.fsconfig['root_path_offset'], self.fsconfig['http_server'])
 
         return testlist
+
+    def get_current_text_status(self):
+        """ Return text status of this item """
+        if self.Aborted:
+            status = "Aborted!"
+        elif self.TestingDone:
+            status = "Testing done"
+            if self.TestingError:
+                status += " (some tests failed)"
+        elif self.TestingStarted:
+            status = "Comprehensive testing"
+            if self.TestingError:
+                status += " (some tests failed already)"
+        elif self.InitialTestingStarted:
+            status = "Initial testing"
+            if self.InitialTestingError:
+                status += " (some tests failed already)"
+        elif self.BuildError:
+            status = "Build failed"
+        else:
+            if self.artifactsdir:
+                status = "Building"
+            else:
+                status = "Waiting to build"
+        return status
 
     def get_saved_name(self):
         name = str(self.buildnr)

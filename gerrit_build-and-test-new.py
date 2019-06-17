@@ -55,6 +55,8 @@ import dateutil.parser
 import shutil
 import cPickle as pickle
 from pprint import pprint
+import subprocess32
+import resource
 
 def _getenv_list(key, default=None, sep=':'):
     """
@@ -144,6 +146,7 @@ TEST_SCRIPT_FILES = [ 'lustre/tests/*' ]
 
 # We store all job items here
 WorkList = []
+DoneList = []
 
 def match_fnmatch_list(item, fnlist):
     for pattern in fnlist:
@@ -968,9 +971,13 @@ class Reviewer(object):
                 print("Asking for single change " + desiredchange)
                 open_changes = self.get_changes({'status':'open',
                                                  'change':change},
-                                                 Absolute=True)
+                                                Absolute=True)
                 if open_changes:
                     change = open_changes[0]
+
+            # We'll hide it in the change so it's visible everywhere
+            if command.get("completion-cb"):
+                change['completion-cb'] = command['completion-cb']
 
             if change:
                 if testlist:
@@ -1104,6 +1111,31 @@ def donewith_WorkItem(workitem):
         WorkList.remove(workitem)
     except ValueError:
         pass # We are not in the list, e.g. because this is a duplicate hit for like a crash processing
+    else:
+        item = {}
+        link = ""
+        if workitem.artifactsdir:
+            link = '<a href="' + workitem.artifactsdir.replace(fsconfig['root_path_offset'], "") + "/" + workitem.get_results_filename() + '">'
+        item['build'] = link + str(workitem.buildnr) + '</a>'
+        item['subject'] = link + workitem.change['subject'] + '</a>'
+        item['status'] = workitem.get_current_text_status()
+        DoneList.append(item)
+        # Make sure it does not grow too big
+        if len(DoneList) >= 101:
+            DoneList.pop(0)
+
+        if workitem.change.get("completion-cb"): # Need to deliver the results
+            if workitem.Aborted:
+                status = "ABORTED"
+            elif workitem.BuildError or workitem.InitialTestingError or workitem.TestingError:
+                status = "FAIL"
+            else:
+                status = "GOOD"
+            args = [workitem.change['completion-cb'], workitem.change['subject'], status, str(workitem.buildnr)]
+            try:
+                subprocess32.call(args)
+            except OSError as e:
+                print("Error running callback for " + str(args))
 
     try:
         os.unlink(SAVEDSTATE_DIR + "/" + workitem.get_saved_name())
@@ -1124,6 +1156,11 @@ def print_WorkList_to_HTML():
 <table border=1>
 <tr><th>Build number</th><th>Description</th><th>Status</th></tr>
 {workitems}
+</table>
+<h2>Recently completed items</h2>
+<table border=1>
+<tr><th>Build number</th><th>Description</th><th>Status</th></tr>
+{completeditems}
 </table>
 </body>
 </html>
@@ -1158,38 +1195,24 @@ def print_WorkList_to_HTML():
             workitems += '</a>'
         workitems += '</td><td>'
 
-        if workitem.Aborted:
-            workitems += "Aborted!"
-        elif workitem.TestingDone:
-            workitems += "Testing done"
-            if workitem.TestingError:
-                workitems += " (some tests failed)"
-        elif workitem.TestingStarted:
-            workitems += "Comprehensive testing"
-            if workitem.TestingError:
-                workitems += " (some tests failed already)"
-        elif workitem.InitialTestingStarted:
-            workitems += "Initial testing"
-            if workitem.InitialTestingError:
-                workitems += " (some tests failed already)"
-        elif workitem.BuildError:
-            workitems += "Build failed"
-        else:
-            if workitem.artifactsdir:
-                workitems += "Building"
-            else:
-                workitems += "Waiting to build"
+        workitems += workitem.get_current_text_status()
+
+    completeditems = ""
+    for item in reversed(DoneList):
+        completeditems += '<tr><td>' + item['build'] + '</td><td>' + item['subject'] + '</td><td>' + item['status'] + '</td></tr>\n'
 
     idle = 0
     busy = 0
     invalid = 0
     dead = 0
     for worker in workers:
-        if not worker.daemon.is_alive():
+        if not worker.get('thread'):
+            continue
+        if not worker['thread'].daemon.is_alive():
             dead += 1
             continue
-        if worker.Busy:
-            if worker.Invalid:
+        if worker['thread'].Busy:
+            if worker['thread'].Invalid:
                 invalid += 1
             else:
                 busy += 1
@@ -1219,7 +1242,7 @@ def print_WorkList_to_HTML():
     buildclusters = "Total: %d%s, busy %d, idle %d. Items in queue: %d" % (len(builders), deadmsg, busy, idle, build_queue.qsize())
 
     all_items = {'status':status, 'workitems':workitems, 'testers':testlusters,\
-                 'builders':buildclusters}
+            'builders':buildclusters, 'completeditems':completeditems}
     with open(fsconfig["outputs"] + "/status.html", "w") as indexfile:
         indexfile.write(template.format(**all_items))
 
@@ -1242,7 +1265,11 @@ def run_workitem_manager():
         sys.stdout.flush()
         managing_condition.acquire()
         while managing_queue.empty():
-            managing_condition.wait()
+            managing_condition.wait(timeout=30)
+            # This will update status every 30 seconds
+            # But only if we have anything in the queue
+            if WorkList:
+                print_WorkList_to_HTML()
         workitem = managing_queue.get()
 
         managing_condition.release()
@@ -1250,7 +1277,7 @@ def run_workitem_manager():
 
         #teststr = vars(workitem)
         #pprint(teststr)
-        #sys.stdout.flush()
+        sys.stdout.flush()
 
         if workitem.buildnr is None:
             # New item, we need to build it
@@ -1396,6 +1423,7 @@ def run_workitem_manager():
 #def main():
 #    """_"""
 if __name__ == "__main__":
+    resource.setrlimit(resource.RLIMIT_NOFILE, (131072, 131072))
     logging.basicConfig(format='%(asctime)s %(message)s', level=logging.DEBUG)
 
     # Start our working threads
