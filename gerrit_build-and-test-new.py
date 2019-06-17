@@ -1037,12 +1037,17 @@ class Reviewer(object):
                         workitem.initial_tests = make_requested_testlist(command, workitem.change.get('branch'))
                         workitem.tests = []
                     else:
-                        # copy existing tests
-                        for tlist in (workitem.initial_tests, workitem.tests):
-                            for item in tlist:
-                                for elem in item:
-                                    if item[elem] not in ('name', 'test', 'timeout', 'testparam', 'fstype', 'DNE', 'SSK', 'SELINUX', 'env', 'austerparam', 'vmparams', 'singletimeout'):
-                                        item.pop(elem)
+                        # Redetermine testlist based on current rules
+                        # instead of depending on old rules in place of
+                        # initial run
+                        change = saveitem.change
+                        current_revision = change.get('current_revision')
+                        commit_message = change['revisions'][str(current_revision)]['commit']['message']
+                        files = change['revisions'][str(current_revision)].get('files', [])
+                        isMerge = len(change['revisions'][str(current_revision)]['commit']['parents']) > 1
+                        (DoNothing, ilist, clist) = determine_testlist(files, commit_message, ForceFull=isMerge, Branch=change.get('branch'))
+                        workitem.initial_tests = ilist
+                        workitem.tests = clist
                 except: # Add some array list here?
                     self._debug("Build id: " + retestitem + " cannot update test list")
 
