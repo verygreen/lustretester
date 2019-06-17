@@ -19,7 +19,7 @@ def process_warning(testname, warning, change, resultlink, fstype, testtime=None
     branch_next = branch.endswith("-next")
 
     if branch_next:
-        branch.replace("-next", "")
+        branch = branch.replace("-next", "")
 
     try:
         dbconn = psycopg2.connect(dbname="testinfo", user="testinfo", password="blah1", host="localhost", Time=None)
