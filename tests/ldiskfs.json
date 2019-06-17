@@ -1,3 +1,3 @@
 [
-	{"test":"mmp", "timeout": -1, "disabled":true}
+	{"test":"mmp", "fstype":"ldiskfs", "timeout": -1, "disabled":true}
 ]
