@@ -918,16 +918,23 @@ class Reviewer(object):
         """
         GET recently updated changes and review as needed.
         """
+
+        self.check_for_commands()
+
         new_timestamp = _now()
         age = 4 # Age
         #self._debug("update: age = %d", age)
+
 
         open_changes = self.get_changes({'status':'open',
                                          '-age':str(age) + 'h',
                                          '-label':'Code-Review=-2'})
         #self._debug("update: got %d open_changes", len(open_changes))
 
-        for change in open_changes:
+        # Sort the list backwards so we get newer changes first.
+        # Useful if there's a patchset so we start with the tail end of it
+        # to get a quicker reading of the health of the entire thing
+        for change in sorted(open_changes, key=lambda x: x['_number'], reverse=True):
             if self.change_needs_review(change):
                 self.review_change(change)
                 # Don't POST more than every post_interval seconds.
@@ -936,6 +943,7 @@ class Reviewer(object):
         self.timestamp = new_timestamp
         self.write_history('-', '-', 0)
 
+    def check_for_commands(self):
         # See if we got any commands
         for commandfile in os.listdir(GERRIT_COMMANDMONITORDIR):
             command = {}
