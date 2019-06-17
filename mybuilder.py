@@ -9,7 +9,7 @@ import shlex
 import json
 from pprint import pprint
 from subprocess32 import Popen, PIPE, TimeoutExpired
-
+import time
 
 class Builder(object):
     def setup_custom_logger(self, name, logdir):
@@ -43,10 +43,22 @@ class Builder(object):
             self.logger.info("Got build job for id " + str(workitem.buildnr))
             result = self.build_worker(builddata, workitem)
             self.logger.info("Finished build job for id " + str(workitem.buildnr))
-            out_cond.acquire()
-            out_queue.put(workitem)
-            out_cond.notify()
-            out_cond.release()
+            if result:
+                # On correct run return it to manager
+                out_cond.acquire()
+                out_queue.put(workitem)
+                out_cond.notify()
+                out_cond.release()
+            else:
+                # On incorrect run (VM problem or whatever) try again
+                in_cond.acquire()
+                in_queue.put(job)
+                in_cond.notify()
+                in_cond.release()
+                time.sleep(10) # Sleep for a bit hoping the condition clears
+                # XXX might want to make it an exponential backoff like in
+                # my tester module
+
             self.Busy = False
 
     def __init__(self, builderinfo, fsinfo, in_cond, in_queue, out_cond, out_queue):
