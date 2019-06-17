@@ -987,6 +987,9 @@ class Reviewer(object):
             if command.get("completion-cb"):
                 change['completion-cb'] = command['completion-cb']
 
+            if command.get("highprio"):
+                change['highprio'] = command['highprio']
+
             if change:
                 if testlist:
                     tlist = make_requested_testlist(command, change.get('branch'))
@@ -1079,6 +1082,7 @@ class Reviewer(object):
                 subject = "Cannot read file"
             # XXX
             change = make_change_from_hash(branch, subject, branch)
+            change['highprio'] = True
 
             self.review_change(change)
 
@@ -1404,6 +1408,10 @@ def run_workitem_manager():
                 # save/restart logic:
                 if testinfo.get('Finished', False):
                     continue
+
+                # High priority items get placed ahead of the queue.
+                if workitem.change.get('highprio'):
+                    priority = 3
                 # We sort by build id so the jobs that come in first are served
                 # first for comprehensive testing (initial still in front)
                 # And if there are any free nodes - then subsequent jobs
@@ -1411,7 +1419,7 @@ def run_workitem_manager():
                 # jobs with timeouts less than 1000 seconds are fast and it's
                 # worth letting them in first anyway to keep a pool of nodes
                 # that would complete fast for use by later lower priority tests
-                if testinfo['timeout'] > 0 and testinfo['timeout'] <= 1000:
+                elif testinfo['timeout'] > 0 and testinfo['timeout'] <= 1000:
                     priority = workitem.buildnr
                 else:
                     # space them out every 100 so we can later add some
