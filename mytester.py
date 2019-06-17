@@ -755,11 +755,11 @@ class Tester(object):
                 except (OSError, ImportError) as e:
                     self.logger.error("Buildid " + str(workitem.buildnr) + " test " + testinfo['name'] + '-' + testinfo['fstype'] + " Exception when trying to read results.yml: " + str(e))
                 else:
-                    for yamltest in testresults.get('Tests', []):
-                        if yamltest.get('name', '') != testscript:
-                            self.logger.warning("Buildid " + str(workitem.buildnr) + " test " + testinfo['name'] + '-' + testinfo['fstype'] + " Skipping unexpected test results for " + yamltest.get('name', 'EMPTYNAME'))
-                            continue
-                        try:
+                    try:
+                        for yamltest in testresults.get('Tests', []):
+                            if yamltest.get('name', '') != testscript:
+                                self.logger.warning("Buildid " + str(workitem.buildnr) + " test " + testinfo['name'] + '-' + testinfo['fstype'] + " Skipping unexpected test results for " + yamltest.get('name', 'EMPTYNAME'))
+                                continue
                             for subtest in yamltest.get('SubTests', []):
                                 if subtest.get('status', '') == "FAIL":
                                     failedsubtests += subtest['name'].replace('test_', '') + "("
@@ -771,14 +771,14 @@ class Tester(object):
                                 elif subtest.get('status', '') == "SKIP":
                                     skippedsubtests += subtest['name'].replace('test_', '') + "("
                                     skippedsubtests += str(subtest.get('error')) + ") "
-                        except TypeError:
-                            pass # Well, here's empty list for you I guess
 
                         if yamltest.get('status', '') == "FAIL":
                             Failure = True
                             message = "Failure"
                         elif yamltest.get('status', '') == "SKIP":
                             message = "Skipped"
+                    except TypeError:
+                        pass # Well, here's empty list for you I guess
                     # second pass for bug db, we probably might want to do it a single pass?
                     new, old = process_results(testresults, workitem, workitem.get_url_for_test(testinfo), testinfo['fstype'])
                     if len(new):

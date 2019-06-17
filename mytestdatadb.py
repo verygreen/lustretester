@@ -113,13 +113,13 @@ def process_results(results, workitem, resultlink, fstype):
     else:
         gerritnr = None
 
-    for yamltest in results.get('Tests', []):
-        if yamltest.get('submission'):
-            testtime = dateutil.parser.parse(yamltest.get('submission'))
-        else:
-            testtime = datetime.now()
+    try:
+        for yamltest in results.get('Tests', []):
+            if yamltest.get('submission'):
+                testtime = dateutil.parser.parse(yamltest.get('submission'))
+            else:
+                testtime = datetime.now()
 
-        try:
             for subtest in yamltest.get('SubTests', []):
                 try:
                     if subtest.get('status', '') == "FAIL":
@@ -136,7 +136,7 @@ def process_results(results, workitem, resultlink, fstype):
 
                 except TypeError as e:
                     pass # Nothing to do here for a broken result
-        except TypeError as e:
-            pass # Nothing to do here for a broken result
+    except TypeError as e:
+        pass # Nothing to do here for a broken result
 
-        return (UniqMsgs, KnownMsgs)
+    return (UniqMsgs, KnownMsgs)
