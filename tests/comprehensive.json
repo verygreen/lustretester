@@ -7,7 +7,7 @@
 {"test":"sanity-benchmark", "timeout":4000},
 {"test":"racer", "env":"RACER_ENABLE_DOM=false", "timeout":700},
 {"test":"replay-single", "timeout":12000},
-{"name":"conf-sanity", "test":"conf-sanity", "testparam":"--except '21e,32,55,67,102'", "timeout":17800},
+{"name":"conf-sanity", "test":"conf-sanity", "testparam":"--except '21e,32,55,67,102,106'", "timeout":17800},
 {"name":"conf-sanity-slow", "test":"conf-sanity", "testparam":"--only '32a,32d,32e,45,69,106,111' ", "austerparam":"-s", "timeout":8000, "singletimeout":6000},
 {"test":"recovery-small", "timeout":7000, "testparam":"--except '136'"},
 {"test":"replay-ost-single", "timeout":1000},
