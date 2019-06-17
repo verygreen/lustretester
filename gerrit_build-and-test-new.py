@@ -567,7 +567,7 @@ def add_review_comment(WorkItem):
     elif WorkItem.TestingDone:
         message = ""
         if is_trivial_requested(commit_message):
-            message += TrivialIgnoredMessage + '\n'
+            message += TrivialIgnoredMessage + '\n\n'
         message += 'Testing has completed '
         if WorkItem.TestingError:
             message += 'with errors!\n'
