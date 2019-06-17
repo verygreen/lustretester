@@ -641,7 +641,7 @@ def make_requested_testlist(requestedlistparams, branch):
         for test in initialtestlist + fulltestlist + lnettestlist + zfstestlist + ldiskfstestlist:
             testname = test.get("name", test['test'])
             if item == testname:
-                for i in ("DNE","fstype","testparam","austerparam","vmparams","env",'SSK','SELINUX'):
+                for i in ("DNE","fstype","testparam","austerparam","vmparams","env",'SSK','SELINUX','singletimeout'):
                     if requestedlistparams.get(i):
                         test[i] = requestedlistparams[i]
 
@@ -1038,14 +1038,10 @@ class Reviewer(object):
                     else:
                         # copy existing tests
                         for tlist in (workitem.initial_tests, workitem.tests):
-                            testarray = []
                             for item in tlist:
-                                titem = {}
-                                for elem in ('name', 'test', 'timeout', 'testparam', 'fstype', 'DNE', 'SSK', 'SELINUX', 'env', 'austerparam'):
-                                    if item.get(elem):
-                                        titem[elem] = item[elem]
-                                testarray.append(titem)
-                            tlist = testarray
+                                for elem in item:
+                                    if item[elem] not in ('name', 'test', 'timeout', 'testparam', 'fstype', 'DNE', 'SSK', 'SELINUX', 'env', 'austerparam', 'vmparams', 'singletimeout'):
+                                        item.pop(elem)
                 except: # Add some array list here?
                     self._debug("Build id: " + retestitem + " cannot update test list")
 
