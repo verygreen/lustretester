@@ -7,7 +7,6 @@ import fcntl
 import time
 import threading
 import logging
-import Queue
 import re
 import shlex
 import json
@@ -189,7 +188,7 @@ class Tester(object):
             priority = job[0] # Not really used here
             testinfo = job[1]
             workitem = job[2]
-            self.logger.info("Got job buildid " + str(workitem.buildnr) + " test " + str(testinfo) )
+            self.logger.info("Got job buildid " + str(workitem.buildnr) + " test " + str(testinfo))
             result = self.test_worker(testinfo, workitem)
             # save the test output if any
             if self.testresultsdir and self.testouts:
@@ -204,12 +203,11 @@ class Tester(object):
                 sleep_on_error = 15 # Reset the backoff time after successful run
                 self.collect_syslogs()
                 self.update_permissions()
-                self.logger.info("Finished job buildid " + str(workitem.buildnr) + " test " + testinfo['name'] + '-' + testinfo['fstype'] )
+                self.logger.info("Finished job buildid " + str(workitem.buildnr) + " test " + testinfo['name'] + '-' + testinfo['fstype'])
                 # If we had a crash or timeout, a separate item was
                 # started that would process it and return to queue.
                 if (self.CrashDetected and self.crashfiles) or self.TimeoutDetected:
                     self.logger.info("crash detected or timeout, they will post their stuff separately")
-                    pass
                 else:
                     out_cond.acquire()
                     out_queue.put(workitem)
@@ -250,6 +248,7 @@ class Tester(object):
         self.CrashDetected = False # This is for wen core was detected
         self.Crashed = False # This is when something died
         self.TimeoutDetected = False
+        self.error = False
         self.crashfiles = []
         self.testerrs = ''
         self.testouts = ''
@@ -395,7 +394,6 @@ class Tester(object):
                     console_errors = json.load(errfile)
             except: # any error really
                 self.logger.error("Failure loading console errors description?")
-                pass
 
         timeout = testinfo.get("timeout", -1)
         if timeout == -1:
@@ -514,7 +512,7 @@ class Tester(object):
                 server.terminate()
                 client.terminate()
                 return False
-        except OSError:
+        except OSError as details:
             self.logger.warning("Buildid " + str(workitem.buildnr) + " test " + testinfo['name'] + '-' + testinfo['fstype'] + " Failed to run test setup " + str(details))
             server.terminate()
             client.terminate()
@@ -618,7 +616,7 @@ class Tester(object):
                             if node.match_console_string(item['error']):
                                 self.logger.warning("Matched fatal error in logs: " + item['error'] + ' on node ' + node.name + " Buildid " + str(workitem.buildnr) + " test " + testinfo['name'] + '-' + testinfo['fstype'])
                                 self.error = True
-                                message = "Fatal Error " + item['error'] + " on " + str(node.name)
+                                message = 'Fatal Error "' + item['error'] + '" on ' + str(node.name)
                                 corefile = node.dump_core("fatalerror")
                                 counter = 0
                                 while node.check_node_alive():

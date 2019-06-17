@@ -198,7 +198,7 @@ def populate_testlist_from_array(testlist, testarray, LDiskfsOnly, ZFSOnly, DNE=
             test['fstype'] = "ldiskfs"
             test['DNE'] = DNE
             testlist.append(test)
-        if ZFSOnly :
+        if ZFSOnly:
             test = getemptytest(item)
             test['fstype'] = "zfs"
             testlist.append(test)
@@ -234,7 +234,7 @@ def determine_testlist(filelist, commit_message, ForceFull=False, Branch=None):
             continue # with deletion would set BuildOnly
         DoNothing = False
         if match_fnmatch_list(item, TEST_SCRIPT_FILES):
-            testname = os.path.basename(item).replace('.sh','')
+            testname = os.path.basename(item).replace('.sh', '')
             # if it was already requested by the test-params, don't add it again
             if not testname in requested_tests:
                 requested_tests.append(testname)
@@ -334,7 +334,6 @@ def determine_testlist(filelist, commit_message, ForceFull=False, Branch=None):
                 # Hm, not sure what to do here? Probably run everything
                 # as requested in addition to modified test files?
                 trivial_requested = False
-                pass
 
         # Careful, if initial test list was filled above, we presume it's
         # comprehensive but if we have any other files modified that are
@@ -370,7 +369,7 @@ def is_trivial_requested(message):
 
 def testlist_from_commit_message(message):
     testlist = []
-    testlist_re = re.compile("^Test-Parameters:.*testlist=([-a-zA-Z0-9_,\.]+)")
+    testlist_re = re.compile(r"^Test-Parameters:.*testlist=([-a-zA-Z0-9_,\.]+)")
     # XXX Need to do austeroptions, envdefinitions and perhaps more from
     # https://wiki.whamcloud.com/display/PUB/Changing+Test+Parameters+with+Gerrit+Commit+Messages
     for line in message.splitlines():
@@ -725,7 +724,7 @@ class Reviewer(object):
 
         if res.status_code != requests.codes.ok:
             self._error("cannot GET '%s': reason = %s, status_code = %d",
-                       url, res.reason, res.status_code)
+                        url, res.reason, res.status_code)
             return None
 
         return res
@@ -750,7 +749,7 @@ class Reviewer(object):
 
         if res.status_code != requests.codes.ok:
             self._error("cannot POST '%s': reason = %s, status_code = %d",
-                       url, res.reason, res.status_code)
+                        url, res.reason, res.status_code)
             return False
 
         return True
@@ -1039,7 +1038,7 @@ class Reviewer(object):
                                         titem[elem] = item[elem]
                                 testarray.append(titem)
                             tlist = testarray
-                except : # Add some array list here?
+                except: # Add some array list here?
                     self._debug("Build id: " + retestitem + " cannot update test list")
 
                 WorkList.append(workitem)
