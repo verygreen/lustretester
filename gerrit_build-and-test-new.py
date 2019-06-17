@@ -1467,7 +1467,6 @@ if __name__ == "__main__":
     reviewer = Reviewer(GERRIT_HOST, GERRIT_PROJECT, GERRIT_BRANCH,
                         username, password, REVIEW_HISTORY_PATH)
 
-    # XXX Add item loading here
     for savedstateitem in os.listdir(SAVEDSTATE_DIR):
         with open(SAVEDSTATE_DIR + "/" + savedstateitem, "rb") as blah:
             try:
@@ -1501,6 +1500,35 @@ if __name__ == "__main__":
             managing_queue.put(saveitem)
             managing_condition.notify()
             managing_condition.release()
+
+    # Now load last 100 entries from the done list
+    for savedstateitem in sorted(os.listdir(DONEWITH_DIR), key=lambda x: int(x.replace('-', '.').split('.')[0]), reverse=True):
+        with open(DONEWITH_DIR + "/" + savedstateitem, "rb") as blah:
+            try:
+                saveitem = pickle.load(blah)
+            except:
+                continue # ignore bad items
+        if saveitem.artifactsdir:
+            savelink = '<a href="' + saveitem.artifactsdir.replace(fsconfig['root_path_offset'], "") + "/" + saveitem.get_results_filename() + '">'
+        doneitem = {}
+        doneitem['build'] = savelink + str(saveitem.buildnr) + '</a>'
+
+        if saveitem.change.get('subject'):
+            doneitem['subject'] = savelink + saveitem.change['subject'] + '</a>'
+        else:
+            doneitem['subject'] = savelink + saveitem.change['id']  + '</a>'
+
+        try:
+            doneitem['status'] = saveitem.get_current_text_status()
+        except:
+            doneitem['status'] = "Too old to know state"
+
+        DoneList.insert(0, doneitem)
+        if len(DoneList) == 100:
+            break
+    # free up some RAM
+    saveitem = None
+    doneitem = None
 
     print_WorkList_to_HTML()
 
