@@ -38,7 +38,10 @@ class Node(object):
         if not os.path.exists(self.consolelogfile):
             return False
 
-        if not self.consolelogdesc:
+        # If console output is not empty that means we have opened this
+        # file in the past and there's no need to reopen it again
+        # because it was closed by terminate or some such
+        if not self.consolelogdesc and not self.consoleoutput:
             try:
                 self.consolelogdesc = io.open(self.consolelogfile, "r", encoding="utf-8")
             except OSError:
@@ -47,10 +50,15 @@ class Node(object):
             fl = fcntl.fcntl(fd, fcntl.F_GETFL)
             fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
 
-        newdata = self.consolelogdesc.read()
+        try:
+            newdata = self.consolelogdesc.read()
+        except ValueError: # File was closed already
+            newdata = ""
 
-        if not newdata:
-            return False
+        # If this process is already dead, no new data can come so
+        # let's close this preemptively
+        if not self.is_alive():
+            self.consolelogdesc.close() # Ok to do many times
 
         if "Lustre: DEBUG MARKER: == " in newdata:
             self.last_test_line_time = time.time()
@@ -98,6 +106,8 @@ class Node(object):
         return "Timed Out waiting for login prompt"
 
     def terminate(self):
+        if self.consolelogdesc is not None:
+            self.consolelogdesc.close() # Safe to do many times
         if self.process is None or self.process.returncode is not None:
             return
         try:
@@ -787,6 +797,7 @@ class Tester(object):
         duration = int(time.time() - self.startTime)
         message += "(" + str(duration) + "s)"
 
+        # See if there was anything in error logs
         matched_server_errors = []
         matched_client_errors = []
         uniq_warns = []
