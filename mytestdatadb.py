@@ -81,7 +81,7 @@ def process_one(testname, subtestname, error, duration, branch, gerritid, result
                 gerritid = None
                 lasthit = cur.fetchone()[1]
                 msg = "%d fails in 30d" % (cur.rowcount)
-                if lasthit.replace(tzinfo=None) > datetime.now() - timedelta(days=2):
+                if lasthit.replace(tzinfo=None) < datetime.now() - timedelta(days=2):
                     msg += ", last  %s" % (lasthit.strftime('%Y-%m-%d'))
             else:
                 unique = True
