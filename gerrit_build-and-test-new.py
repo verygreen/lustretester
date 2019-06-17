@@ -306,6 +306,7 @@ def determine_testlist(filelist, commit_message, ForceFull=False, Branch=None):
                     BuildOnly = False
                     trivial_requested = False
                     NonTestFilesToo = True # To force runtests
+                    UnknownItems = True # to force everything
                     continue
                 Found = False
                 for test in initialtestlist + fulltestlist + lnettestlist + zfstestlist + ldiskfstestlist:
