@@ -40,3 +40,21 @@ vm.swappiness=0 # to reduce swappiness as VMs use all the RAM
 
 # console on another tty:
 systemctl enable serial-getty@ttyS0
+
+
+for monitoring:
+dnf install grafana
+wget https://dl.influxdata.com/influxdb/releases/influxdb-1.7.6.x86_64.rpm
+dnf localinstall influxdb-1.7.6.x86_64.rpm
+wget https://dl.influxdata.com/telegraf/releases/telegraf-1.11.0-1.x86_64.rpm
+dnf localinstall telegraf-1.11.0-1.x86_64.rpm
+edit /etc/telegraf/telegraf.conf
+influx
+create database testerstate
+create database servermonitor
+
+service telegraf start
+service grafana start
+chkconfig influx on
+chkconfig telegraf on
+chkconfig grafana on
