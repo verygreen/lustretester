@@ -50,6 +50,7 @@ import random
 import operator
 import mybuilder
 import mytester
+import mystatswriter
 from datetime import datetime
 import dateutil.parser
 import shutil
@@ -117,6 +118,7 @@ testing_condition = threading.Condition()
 managing_queue = Queue.Queue()
 managing_condition = threading.Condition()
 reviewer = None
+StatsWriter = None
 
 fsconfig = {}
 
@@ -1214,6 +1216,12 @@ def print_WorkList_to_HTML():
     for item in reversed(DoneList):
         completeditems += '<tr><td>' + item['build'] + '</td><td>' + item['subject'] + '</td><td>' + item['status'] + '</td></tr>\n'
 
+
+    try:
+        StatsWriter.mainstats(len(WorkList))
+    except:
+        pass # Don't want statistics to disrupt main operations.
+
     idle = 0
     busy = 0
     invalid = 0
@@ -1231,6 +1239,12 @@ def print_WorkList_to_HTML():
                 busy += 1
         else:
             idle += 1
+
+    try:
+        StatsWriter.testerstats(len(workers), dead, busy, invalid, idle, testing_queue.qsize())
+    except:
+        pass # Don't want statistics to disrupt main operations.
+
     deadmsg = ""
     if dead:
         deadmsg = "(%d dead)" % (dead)
@@ -1248,6 +1262,11 @@ def print_WorkList_to_HTML():
             busy += 1
         else:
             idle += 1
+
+    try:
+        StatsWriter.builderstats(len(builders), dead, busy, idle, testing_queue.qsize())
+    except:
+        pass # Don't want statistics to disrupt main operations.
 
     deadmsg = ""
     if dead:
@@ -1480,6 +1499,8 @@ if __name__ == "__main__":
 
     reviewer = Reviewer(GERRIT_HOST, GERRIT_PROJECT, GERRIT_BRANCH,
                         username, password, REVIEW_HISTORY_PATH)
+
+    StatsWriter = mystatswriter.StatsWriter()
 
     for savedstateitem in os.listdir(SAVEDSTATE_DIR):
         with open(SAVEDSTATE_DIR + "/" + savedstateitem, "rb") as blah:
