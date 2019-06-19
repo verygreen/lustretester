@@ -1,0 +1,5 @@
+[
+	"lustre/osd-zfs/*.[ch]",
+	"lustre/utils/libmount_utils_zfs.c",
+	"config/lustre-build-zfs.m4"
+]

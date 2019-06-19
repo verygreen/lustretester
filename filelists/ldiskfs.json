@@ -1,0 +1,6 @@
+[
+	"lustre/osd-ldiskfs/*.[ch]",
+       	"lustre/utils/libmount_utils_ldiskfs.c",
+        "ldiskfs/kernel_patches/*",
+       	"config/lustre-build-ldiskfs.m4"
+]

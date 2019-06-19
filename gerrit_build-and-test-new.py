@@ -128,20 +128,6 @@ architectures = ["x86_64"]
 builders = []
 workers = []
 
-ZFS_ONLY_FILES = [ 'lustre/osd-zfs/*.[ch]', 'lustre/utils/libmount_utils_zfs.c', 'config/lustre-build-zfs.m4' ]
-LDISKFS_ONLY_FILES = [
-        'lustre/osd-ldiskfs/*.[ch]', 'lustre/utils/libmount_utils_ldiskfs.c',
-        'ldiskfs/kernel_patches/*', 'config/lustre-build-ldiskfs.m4' ]
-BUILD_ONLY_FILES = [ '*Makefile*', 'LUSTRE-VERSION-GEN', 'autogen.sh',
-        'lnet/klnds/o2iblnd/*' ]
-IGNORE_FILES = [ 'contrib/*', 'README', 'snmp/*', '*dkms*', '*spec*',
-        'debian/*', 'rpm/*', 'Documentation/*', 'ChangeLog', 'COPYING',
-        'MAINTAINERS', '*doxygen*', 'lustre-iokit/*', 'LICENSE',
-        '.gitignore', 'nodist', 'lustre/doc/*', 'lustre/kernel_patches/*',
-        'lnet/doc/*', 'lnet/klnds/gnilnd/*', 'lustre/tests/maloo_upload.sh',
-        'lustre/tests/parallel-scale-*.sh', 'lustre/tests/setup-*.sh',
-        'lustre/ChangeLog', 'lnet/ChangeLog']
-LNET_ONLY_FILES = [ 'lnet/*' ]
 CODE_FILES = [ '*.[ch]' ]
 I_DONT_KNOW_HOW_TO_TEST_THESE = [
         'contrib/lbuild/*', '*dkms*', '*spec*', 'debian/*', 'rpm/*',
@@ -232,6 +218,43 @@ def determine_testlist(filelist, commit_message, ForceFull=False, Branch=None):
     LDiskfsOnly = False
     FullRun = False
     requested_tests = testlist_from_commit_message(commit_message)
+
+    # Load updated definitions of what we know how to test and what we don't
+    IGNORE_FILES = []
+    BUILD_ONLY_FILES = []
+    LDISKFS_ONLY_FILES = []
+    LNET_ONLY_FILES = []
+    ZFS_ONLY_FILES = []
+
+    try:
+        with open("filelists/ignore.json", "r") as blah:
+            IGNORE_FILES = json.load(blah)
+    except:
+        pass
+
+    try:
+        with open("filelists/buildonly.json", "r") as blah:
+            BUILD_ONLY_FILES = json.load(blah)
+    except:
+        pass
+
+    try:
+        with open("filelists/ldiskfs.json", "r") as blah:
+            LDISKFS_ONLY_FILES = json.load(blah)
+    except:
+        pass
+
+    try:
+        with open("filelists/zfs.json", "r") as blah:
+            ZFS_ONLY_FILES = json.load(blah)
+    except:
+        pass
+
+    try:
+        with open("filelists/lnet.json", "r") as blah:
+            LNET_ONLY_FILES = json.load(blah)
+    except:
+        pass
 
     for item in sorted(filelist):
         # I wish there was a way to detect deleted files, but alas, not in our gerrit?
@@ -526,7 +549,7 @@ def add_review_comment(WorkItem):
         message = "Newer revision detected, aborting all work on revision " + str(WorkItem.change['revisions'][str(WorkItem.revision)]['_number'])
     elif WorkItem.EmptyJob:
         if is_notknow_howto_test(WorkItem.change['revisions'][str(WorkItem.revision)]['files']):
-            message = "This file contains changes that I don't know how to test or build. Skipping"
+            message = "This patch only contains changes that I don't know how to test or build. Skipping"
         else:
             message = 'Cannot detect any useful changes in this patch\n'
             if not is_trivial_requested(commit_message):

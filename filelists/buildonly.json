@@ -1,0 +1,6 @@
+[
+	"*Makefile*",
+       	"LUSTRE-VERSION-GEN",
+       	"autogen.sh",
+        "lnet/klnds/o2iblnd/*"
+]
