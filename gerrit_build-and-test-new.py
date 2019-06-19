@@ -1544,8 +1544,12 @@ if __name__ == "__main__":
                 saveitem = pickle.load(blah)
             except:
                 continue # ignore bad items
+        if not saveitem.buildnr:
+            continue
         if saveitem.artifactsdir:
             savelink = '<a href="' + saveitem.artifactsdir.replace(fsconfig['root_path_offset'], "") + "/" + saveitem.get_results_filename() + '">'
+        else:
+            savelink = ""
         doneitem = {}
         doneitem['build'] = savelink + str(saveitem.buildnr) + '</a>'
 
