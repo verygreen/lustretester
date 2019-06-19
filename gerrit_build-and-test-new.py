@@ -137,7 +137,8 @@ IGNORE_FILES = [ 'contrib/*', 'README', 'snmp/*', '*dkms*', '*spec*',
         'MAINTAINERS', '*doxygen*', 'lustre-iokit/*', 'LICENSE',
         '.gitignore', 'nodist', 'lustre/doc/*', 'lustre/kernel_patches/*',
         'lnet/doc/*', 'lnet/klnds/gnilnd/*', 'lustre/tests/maloo_upload.sh',
-        'lustre/tests/parallel-scale-*.sh', 'lustre/tests/setup-*.sh' ]
+        'lustre/tests/parallel-scale-*.sh', 'lustre/tests/setup-*.sh',
+        'lustre/ChangeLog', 'lnet/ChangeLog']
 LNET_ONLY_FILES = [ 'lnet/*' ]
 CODE_FILES = [ '*.[ch]' ]
 I_DONT_KNOW_HOW_TO_TEST_THESE = [
