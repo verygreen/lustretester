@@ -89,6 +89,8 @@ FAILED_POSTS_DIR="failed_posts"
 LAST_BUILD_ID="LASTBUILD_ID"
 
 StopMachine = False
+StopOnIdle = False
+DrainQueueAndStop = False
 
 # GERRIT_AUTH should contain a single JSON dictionary of the form:
 # {
@@ -1070,6 +1072,11 @@ class Reviewer(object):
                         item.Aborted = True
                         self._debug("Aborted build " + str(buildnr))
                         break
+            elif command.get("idlestop"):
+                StopOnIdle = command['idlestop']
+            elif command.get("drain-and-stop"):
+                DrainQueueAndStop = command['drain-and-stop']
+                StopOnIdle = DrainQueueAndStop
             else:
                 self._debug("Unknown command file contents: " + str(command));
 
@@ -1111,7 +1118,12 @@ class Reviewer(object):
             self.load_history()
 
         while True:
-            self.update()
+            if StopOnIdle and len(WorkList) == 0:
+                print_WorkList_to_HTML()
+                sys.exit(0)
+
+            if not DrainQueueAndStop:
+                self.update()
             time.sleep(self.update_interval)
 
 def save_WorkItem(workitem):
@@ -1123,6 +1135,7 @@ def save_WorkItem(workitem):
 def donewith_WorkItem(workitem):
     print_WorkList_to_HTML()
     print("Trying to be done with buildid " + str(workitem.buildnr))
+    workitem.save(DONEWITH_DIR)
     try:
         WorkList.remove(workitem)
     except ValueError:
@@ -1187,13 +1200,15 @@ def print_WorkList_to_HTML():
 </body>
 </html>
 """
-    if GERRIT_DRYRUN or GERRIT_CHANGE_NUMBER:
+    if DrainQueueAndStop or GERRIT_DRYRUN or GERRIT_CHANGE_NUMBER:
         status = "Draining Test Queue and Stopping"
     elif StopMachine:
         status = "Stopped"
     else:
         if WorkList:
             status = "Operational / working"
+            if StopOnIdle:
+                status += " (will exit on idle)"
         else:
             status = "Operational / Idle"
         if GERRIT_FORCETOPIC:
