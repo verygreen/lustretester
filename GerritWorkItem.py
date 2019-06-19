@@ -4,6 +4,7 @@ import os
 from pprint import pprint
 import threading
 import operator
+import subprocess32
 import cPickle as pickle
 
 class GerritWorkItem(object):
@@ -163,6 +164,12 @@ class GerritWorkItem(object):
                 self.TestingDone = True
 
         self.lock.release()
+        if Finished and self.fsconfig.get("testdone-cb"):
+            args = [self.fsconfig["testdone-cb"], str(Failed), str(Timeout), str(Crash), str(self.buildnr), str(testinfo.get("ResultsDir"))]
+            try:
+                subprocess32.call(args)
+            except OSError as e:
+                print("Error running testset callback for " + str(args))
 
     def testresults_as_html(self, tests):
         htmlteststable = '<table border="1"><tr><th>Test</th><th>Status/results</th><th>Extra info</th></tr>'

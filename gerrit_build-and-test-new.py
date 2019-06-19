@@ -1140,24 +1140,30 @@ def donewith_WorkItem(workitem):
         if len(DoneList) >= 101:
             DoneList.pop(0)
 
-        if workitem.change.get("completion-cb"): # Need to deliver the results
+        if workitem.change.get("completion-cb") or fsconfig.get("testsetdone-cb"): # Need to deliver the results
             if workitem.Aborted:
                 status = "ABORTED"
             elif workitem.BuildError or workitem.InitialTestingError or workitem.TestingError:
                 status = "FAIL"
             else:
                 status = "GOOD"
-            args = [workitem.change['completion-cb'], workitem.change['subject'], status, str(workitem.buildnr)]
-            try:
-                subprocess32.call(args)
-            except OSError as e:
-                print("Error running callback for " + str(args))
+            if workitem.change.get("completion-cb"):
+                args = [workitem.change['completion-cb'], workitem.change['subject'], status, str(workitem.buildnr)]
+                try:
+                    subprocess32.call(args)
+                except OSError as e:
+                    print("Error running custom callback for " + str(args))
+            if fsconfig.get("testsetdone-cb"):
+                args = [fsconfig["testsetdone-cb"], workitem.change['subject'], status, str(workitem.buildnr)]
+                try:
+                    subprocess32.call(args)
+                except OSError as e:
+                    print("Error running custom callback for " + str(args))
 
     try:
         os.unlink(SAVEDSTATE_DIR + "/" + workitem.get_saved_name())
     except OSError:
         pass
-    workitem.save(DONEWITH_DIR)
 
 def print_WorkList_to_HTML():
     template = """
