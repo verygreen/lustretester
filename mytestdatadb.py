@@ -25,7 +25,7 @@ def process_warning(testname, warning, change, resultlink, fstype, testtime=None
         dbconn = psycopg2.connect(dbname="testinfo", user="testinfo", password="blah1", host="localhost", Time=None)
         cur = dbconn.cursor()
         # First let's see if it's a branch wide warning
-        cur.execute("SELECT id, created_at FROM warnings WHERE test = %s AND fstype = %s AND warning = %s AND (GerritID is NULL OR GerritID <> %s) AND branch = %s AND created_at >= %s - interval '30' day ORDER BY created_at desc", (testname, fstype, warning, gerritid, branch, testtime))
+        cur.execute("SELECT id, created_at FROM warnings WHERE test = %s AND fstype = %s AND warning = %s AND GerritID is NULL AND branch = %s AND created_at >= %s - interval '30' day ORDER BY created_at desc", (testname, fstype, warning, branch, testtime))
         if cur.rowcount == 0: # Only saw it for this gerrit id or never
             unique = True
         if gerritid:
