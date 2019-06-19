@@ -1248,7 +1248,7 @@ def print_WorkList_to_HTML():
     deadmsg = ""
     if dead:
         deadmsg = "(%d dead)" % (dead)
-    testlusters = "Total: %d%s, busy %d, in_error_state %d, idle %d. Items in queue: %d" % (len(workers), deadmsg, busy, invalid, idle, testing_queue.qsize())
+    testclusters = "Total: %d%s, busy %d, in_error_state %d, idle %d. Items in queue: %d" % (len(workers), deadmsg, busy, invalid, idle, testing_queue.qsize())
 
     idle = 0
     busy = 0
@@ -1264,7 +1264,7 @@ def print_WorkList_to_HTML():
             idle += 1
 
     try:
-        StatsWriter.builderstats(len(builders), dead, busy, idle, testing_queue.qsize())
+        StatsWriter.builderstats(len(builders), dead, busy, idle, build_queue.qsize())
     except:
         pass # Don't want statistics to disrupt main operations.
 
@@ -1273,7 +1273,7 @@ def print_WorkList_to_HTML():
         deadmsg = "(%d dead)" % (dead)
     buildclusters = "Total: %d%s, busy %d, idle %d. Items in queue: %d" % (len(builders), deadmsg, busy, idle, build_queue.qsize())
 
-    all_items = {'status':status, 'workitems':workitems, 'testers':testlusters,\
+    all_items = {'status':status, 'workitems':workitems, 'testers':testclusters,\
             'builders':buildclusters, 'completeditems':completeditems}
     with open(fsconfig["outputs"] + "/status.html", "w") as indexfile:
         indexfile.write(template.format(**all_items))
