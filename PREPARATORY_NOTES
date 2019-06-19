@@ -57,6 +57,6 @@ service telegraf start
 service grafana start
 chkconfig influx on
 chkconfig telegraf on
-chkconfig grafana on
+chkconfig grafana-server on
 
 pip-2 install influxdb
