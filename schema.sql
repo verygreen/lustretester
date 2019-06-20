@@ -11,3 +11,4 @@ create index on failures (GerritID);
 create index on failures (test, subtest, fstype, error, branch);
 create index on failures (created_at);
 
+create table blacklisted (id serial unique, test varchar(50), subtest varchar(50), fstype varchar(20), errorstart text);
