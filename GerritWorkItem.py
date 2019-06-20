@@ -271,13 +271,12 @@ class GerritWorkItem(object):
             buildstatus = "Ongoing"
         elif self.BuildError:
             if self.BuildMessage:
-                buildstatus = self.BuildMessage
+                buildstatus = "failed :" + self.BuildMessage
             else:
                 buildstatus = "Error"
         else:
             buildstatus = "Success"
-        # XXX - hardcoded arch/distro
-        buildinfo = '<h3>Build %s <a href="build-%s-x86_64.console">build console</a></h3>' % (self.distro, buildstatus)
+        buildinfo = '<h3>Build %s <a href="build-%s-x86_64.console">build console</a></h3>' % (buildstatus, self.distro)
         all_items['buildinfo'] = buildinfo
 
         if self.initial_tests:
