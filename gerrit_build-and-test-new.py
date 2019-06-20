@@ -1096,8 +1096,11 @@ class Reviewer(object):
                         self._debug("Aborted build " + str(buildnr))
                         break
             elif command.get("idlestop"):
+                global StopOnIdle
                 StopOnIdle = command['idlestop']
             elif command.get("drain-and-stop"):
+                global StopOnIdle
+                global DrainQueueAndStop
                 DrainQueueAndStop = command['drain-and-stop']
                 StopOnIdle = DrainQueueAndStop
             else:
