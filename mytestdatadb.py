@@ -66,7 +66,7 @@ def process_one(testname, subtestname, error, duration, branch, gerritid, result
                 cur.execute("SELECT count(id), count(DISTINCT GerritID), count(DISTINCT branch) FROM failures WHERE test = %s AND subtest = %s AND fstype = %s AND error = %s AND created_at >= %s - interval '30' day", (testname, subtestname, fstype, error, testtime))
                 # count must be 1!
                 row = cur.fetchone()
-                msg = "NEW unique failure for this branch in the last 30 days, but was seen %d times across %d other branches %d reviews" % (row[0], row[2], row[1])
+                msg = "NEW unique failure for this branch in the last 30 days, and was seen %d times across %d other branches %d reviews" % (row[0], row[2], row[1])
 
             else: # Saw it for other gerrit IDs but not for the base branch
                 unique = True
