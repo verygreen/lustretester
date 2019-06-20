@@ -551,7 +551,7 @@ def add_review_comment(WorkItem):
         if is_notknow_howto_test(WorkItem.change['revisions'][str(WorkItem.revision)]['files']):
             message = "This patch only contains changes that I don't know how to test or build. Skipping"
         else:
-            message = 'Cannot detect any useful changes in this patch\n'
+            message = 'Cannot detect any functional changes in this patch\n'
             if not is_trivial_requested(commit_message):
                 message += TrivialNagMessage
     elif WorkItem.BuildDone and not WorkItem.InitialTestingStarted and not WorkItem.TestingStarted:
