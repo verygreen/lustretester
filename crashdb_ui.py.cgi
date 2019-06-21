@@ -318,7 +318,7 @@ def convert_new_crash(dbconn, form):
         try:
             reporter = mymaloo_bugreporter.maloo_poster()
             cur = dbconn.cursor()
-            cur.execute('SELECT triage.link, triage.testline FROM triage, new_crashes WHERE newcrash_id in ' + NEWIDS + EXTRACONDS, EXTRACONDvars)
+            cur.execute('SELECT triage.link, triage.testline FROM triage, new_crashes WHERE triage.newcrash_id=new_crashes.id AND newcrash_id in ' + NEWIDS + EXTRACONDS, EXTRACONDvars)
             rows = cur.fetchall()
             cur.close()
             for row in rows:
