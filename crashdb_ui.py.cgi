@@ -6,6 +6,7 @@ import psycopg2
 import cgi
 import cgitb
 from mycrashanalyzer import add_known_crash
+import mymaloo_bugreporter
 cgitb.enable()
 
 
@@ -293,6 +294,7 @@ def convert_new_crash(dbconn, form):
     template = """<html><head><title>Converting new crash report</title></head>
 <body>
 <H2>Converting crashreport #{NEWCRASHID}</H2>
+{MALOOREPORT}
 <a href=\"{BASENAMEURL}\">Return to new crashes list</a>
 </body>
 </html>
@@ -303,11 +305,41 @@ def convert_new_crash(dbconn, form):
         ids.append(str(row[0]))
     NEWIDS = '(' + ', '.join(ids) + ')'
 
-    # This was out second pass, we now need to insert the data into known crashes
+    malooreport = ""
+    # This was our second pass, we now need to insert the data into known crashes
     # Or if it was a delete request, don't create anything, just delete
     if deletereport != 'yes':
         if not add_known_crash(testline, reason, func, btline, inlogs_cleaned, infullbt_cleaned, bugdescription, extrainfo, DBCONN=dbconn):
             return "Failed to add new known crash"
+
+        malooreport += "<h2>Maloo update report</h2>"
+        malooreport += "<table border=1><tr><th>maloo link</th><th>Update result</th></tr>"
+        # Now we need to gather all links and post the vetter result to maloo:
+        try:
+            reporter = mymaloo_bugreporter.maloo_poster()
+            cur = dbconn.cursor()
+            cur.execute('SELECT triage.link, triage.testline FROM triage, new_crashes WHERE newcrash_id in ' + NEWIDS + EXTRACONDS, EXTRACONDvars)
+            rows = cur.fetchall()
+            cur.close()
+            for row in rows:
+                link = row[0]
+                # we could have excluded it with select, but that's probably
+                # not all that important with small numbers we have here
+                # and I need to do extra hoops to save old values and stuff
+                # in EXTRACONDS and EXTRACONDvars
+                if link.startswith('https://testing.whamcloud.com'):
+                    res = reporter.associate_bug_by_url(link, bugdescription, row[1])
+                    malooreport += '<tr><td><a href="%s">%s</a></td><td>' % (link, link)
+                    if res:
+                        malooreport += "Success"
+                    else:
+                        malooreport += "Error: " + reporter.error
+                    malooreport += '</td></tr>'
+        except psycopg2.DatabaseError as e:
+            malooreport += "DB Error " + str(e)
+            print(str(e))
+
+    malooreport += "</table>"
 
     # and remove all matching reports.
     try:
@@ -323,7 +355,7 @@ def convert_new_crash(dbconn, form):
     except psycopg2.DatabaseError as e:
         return "DB Error on delete " + str(e)
 
-    all_items = {'NEWCRASHID':', '.join(ids), 'BASENAMEURL':basenameurl}
+    all_items = {'NEWCRASHID':', '.join(ids), 'BASENAMEURL':basenameurl, 'MALOOREPORT':malooreport}
     return template.format(**all_items)
 
 
