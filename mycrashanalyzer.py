@@ -185,10 +185,10 @@ def is_known_crash(lasttest, crashtrigger, crashfunction, crashbt, fullbt, lastt
         EXTRACONDS = ""
         # if we have no test info, cannot match for test so skip
         if not lasttest:
-            EXTRACONDS += " AND testline IS NOT NULL"
+            EXTRACONDS += " AND testline IS NULL"
         # If we have no test logs, cannot matc for inlogs, so skip
         if not lasttestlogs:
-            EXTRACONDS += " AND inlogs IS NOT NULL"
+            EXTRACONDS += " AND inlogs IS NULL"
         cur.execute("SELECT testline, inlogs, infullbt, bug, extrainfo FROM known_crashes where reason=%s AND func=%s" + EXTRACONDS +" AND strpos(%s, backtrace) > 0 ORDER BY testline DESC, inlogs DESC", (crashtrigger, crashfunction, crashbt))
         rows = cur.fetchall()
         cur.close()
@@ -469,6 +469,11 @@ class Crasher(object):
                     nsym = len(filename)
                     filename = filename[:nsym-1]
                     fileline = int(tokens[1])
+                    # XXX if it's a function we called, we need to subtract
+                    # 1 or more here.
+                    # We'll do it unconditionally for now.
+                    fileline -= 1
+
                     if filename in files: # We got our first hit, so we'll record here
                         path_comments = reviews.setdefault(filename, [])
                         comment = "Crash with latest lustre function %s in backtrace called here:\n\n " % (function)
