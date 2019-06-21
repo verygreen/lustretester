@@ -38,10 +38,10 @@ def newreport_rows_to_table(rows):
 
     return REPORTS
 
-def print_new_crashes(dbconn):
+def print_new_crashes(dbconn, form):
     template = """<html><head><title>New crash reports</title></head>
 <body>
-<H2>List of untriaged crash reports (top 20)</H2>
+<H2>List of untriaged crash reports (top {COUNT})</H2>
 <table border=1>
 <tr><th>ID</th><th>Reason</th><th>Crashing Function</th><th>Backtrace</th><th>Reports Count</th><th>Last hit</th></tr>
 {REPORTS}
@@ -50,10 +50,17 @@ def print_new_crashes(dbconn):
 </html>
     """
 
+    count = 20
+    try:
+        if form and form.getfirst("count"):
+            count = int(form.getfirst("count"))
+    except:
+        pass
+
     REPORTS=""
     try:
         cur = dbconn.cursor()
-        cur.execute("SELECT new_crashes.id, new_crashes.reason, new_crashes.func, new_crashes.backtrace, count(triage.newcrash_id) as hitcounts, max(triage.created_at) as last_seen from new_crashes, triage where new_crashes.id = triage.newcrash_id group by new_crashes.id order by last_seen desc, hitcounts desc LIMIT 20")
+        cur.execute("SELECT new_crashes.id, new_crashes.reason, new_crashes.func, new_crashes.backtrace, count(triage.newcrash_id) as hitcounts, max(triage.created_at) as last_seen from new_crashes, triage where new_crashes.id = triage.newcrash_id group by new_crashes.id order by last_seen desc, hitcounts desc LIMIT %s", (count,))
         rows = cur.fetchall()
         REPORTS = newreport_rows_to_table(rows)
         cur.close()
@@ -62,7 +69,7 @@ def print_new_crashes(dbconn):
         print(e)
         pass
 
-    all_items = {'REPORTS': REPORTS, 'BASENAMEURL':basenameurl}
+    all_items = {'REPORTS': REPORTS, 'BASENAMEURL':basenameurl, 'COUNT':count}
 
     return template.format(**all_items)
 
@@ -322,8 +329,8 @@ def convert_new_crash(dbconn, form):
 
 if __name__ == "__main__":
     form = cgi.FieldStorage()
-    if not form:
-        result = print_new_crashes(dbconn)
+    if not form or form.getfirst("count"):
+        result = print_new_crashes(dbconn, form)
     elif form.getfirst("newconvert_submit"):
         result = convert_new_crash(dbconn, form)
     elif form.getfirst("newid"):
