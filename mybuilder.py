@@ -4,11 +4,11 @@ import sys
 import os
 import threading
 import logging
-import Queue
+import queue
 import shlex
 import json
 from pprint import pprint
-from subprocess32 import Popen, PIPE, TimeoutExpired
+from subprocess import Popen, PIPE, TimeoutExpired
 import time
 
 class Builder(object):

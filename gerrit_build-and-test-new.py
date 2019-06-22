@@ -40,9 +40,9 @@ import os
 import sys
 import requests
 import time
-import urllib
+import urllib.request, urllib.parse, urllib.error
 from GerritWorkItem import GerritWorkItem
-import Queue
+import queue
 import threading
 import pwd
 import re
@@ -51,12 +51,13 @@ import operator
 import mybuilder
 import mytester
 import mystatswriter
+from mytuplesorter import TupleSortingOn0
 from datetime import datetime
 import dateutil.parser
 import shutil
-import cPickle as pickle
+import pickle as pickle
 from pprint import pprint
-import subprocess32
+import subprocess
 import resource
 
 def _getenv_list(key, default=None, sep=':'):
@@ -113,11 +114,11 @@ USE_CODE_REVIEW_SCORE = False
 
 IGNORE_OLDER_THAN_DAYS = 30
 
-build_queue = Queue.Queue()
+build_queue = queue.Queue()
 build_condition = threading.Condition()
-testing_queue = Queue.PriorityQueue()
+testing_queue = queue.PriorityQueue()
 testing_condition = threading.Condition()
-managing_queue = Queue.Queue()
+managing_queue = queue.Queue()
 managing_condition = threading.Condition()
 reviewer = None
 StatsWriter = None
@@ -488,9 +489,9 @@ def review_input_and_score(path_line_comments, warning_count):
     """
     review_comments = {}
 
-    for path, line_comments in path_line_comments.iteritems():
+    for path, line_comments in path_line_comments.items():
         path_comments = []
-        for line, comment_list in line_comments.iteritems():
+        for line, comment_list in line_comments.items():
             message = '\n'.join(comment_list)
             path_comments.append({'line': line, 'message': message})
         review_comments[path] = path_comments
@@ -648,7 +649,7 @@ def add_review_comment(WorkItem):
 
 def _now():
     """_"""
-    return long(time.time())
+    return int(time.time())
 
 def make_requested_testlist(requestedlistparams, branch):
     # XXX - this is a copy from another func. need to
@@ -721,7 +722,7 @@ class Reviewer(object):
         self.history_path = history_path
         self.history_mode = 'rw'
         self.history = {}
-        self.timestamp = 0L
+        self.timestamp = 0
         self.post_enabled = True and not GERRIT_DRYRUN # XXX
         self.post_interval = 1
         self.update_interval = 120
@@ -799,7 +800,7 @@ class Reviewer(object):
                 for line in history_file:
                     epoch, change_id, revision, score = line.split()
                     if change_id == '-':
-                        self.timestamp = long(float(epoch))
+                        self.timestamp = int(float(epoch))
                     else:
                         self.history[change_id + ' ' + revision] = score
 
@@ -820,7 +821,7 @@ class Reviewer(object):
 
         if 'w' in self.history_mode:
             with open(self.history_path, 'a') as history_file:
-                print >> history_file, epoch, change_id, revision, score
+                print(epoch, change_id, revision, score, file=history_file)
 
     def in_history(self, change_id, revision):
         """
@@ -839,14 +840,14 @@ class Reviewer(object):
         query = dict(query)
         if not Absolute:
             project = query.get('project', self.project)
-            query['project'] = urllib.quote(project, safe='')
+            query['project'] = urllib.parse.quote(project, safe='')
             branch = query.get('branch', self.branch)
-            query['branch'] = urllib.quote(branch, safe='')
+            query['branch'] = urllib.parse.quote(branch, safe='')
             if GERRIT_FORCETOPIC:
                 query['topic'] = GERRIT_FORCETOPIC
 
         path = ('/changes/?q=' +
-                '+'.join(k + ':' + v for k, v in query.iteritems()) +
+                '+'.join(k + ':' + v for k, v in query.items()) +
                 '&o=CURRENT_REVISION&o=CURRENT_COMMIT&o=CURRENT_FILES')
         res = self._get(path)
         if not res:
@@ -973,6 +974,8 @@ class Reviewer(object):
         self.write_history('-', '-', 0)
 
     def check_for_commands(self):
+        global StopOnIdle
+        global DrainQueueAndStop
         # See if we got any commands
         for commandfile in os.listdir(GERRIT_COMMANDMONITORDIR):
             command = {}
@@ -1004,7 +1007,7 @@ class Reviewer(object):
                 desiredchange = str(command['test-ref'])
                 if not desiredchange:
                     continue
-                print("Asking for single change " + desiredchange)
+                print(("Asking for single change " + desiredchange))
                 open_changes = self.get_changes({'status':'open',
                                                  'change':change},
                                                 Absolute=True)
@@ -1096,11 +1099,8 @@ class Reviewer(object):
                         self._debug("Aborted build " + str(buildnr))
                         break
             elif command.get("idlestop"):
-                global StopOnIdle
                 StopOnIdle = command['idlestop']
             elif command.get("drain-and-stop"):
-                global StopOnIdle
-                global DrainQueueAndStop
                 DrainQueueAndStop = command['drain-and-stop']
                 StopOnIdle = DrainQueueAndStop
             else:
@@ -1160,7 +1160,7 @@ def save_WorkItem(workitem):
 
 def donewith_WorkItem(workitem):
     print_WorkList_to_HTML()
-    print("Trying to be done with buildid " + str(workitem.buildnr))
+    print(("Trying to be done with buildid " + str(workitem.buildnr)))
     workitem.save(DONEWITH_DIR)
     try:
         WorkList.remove(workitem)
@@ -1189,15 +1189,15 @@ def donewith_WorkItem(workitem):
             if workitem.change.get("completion-cb"):
                 args = [workitem.change['completion-cb'], workitem.change['subject'], status, str(workitem.buildnr)]
                 try:
-                    subprocess32.call(args)
+                    subprocess.call(args)
                 except OSError as e:
-                    print("Error running custom callback for " + str(args))
+                    print(("Error running custom callback for " + str(args)))
             if fsconfig.get("testsetdone-cb"):
                 args = [fsconfig["testsetdone-cb"], workitem.change['subject'], status, str(workitem.buildnr)]
                 try:
-                    subprocess32.call(args)
+                    subprocess.call(args)
                 except OSError as e:
-                    print("Error running custom callback for " + str(args))
+                    print(("Error running custom callback for " + str(args)))
 
     try:
         os.unlink(SAVEDSTATE_DIR + "/" + workitem.get_saved_name())
@@ -1331,7 +1331,7 @@ def run_workitem_manager():
     current_build = 1
 
     try:
-        with open(LAST_BUILD_ID, 'rb') as blah:
+        with open(LAST_BUILD_ID, 'r') as blah:
             current_build = int(blah.read())
     except OSError:
         pass
@@ -1364,7 +1364,7 @@ def run_workitem_manager():
             workitem.buildnr = current_build
             current_build += 1
 
-            with open(LAST_BUILD_ID, 'wb') as output:
+            with open(LAST_BUILD_ID, 'w') as output:
                 output.write('%d' % current_build)
 
             # Mark all earlier revs as aborted first before we add ourselves in
@@ -1438,7 +1438,7 @@ def run_workitem_manager():
                 if testinfo.get('Finished', False):
                     continue
                 # First 0 is priority - highest
-                testing_queue.put([0, testinfo, workitem])
+                testing_queue.put(TupleSortingOn0((0, testinfo, workitem)))
                 testing_condition.notify()
             testing_condition.release()
             continue
@@ -1492,7 +1492,7 @@ def run_workitem_manager():
                     # space them out every 100 so we can later add some
                     # additional prioritization if desired.
                     priority = workitem.buildnr * 100
-                testing_queue.put([priority, testinfo, workitem])
+                testing_queue.put(TupleSortingOn0((priority, testinfo, workitem)))
                 testing_condition.notify()
             testing_condition.release()
             continue
@@ -1520,7 +1520,7 @@ if __name__ == "__main__":
     try:
         testoutputowner_uid = pwd.getpwnam(fsconfig.get("testoutputowner", "green")).pw_uid
     except:
-        print("Cannot find uid of test output owner " + fsconfig.get("testoutputowner", "green"))
+        print(("Cannot find uid of test output owner " + fsconfig.get("testoutputowner", "green")))
         sys.exit(1)
 
     fsconfig["testoutputowneruid"] = testoutputowner_uid
@@ -1621,7 +1621,7 @@ if __name__ == "__main__":
 
     try:
         if GERRIT_CHANGE_NUMBER:
-            print("Asking for single change " + GERRIT_CHANGE_NUMBER)
+            print(("Asking for single change " + GERRIT_CHANGE_NUMBER))
             reviewer.update_single_change(GERRIT_CHANGE_NUMBER)
 
             time.sleep(3)

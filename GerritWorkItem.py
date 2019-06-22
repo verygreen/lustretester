@@ -4,8 +4,8 @@ import os
 from pprint import pprint
 import threading
 import operator
-import subprocess32
-import cPickle as pickle
+import subprocess
+import pickle as pickle
 
 class GerritWorkItem(object):
     def __init__(self, change, initialtestlist, testlist, fsconfig, EmptyJob=False, Reviewer=None, DISTRO=None):
@@ -167,7 +167,7 @@ class GerritWorkItem(object):
         if Finished and self.fsconfig.get("testdone-cb"):
             args = [self.fsconfig["testdone-cb"], str(Failed), str(Timeout), str(Crash), str(self.buildnr), str(testinfo.get("ResultsDir"))]
             try:
-                subprocess32.call(args)
+                subprocess.call(args)
             except OSError as e:
                 print("Error running testset callback for " + str(args))
 

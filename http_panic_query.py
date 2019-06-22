@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 import os
 import sys
 from pprint import pprint
@@ -11,8 +11,8 @@ from mycrashanalyzer import extract_crash_from_dmesg_string, is_known_crash, che
 
 cgitb.enable()
 
-print "Content-type: text/html"
-print
+print("Content-type: text/html")
+print()
 
 def print_found_bug(bug, extrainfo):
     template = """<html><head><title>Found!</title></head>

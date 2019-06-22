@@ -36,7 +36,7 @@ def process_warning(testname, warning, change, resultlink, fstype, testtime=None
         dbconn.commit()
         cur.close()
     except psycopg2.DatabaseError as e:
-        print("Cannot insert new warning entry " + str(e))
+        print(("Cannot insert new warning entry " + str(e)))
     finally:
         dbconn.close()
 
@@ -108,7 +108,7 @@ def process_one(testname, subtestname, error, duration, branch, gerritid, result
         dbconn.commit()
         cur.close()
     except psycopg2.DatabaseError as e:
-        print("Cannot insert new failure entry " + str(e))
+        print(("Cannot insert new failure entry " + str(e)))
     finally:
         dbconn.close()
 

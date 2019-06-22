@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 import os
 import sys
 from pprint import pprint
@@ -10,8 +10,8 @@ import mymaloo_bugreporter
 cgitb.enable()
 
 
-print "Content-type: text/html"
-print
+print("Content-type: text/html")
+print()
 
 dbconn = psycopg2.connect(dbname="crashinfo", user="crashinfo", password="blah", host="localhost")
 

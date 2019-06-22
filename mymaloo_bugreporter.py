@@ -1,5 +1,5 @@
 from bs4 import BeautifulSoup
-import cPickle as pickle
+import pickle as pickle
 import json
 import requests
 import os

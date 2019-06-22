@@ -13,10 +13,11 @@ import json
 import shutil
 import yaml
 from pprint import pprint
-from subprocess32 import Popen, PIPE, TimeoutExpired
+from subprocess import Popen, PIPE, TimeoutExpired
 import mycrashanalyzer
 from mytestdatadb import process_results
 from mytestdatadb import process_warning
+from mytuplesorter import TupleSortingOn0
 
 class Node(object):
     def __init__(self, name, outputdir):
@@ -220,7 +221,7 @@ class Tester(object):
                 testinfo["failcount"] = failcount
                 self.logger.info("Failed to test job buildid " + str(workitem.buildnr) + " test " + str(testinfo) + " #" + str(failcount))
                 in_cond.acquire()
-                in_queue.put([priority, testinfo, workitem])
+                in_queue.put(TupleSortingOn0((priority, testinfo, workitem)))
                 in_cond.notify()
                 in_cond.release()
                 self.Invalid = True

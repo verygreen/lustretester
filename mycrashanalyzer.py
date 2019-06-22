@@ -4,13 +4,13 @@ import sys
 import os
 import time
 import threading
-import Queue
+import queue
 import shlex
 import json
 import re
 import psycopg2
 from pprint import pprint
-from subprocess32 import Popen, PIPE, TimeoutExpired
+from subprocess import Popen, PIPE, TimeoutExpired
 
 ### Important - we need transform_null_equals = on in postgresql.conf or =null logic breaks
 
@@ -240,14 +240,14 @@ def add_known_crash(lasttest, crashtrigger, crashfunction, crashbt, inlogs, infu
         cur.execute("SELECT id FROM known_crashes WHERE reason=%s AND func=%s AND testline=%s AND strpos(backtrace, %s) > 0 AND inlogs=%s AND infullbt=%s", (crashtrigger, crashfunction, lasttest, crashbt, inlogs, infullbt))
         if cur.rowcount > 0:
             id = cur.fetchone()[0]
-            print("Huh, adding a known crash that is already matching what we have at id: " + str(id))
+            print(("Huh, adding a known crash that is already matching what we have at id: " + str(id)))
             return False
         cur.execute("INSERT INTO known_crashes(reason, func, testline, backtrace, inlogs, infullbt, bug, extrainfo) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)", (crashtrigger, crashfunction, lasttest, crashbt, inlogs, infullbt, bug, extrainfo))
 
         dbconn.commit()
         cur.close()
     except psycopg2.DatabaseError as e:
-        print("Cannot insert new entry " + str(e))
+        print(("Cannot insert new entry " + str(e)))
         return False # huh, and what am I supposed to do here?
     finally:
         if not DBCONN and dbconn:
