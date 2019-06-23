@@ -1007,7 +1007,7 @@ class Reviewer(object):
                 desiredchange = str(command['test-ref'])
                 if not desiredchange:
                     continue
-                print(("Asking for single change " + desiredchange))
+                print("Asking for single change " + desiredchange)
                 open_changes = self.get_changes({'status':'open',
                                                  'change':change},
                                                 Absolute=True)
@@ -1191,13 +1191,13 @@ def donewith_WorkItem(workitem):
                 try:
                     subprocess.call(args)
                 except OSError as e:
-                    print(("Error running custom callback for " + str(args)))
+                    print("Error running custom callback for " + str(args))
             if fsconfig.get("testsetdone-cb"):
                 args = [fsconfig["testsetdone-cb"], workitem.change['subject'], status, str(workitem.buildnr)]
                 try:
                     subprocess.call(args)
                 except OSError as e:
-                    print(("Error running custom callback for " + str(args)))
+                    print("Error running custom callback for " + str(args))
 
     try:
         os.unlink(SAVEDSTATE_DIR + "/" + workitem.get_saved_name())
@@ -1520,7 +1520,7 @@ if __name__ == "__main__":
     try:
         testoutputowner_uid = pwd.getpwnam(fsconfig.get("testoutputowner", "green")).pw_uid
     except:
-        print(("Cannot find uid of test output owner " + fsconfig.get("testoutputowner", "green")))
+        print("Cannot find uid of test output owner " + fsconfig.get("testoutputowner", "green"))
         sys.exit(1)
 
     fsconfig["testoutputowneruid"] = testoutputowner_uid
