@@ -271,7 +271,7 @@ class GerritWorkItem(object):
             buildstatus = "Ongoing"
         elif self.BuildError:
             if self.BuildMessage:
-                buildstatus = "failed :" + self.BuildMessage
+                buildstatus = "failed: " + self.BuildMessage
             else:
                 buildstatus = "Error"
         else:
