@@ -369,6 +369,8 @@ class Crasher(object):
             if processor.returncode is not 0:
                 self.logger("Crash processing failed with code " + str(processor.returncode) + " stdout: " + outs + " stderr: " + errs)
 
+            del processor
+
             if self.Timeout:
                 # Right now we are done here, perhaps add some more logic here eventually
                 return True

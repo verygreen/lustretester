@@ -59,6 +59,8 @@ import pickle as pickle
 from pprint import pprint
 import subprocess
 import resource
+import tracemalloc
+tracemalloc.start()
 
 def _getenv_list(key, default=None, sep=':'):
     """
@@ -1158,9 +1160,17 @@ def save_WorkItem(workitem):
         return
     workitem.save(SAVEDSTATE_DIR)
 
+def print_garbage():
+    snapshot = tracemalloc.take_snapshot()
+    top_stats = snapshot.statistics('lineno')
+    print("MEMORY:")
+    for stat in top_stats[:20]:
+        print(stat)
+    sys.stdout.flush()
+
 def donewith_WorkItem(workitem):
     print_WorkList_to_HTML()
-    print(("Trying to be done with buildid " + str(workitem.buildnr)))
+    print("Trying to be done with buildid " + str(workitem.buildnr))
     workitem.save(DONEWITH_DIR)
     try:
         WorkList.remove(workitem)
@@ -1401,6 +1411,8 @@ def run_workitem_manager():
         if workitem.Aborted:
             # Whoops, we no longer want to do anything with this item.
             donewith_WorkItem(workitem)
+            workitem = None
+            print_garbage()
             continue
 
         if workitem.BuildDone and workitem.BuildError:
@@ -1408,6 +1420,8 @@ def run_workitem_manager():
             # report and don't return this item anywhere
             logger.warning("ref " + workitem.ref + " build " + str(workitem.buildnr)  + " failed building")
             donewith_WorkItem(workitem)
+            workitem = None
+            print_garbage()
             continue
 
         if workitem.BuildDone and not workitem.initial_tests:
@@ -1415,6 +1429,8 @@ def run_workitem_manager():
             logger.info("ref " + workitem.ref + " build " + str(workitem.buildnr)  + " completed build, but no tests provided")
             # XXX
             donewith_WorkItem(workitem)
+            workitem = None
+            print_garbage()
             continue
 
         if workitem.BuildDone and not workitem.InitialTestingStarted:
@@ -1455,6 +1471,8 @@ def run_workitem_manager():
             # Don't return the item anywhere
             logger.warning("ref " + workitem.ref + " build " + str(workitem.buildnr)  + " failed initial testing")
             donewith_WorkItem(workitem)
+            workitem = None
+            print_garbage()
             continue
 
         if workitem.InitialTestingDone and not workitem.tests:
@@ -1462,6 +1480,8 @@ def run_workitem_manager():
             logger.info("ref " + workitem.ref + " build " + str(workitem.buildnr)  + " completed initial testing and no full tests provided")
             # XXX
             donewith_WorkItem(workitem)
+            workitem = None
+            print_garbage()
             continue
 
         if workitem.InitialTestingDone and not workitem.TestingStarted:
@@ -1502,6 +1522,8 @@ def run_workitem_manager():
             # for the reporting code to care about, but we are all done here
             logger.info("All done testing ref " + workitem.ref + " build " + str(workitem.buildnr))
             donewith_WorkItem(workitem)
+            workitem = None
+            print_garbage()
             continue
 
 #def main():
@@ -1614,14 +1636,14 @@ if __name__ == "__main__":
         if len(DoneList) == 100:
             break
     # free up some RAM
-    saveitem = None
-    doneitem = None
+    del saveitem
+    del doneitem
 
     print_WorkList_to_HTML()
 
     try:
         if GERRIT_CHANGE_NUMBER:
-            print(("Asking for single change " + GERRIT_CHANGE_NUMBER))
+            print("Asking for single change " + GERRIT_CHANGE_NUMBER)
             reviewer.update_single_change(GERRIT_CHANGE_NUMBER)
 
             time.sleep(3)

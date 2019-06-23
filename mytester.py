@@ -232,6 +232,7 @@ class Tester(object):
                 self.Invalid = False
 
             self.Busy = False
+            self.cleanup_after_run()
 
 
     def __init__(self, workerinfo, fsinfo, in_cond, in_queue, out_cond, out_queue):
@@ -345,6 +346,11 @@ class Tester(object):
 
     def get_duration(self):
         return int(time.time() - self.startTime)
+
+    def cleanup_after_run(self):
+        self.testerrs = ''
+        self.testouts = ''
+        self.crashfiles = []
 
     def init_new_run(self):
         self.testerrs = ''
@@ -524,6 +530,8 @@ class Tester(object):
             server.terminate()
             client.terminate()
             return False
+
+        del setupprocess
 
         if workitem.Aborted:
             self.logger.warning("job for buildid " + str(workitem.buildnr) + " aborted")
@@ -863,6 +871,8 @@ class Tester(object):
         self.logger.info("Buildid " + str(workitem.buildnr) + " test " + testinfo['name'] + '-' + testinfo['fstype'] + " Job finished with code " + str(testprocess.returncode) + " and message " + message)
         # XXX Also need to add yaml parsing of results with subtests.
 
+        del testprocess
+
         #pprint(self.testerrs)
 
         # Now kill the client and server
@@ -891,6 +901,9 @@ class Tester(object):
             self.logger.warning("job for buildid " + str(workitem.buildnr) + " test " + testinfo['name'] + '-' + testinfo['fstype'] + " We had a crash " + message + "but no crashdumps?")
             self.logger.warning("client stderr: " + client.errs)
             self.logger.warning("server stderr: " + server.errs)
+
+        del client
+        del server
 
         workitem.UpdateTestStatus(testinfo, message, Finished=True, Crash=self.CrashDetected, TestStdOut=self.testouts, TestStdErr=self.testerrs, Failed=Failure, Subtests=failedsubtests, Skipped=skippedsubtests, Warnings=warnings)
 
