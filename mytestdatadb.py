@@ -36,7 +36,7 @@ def process_warning(testname, warning, change, resultlink, fstype, testtime=None
         dbconn.commit()
         cur.close()
     except psycopg2.DatabaseError as e:
-        print(("Cannot insert new warning entry " + str(e)))
+        print("Cannot insert new warning entry " + str(e))
     finally:
         dbconn.close()
 
@@ -80,12 +80,6 @@ def process_one(testname, subtestname, error, duration, branch, gerritid, result
                 for row in cur.fetchall():
                     msg += " %d" % (row[0])
         else:
-            # See if this is a blacklisted result
-            cur.execute("SELECT id FROM blacklisted WHERE test = %s AND subtest = %s AND fstype = %s AND %s LIKE CONCAT(blacklisted.errorstart, %s)", (testname, subtestname, fstype, error, '%' ))
-            if cur.rowcount:
-                unique = False
-                msg = "blacklisted variable error message"
-
             if cur.rowcount:
                 # Since it's a generic failure we'll record it without gerritid
                 # so it counts against overall statistics
@@ -99,6 +93,13 @@ def process_one(testname, subtestname, error, duration, branch, gerritid, result
                 unique = True
                 msg = "NEW unseen before"
 
+            # See if this is a blacklisted result
+            cur.execute("SELECT id FROM blacklisted WHERE test = %s AND subtest = %s AND fstype = %s AND %s LIKE CONCAT(blacklisted.errorstart, %s)", (testname, subtestname, fstype, error, '%' ))
+            if cur.rowcount:
+                unique = False
+                msg = "blacklisted variable error message"
+
+
         # Because you cannot insert NULL into integer field apparently
         if gerritid:
             cur.execute("INSERT INTO failures(created_at, branch, GerritID, test, subtest, duration, error, Link, fstype) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)", (testtime, branch, gerritid, testname, subtestname, duration, error, resultlink, fstype))
@@ -108,7 +109,7 @@ def process_one(testname, subtestname, error, duration, branch, gerritid, result
         dbconn.commit()
         cur.close()
     except psycopg2.DatabaseError as e:
-        print(("Cannot insert new failure entry " + str(e)))
+        print("Cannot insert new failure entry " + str(e))
     finally:
         dbconn.close()
 
