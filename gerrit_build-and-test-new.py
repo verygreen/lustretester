@@ -1098,9 +1098,9 @@ class Reviewer(object):
                         item.Aborted = True
                         self._debug("Aborted build " + str(buildnr))
                         break
-            elif command.get("idlestop"):
+            elif command.get("idlestop") != None:
                 StopOnIdle = command['idlestop']
-            elif command.get("drain-and-stop"):
+            elif command.get("drain-and-stop") != None:
                 DrainQueueAndStop = command['drain-and-stop']
                 StopOnIdle = DrainQueueAndStop
             else:

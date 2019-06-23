@@ -189,7 +189,7 @@ def is_known_crash(lasttest, crashtrigger, crashfunction, crashbt, fullbt, lastt
         # If we have no test logs, cannot matc for inlogs, so skip
         if not lasttestlogs:
             EXTRACONDS += " AND inlogs IS NULL"
-        cur.execute("SELECT testline, inlogs, infullbt, bug, extrainfo FROM known_crashes where reason=%s AND func=%s" + EXTRACONDS +" AND strpos(%s, backtrace) > 0 ORDER BY testline DESC, inlogs DESC", (crashtrigger, crashfunction, crashbt))
+        cur.execute("SELECT testline, inlogs, infullbt, bug, extrainfo FROM known_crashes where reason=%s AND func=%s" + EXTRACONDS +" AND strpos(%s, backtrace) = 1 ORDER BY testline DESC, inlogs DESC", (crashtrigger, crashfunction, crashbt))
         rows = cur.fetchall()
         cur.close()
     except psycopg2.DatabaseError:

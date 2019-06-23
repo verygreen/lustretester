@@ -234,7 +234,7 @@ def convert_new_crash(dbconn, form):
 
     # Now see how many matches we have
     btline = '\n'.join(backtrace)
-    SELECTline = "SELECT new_crashes.id, new_crashes.reason, new_crashes.func, new_crashes.backtrace, count(triage.newcrash_id) as hitcount, max(triage.created_at) as last_seen FROM new_crashes, triage WHERE triage.newcrash_id=new_crashes.id AND new_crashes.reason=%s AND strpos(new_crashes.backtrace, %s) > 0"
+    SELECTline = "SELECT new_crashes.id, new_crashes.reason, new_crashes.func, new_crashes.backtrace, count(triage.newcrash_id) as hitcount, max(triage.created_at) as last_seen FROM new_crashes, triage WHERE triage.newcrash_id=new_crashes.id AND new_crashes.reason=%s AND strpos(new_crashes.backtrace, %s) = 1"
     SELECTvars = [ reason, btline ]
     EXTRACONDS = ""
     EXTRACONDvars = []
