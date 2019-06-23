@@ -147,7 +147,7 @@ class maloo_poster(object):
             # all is fine, but if not - we can try matching by test id.
             if TESTLINE:
                 test = TESTLINE.split(" ")[0]
-                if test != "rpc" and TESTLINE != "Module load":
+                if test != "rpc" and TESTLINE != "Module":
                     # Now need to find if thi is a valid testid
                     url = self.base_api_url + "test_set_scripts?name=" + test
                     try:
