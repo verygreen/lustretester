@@ -76,7 +76,7 @@ class maloo_poster(object):
 
         return token
 
-    def post_buggable(self, testsetid, buggable_class, buggable_id, bug):
+    def post_buggable(self, testsetid, buggable_class, buggable_id, bug, DEBUG=False):
         session = self.authenticate()
         if not session:
             return False
@@ -97,40 +97,51 @@ class maloo_poster(object):
 
         return res.status_code == requests.codes.ok
 
-    def associate_bug_to_subtest(self, testsetid, subtestid, bug):
-        return self.post_buggable(testsetid, 'SubTest', subtestid, bug)
+    def associate_bug_to_subtest(self, testsetid, subtestid, bug, DEBUG=False):
+        return self.post_buggable(testsetid, 'SubTest', subtestid, bug, DEBUG=DEBUG)
 
-    def associate_bug_to_testset(self, testsetid, bug):
-        url = self.base_api_url + "sub_tests?test_set_id=" + testsetid
-
-        res = requests.get(url, auth=(self.username, self.password))
-        if res.status_code != requests.codes.ok:
-            return self.post_buggable(testsetid, 'TestSet', testsetid, bug)
-
-        if not res.json():
-            self.error = "Error2 getting list of subtests"
-            # XXX huh? can this even happen?
-            #print(res.text)
-            return False
-
-        data = res.json().get('data', [])
-        if not data:
-            self.error = "Cannot load data " + res.text
-            return False
-
+    def associate_bug_to_testset(self, testsetid, bug, DEBUG=False):
+        offset = 0
         found = False
-        for subtest in data:
-            if subtest.get("status"):
-                if subtest['status'] == 'CRASH':
-                    found = True
-                    break
+        while True:
+            url = self.base_api_url + "sub_tests?test_set_id=" + testsetid + "&offset=" + str(offset)
+
+            res = requests.get(url, auth=(self.username, self.password))
+            if res.status_code != requests.codes.ok:
+                return self.post_buggable(testsetid, 'TestSet', testsetid, bug)
+
+            if not res.json():
+                self.error = "Error2 getting list of subtests"
+                # XXX huh? can this even happen?
+                #print(res.text)
+                return False
+
+            data = res.json().get('data', [])
+            if not data:
+                self.error = "Cannot load data " + res.text
+                return False
+
+            for subtest in data:
+                if subtest.get("status"):
+                    if subtest['status'] == 'CRASH':
+                        found = True
+                        if DEBUG:
+                            print("Found crashed subtest: " + str(subtest))
+                        break
+            if found or len(data) < 200:
+                break
+            offset += len(data)
 
         if found: # We found our crashed test
             return self.associate_bug_to_subtest(testsetid, subtest['id'], bug)
 
+        if DEBUG:
+            print("Cannot find crashed subtest, entries :" + str(len(data)))
+            return False
+
         return self.post_buggable(testsetid, 'TestSet', testsetid, bug)
 
-    def associate_bug_by_url(self, url, bug, TESTLINE=None):
+    def associate_bug_by_url(self, url, bug, TESTLINE=None, DEBUG=False):
         if not url.startswith("https://testing.whamcloud.com/"):
             self.error = "Unknown url " + str(url)
             return False
@@ -138,7 +149,7 @@ class maloo_poster(object):
         url = url.replace('https://testing.whamcloud.com/', '')
         if url.startswith('test_sets/'):
             testset = url.replace('test_sets/', '')
-            return self.associate_bug_to_testset(testset, bug)
+            return self.associate_bug_to_testset(testset, bug, DEBUG=DEBUG)
         elif url.startswith('test_sessions/'):
             testsession = url.replace('test_sessions/', '')
             testid = None
@@ -203,7 +214,7 @@ class maloo_poster(object):
                 self.error = "Bad luck, there's more than one crashed testset"
                 return False
 
-            return self.associate_bug_to_testset(crashedtestset, bug)
+            return self.associate_bug_to_testset(crashedtestset, bug, DEBUG=DEBUG)
         else:
             self.error = "Unknown url " + url
             return False
