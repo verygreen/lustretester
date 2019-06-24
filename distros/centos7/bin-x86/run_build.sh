@@ -101,4 +101,4 @@ cp ${KERNELDIR}/arch/${ARCH}/boot/bzImage ${OUTDIR}/kernel${EXTRANAME}
 cp ${KERNELDIR}/initrd.img ${OUTDIR}/initrd${EXTRANAME}.img
 cp ${KERNELDIR}/vmlinux.xz ${OUTDIR}/debug-vmlinux${EXTRANAME}.xz
 
-log "BUILDID ${BUILDNR} for ${HASH} completed"
+log "BUILDID ${BUILDNR} ${DISTRO} for ${HASH} completed"
