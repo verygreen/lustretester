@@ -1373,11 +1373,14 @@ def run_workitem_manager():
         sys.stdout.flush()
         managing_condition.acquire()
         while managing_queue.empty():
-            managing_condition.wait(timeout=30)
-            # This will update status every 30 seconds
-            # But only if we have anything in the queue
             if WorkList:
-                print_WorkList_to_HTML()
+                timeout=30
+            else:
+                timeout = 600
+            managing_condition.wait(timeout=timeout)
+            # Update html (and more importantly, statsdb)
+            # all the time.
+            print_WorkList_to_HTML()
         workitem = managing_queue.get()
 
         managing_condition.release()
