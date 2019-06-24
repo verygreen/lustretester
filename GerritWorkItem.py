@@ -8,7 +8,7 @@ import subprocess
 import pickle as pickle
 
 class GerritWorkItem(object):
-    def __init__(self, change, initialtestlist, testlist, fsconfig, EmptyJob=False, Reviewer=None, DISTRO=None):
+    def __init__(self, change, builds, initialtestlist, testlist, fsconfig, EmptyJob=False, Reviewer=None, DISTRO=None):
         self.change = change
         self.revision = change.get('current_revision')
         if change.get('branchwide'):
@@ -28,7 +28,11 @@ class GerritWorkItem(object):
         self.AbortDone = False
         self.BuildDone = False
         self.BuildError = False
-        self.BuildMessage = ""
+        if not builds: # Mostly for special request builds
+            distrolist = [{'distro':self.distro}]
+        else:
+            self.builds = builds
+
         self.ReviewComments = {}
         self.artifactsdir = ""
         self.InitialTestingStarted = False
@@ -56,6 +60,8 @@ class GerritWorkItem(object):
             self.retestiteration = 0
         if not self.__dict__.get('distro'):
             self.distro = "centos7" # only matters for old items
+        if not self.__dict__.get('builds'):
+            self.builds = [{"distro":"centos7",'BuildMessage':self.__dict__.get('BuildMessage')}] # only matters for old items
 
     def get_results_filename(self):
         if self.retestiteration:
@@ -93,6 +99,40 @@ class GerritWorkItem(object):
             self.crash_ids_reported.append(newid)
         else:
             print("Failure posting review")
+
+    def UpdateBuildStatus(self, buildinfo, message, Failed=False,
+                          Finished=False, Timeout=False,
+                          BuildStdOut=None, BuildStdErr=None):
+        self.lock.acquire()
+        buildinfo['BuildMessage'] = message
+        if Failed or Timeout:
+            Finished = True
+            self.BuildError = True
+        buildinfo['Failed'] = Failed
+        buildinfo['Finished'] = Finished
+        buildinfo['Timeout'] = Timeout
+        if BuildStdOut:
+            buildinfo['stdout'] = BuildStdOut
+        if BuildStdErr:
+            buildinfo['stderr'] = BuildStdErr
+
+        if Finished:
+            unfinished = False
+            for build in self.builds:
+                if not build.get('Finished'):
+                    unfinished = True
+                    break
+            if not unfinished:
+                self.BuildDone = True
+                print("Finished all builds for id: " + str(self.buildnr))
+                # Also need to chown results dir back to root
+                try:
+                    os.chown(self.artifactsdir, 0, -1)
+                except OSError:
+                    pass # not thta it wver was a problem, but just in case
+
+        self.lock.release()
+
 
     def UpdateTestStatus(self, testinfo, message, Failed=False, Crash=False,
                          ResultsDir=None, Finished=False, Timeout=False,
@@ -255,7 +295,11 @@ class GerritWorkItem(object):
 <body>
 {abortedmessage}
 <h2>Results for build #{build} {change}</h2>
+<h3>Overall build status: {buildstatus}</h3>
+<table border=1>
+<tr><th>Distro</th><th>details</th></tr>
 {buildinfo}
+</table>
 {initialtesting}
 {fulltesting}
 </body>
@@ -270,13 +314,23 @@ class GerritWorkItem(object):
         if not self.BuildDone:
             buildstatus = "Ongoing"
         elif self.BuildError:
-            if self.BuildMessage:
-                buildstatus = "failed: " + self.BuildMessage
-            else:
-                buildstatus = "Error"
+            buildstatus = "Failure"
         else:
             buildstatus = "Success"
-        buildinfo = '<h3>Build %s <a href="build-%s-x86_64.console">build console</a></h3>' % (buildstatus, self.distro)
+        all_items['buildstatus'] = buildstatus
+
+        buildinfo = ""
+        for build in self.builds:
+            buildinfo += "<tr><td>%s</td>" % (build['distro'])
+            buildinfo += '<td><a href="build-%s-x86_64.console">' % (build['distro'])
+            if build.get('BuildMessage'):
+                buildinfo += build['BuildMessage']
+            elif build.get('BuildStarted'):
+                buildinfo += "Ongoing"
+            else:
+                buildinfo += "Waiting"
+            buildinfo += "</a></td></tr>"
+
         all_items['buildinfo'] = buildinfo
 
         if self.initial_tests:

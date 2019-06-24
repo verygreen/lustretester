@@ -38,10 +38,10 @@ class Builder(object):
             job = in_queue.get()
             self.logger.info("Remaining Builder items in the queue left: " + str(in_queue.qsize()))
             in_cond.release()
-            builddata = job[0] # Unused for now
+            buildinfo = job[0] # Unused for now
             workitem = job[1]
             self.logger.info("Got build job for id " + str(workitem.buildnr))
-            result = self.build_worker(builddata, workitem)
+            result = self.build_worker(buildinfo, workitem)
             self.logger.info("Finished build job for id " + str(workitem.buildnr))
             if result:
                 # On correct run return it to manager
@@ -117,12 +117,7 @@ class Builder(object):
 
         return reviews
 
-    def put_error(self, statusmessage, workitem):
-        workitem.BuildMessage = statusmessage
-        workitem.BuildError = True
-        workitem.BuildDone = True
-
-    def build_worker(self, builddata, workitem):
+    def build_worker(self, buildinfo, workitem):
         # Might need to make this per-arch?
 
         # Only check at the start.
@@ -131,30 +126,24 @@ class Builder(object):
 
         ref = workitem.ref
         buildnr = workitem.buildnr
-        outdir = self.fsinfo["outputs"] + "/" + str(buildnr)
-        workitem.artifactsdir = outdir
-        try:
-            os.mkdir(outdir)
-        except:
-            self.logger.error("Build dir already exists, huh?")
-            self.put_error("Build dir already exists", workitem)
-            return True
+        outdir = workitem.artifactsdir
 
         command = "%s %s %s %s %s %s" % (self.command, outdir, ref, buildnr, self.fsinfo["testoutputowner"], self.name)
         args = shlex.split(command)
 
-        # XXX exception handling?
-        os.chown(outdir, self.fsinfo["testoutputowneruid"], -1)
+        distro = buildinfo.get('distro', workitem.distro)
 
         try:
             env = os.environ
-            env['DISTRO'] = workitem.distro
+            env['DISTRO'] = distro
+
             builder = Popen(args, close_fds=True, stdin=PIPE, stdout=PIPE, stderr=PIPE, universal_newlines=True, env=env)
         except (OSError) as details:
             self.logger.warning("Failed to run builder " + str(details))
-            self.put_error("Failed to run builder", workitem)
             return False
 
+        outs = ""
+        errs = ""
         try:
             # Typically build takes 4-5 minutes, so 30 minutes should be aplenty
             # This is because we run our builders at the lowest priority and
@@ -164,7 +153,9 @@ class Builder(object):
             self.logger.info("Build " + str(buildnr) + " timed out, killing")
             builder.terminate()
             touts, terrs = builder.communicate()
-            self.put_error("Build is taking too long, aborting", workitem)
+            outs += touts
+            errs += terrs
+            workitem.UpdateBuildStatus(buildinfo, "Build is taking too long, aborting", Timeout=True, Failed=True, BuildStdOut=outs, BuildStdErr=errs)
             return True
 
         if builder.returncode is not 0:
@@ -178,24 +169,20 @@ class Builder(object):
             elif code == 12:
                 message = "Configure error: \n" + errs
             elif code == 14:
-                # Thisis a build error, we can try to parse it
+                # This is a build error, we can try to parse it
                 reviewitems = self.parse_compile_error(workitem.change, errs)
                 workitem.ReviewComments = reviewitems
-                message = 'Compile failed\n'
+                message = '%s: Compile failed\n' % (distro)
                 if not reviewitems:
                     message += errs.replace('\n', '\n ')
 
-            self.put_error(message, workitem)
+            workitem.UpdateBuildStatus(buildinfo, message, Timeout=True, Failed=True, BuildStdOut=outs, BuildStdErr=errs)
         else:
             message = "Success"
 
         # XXX add a check that artifact exists
 
 
-        # And finally chown back to root
-        os.chown(outdir, 0, -1)
-
-        workitem.BuildDone = True
-        workitem.BuildMessage = message
+        workitem.UpdateBuildStatus(buildinfo, message, Finished=True)
 
         return True

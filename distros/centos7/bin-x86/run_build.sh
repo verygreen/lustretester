@@ -64,6 +64,7 @@ RETVAL=$?
 if [ $RETVAL -ne 0 ] ; then
         echo "configure error!"
 	tail -10 ${BUILDLOG} | sed 's/^/ /' 1>&2 # For the manager to show
+	cp config.log ${OUTDIR}/config.log-${EXTRANAME}
         exit 12
 fi
 

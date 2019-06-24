@@ -177,7 +177,7 @@ def populate_testlist_from_array(testlist, testarray, LDiskfsOnly, ZFSOnly, DNE=
             continue
         # Exclude somestuff that only partially landed.
         if item.get('onlybranch') and Branch:
-            if not Branch.startswith(item.get('onlybranch')):
+            if not Branch.startswith(item.get('onlybranch', 'noitdoesnot')):
                 continue
         if not DNE and item.get('DNE'):
             continue
@@ -209,6 +209,22 @@ def populate_testlist_from_array(testlist, testarray, LDiskfsOnly, ZFSOnly, DNE=
             testlist.append(test)
 
     return testlist
+
+def determine_distros_from_change(change):
+    try:
+        with open("distrolist.json", "r") as blah:
+            distrolist = json.load(blah)
+    except:
+        return [] # We return empty list on error and it'll use default distro
+
+    branch = change['branch']
+    distros = []
+    for distro in distrolist:
+        if distro.get('branch'):
+            if not branch.startswith(distro['branch']):
+                    continue
+        distros.append(distro)
+    return distros
 
 def determine_testlist(filelist, commit_message, ForceFull=False, Branch=None):
     """ Try to guess what tests to run based on the changes """
@@ -935,7 +951,8 @@ class Reviewer(object):
         if is_buildonly_requested(commit_message):
             clist = []
             ilist = []
-        workItem = GerritWorkItem(change, ilist, clist, fsconfig, EmptyJob=DoNothing, Reviewer=self, DISTRO=DISTRO)
+        distrolist = determine_distros_from_change(change)
+        workItem = GerritWorkItem(change, distrolist, ilist, clist, fsconfig, EmptyJob=DoNothing, Reviewer=self, DISTRO=DISTRO)
         if DoNothing:
             add_review_comment(workItem)
         else:
@@ -1026,7 +1043,8 @@ class Reviewer(object):
             if change:
                 if testlist:
                     tlist = make_requested_testlist(command, change.get('branch'))
-                    workitem = GerritWorkItem(change, tlist, [], fsconfig, Reviewer=self, DISTRO=distro)
+
+                    workitem = GerritWorkItem(change, None, tlist, [], fsconfig, Reviewer=self, DISTRO=distro)
                     managing_condition.acquire()
                     managing_queue.put(workitem)
                     managing_condition.notify()
@@ -1377,6 +1395,18 @@ def run_workitem_manager():
             with open(LAST_BUILD_ID, 'w') as output:
                 output.write('%d' % current_build)
 
+            # Now need ot create the build dir:
+            outdir = fsconfig["outputs"] + "/" + str(workitem.buildnr)
+            try:
+                os.mkdir(outdir)
+                os.chown(outdir, fsconfig["testoutputowneruid"], -1)
+            except:
+                logger.error("Build dir " + outdir + " already exists, huh?")
+                workitem.buildnr = None # Let's try again?
+                managing_queue.put(workitem) # Ok not to lock here, we are the consumer anyway.
+
+            workitem.artifactsdir = outdir
+
             # Mark all earlier revs as aborted first before we add ourselves in
             find_and_abort_duplicates(workitem)
             # Initial workitem save
@@ -1391,10 +1421,11 @@ def run_workitem_manager():
             if GERRIT_DRYRUN:
                 donewith_WorkItem(workitem)
                 continue
-            build_condition.acquire()
-            build_queue.put([{}, workitem])
-            build_condition.notify()
-            build_condition.release()
+            for buildinfo in workitem.builds:
+                build_condition.acquire()
+                build_queue.put([buildinfo, workitem])
+                build_condition.notify()
+                build_condition.release()
             continue
 
         if workitem.AbortDone:
