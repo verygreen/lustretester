@@ -55,7 +55,7 @@ from mytuplesorter import TupleSortingOn0
 from datetime import datetime
 import dateutil.parser
 import shutil
-import pickle as pickle
+import pickle
 from pprint import pprint
 import subprocess
 import resource
@@ -69,8 +69,7 @@ def _getenv_list(key, default=None, sep=':'):
     value = os.getenv(key)
     if value is None:
         return default
-    else:
-        return value.split(sep)
+    return value.split(sep)
 
 GERRIT_HOST = os.getenv('GERRIT_HOST', 'review.whamcloud.com')
 GERRIT_PROJECT = os.getenv('GERRIT_PROJECT', 'fs/lustre-release')
@@ -86,10 +85,10 @@ GERRIT_COMMANDMONITORDIR = os.getenv('GERRIT_COMMANDMONITORDIR', "./commands/")
 # good for trial runs before big deployment
 GERRIT_FORCETOPIC = os.getenv('GERRIT_FORCETOPIC', None)
 
-SAVEDSTATE_DIR="savedstate"
-DONEWITH_DIR="donewith"
-FAILED_POSTS_DIR="failed_posts"
-LAST_BUILD_ID="LASTBUILD_ID"
+SAVEDSTATE_DIR = "savedstate"
+DONEWITH_DIR = "donewith"
+FAILED_POSTS_DIR = "failed_posts"
+LAST_BUILD_ID = "LASTBUILD_ID"
 
 StopMachine = False
 StopOnIdle = False
@@ -165,7 +164,7 @@ def populate_testlist_from_array(testlist, testarray, LDiskfsOnly, ZFSOnly, DNE=
             # Must always have these two
             test['test'] = item['test']
             test['timeout'] = item['timeout']
-            for elem in ('name','testparam','DNE','env','SSK','SELINUX','fstype', 'austerparam', 'vmparams','singletimeout'):
+            for elem in ('name', 'testparam', 'DNE', 'env', 'SSK', 'SELINUX', 'fstype', 'austerparam', 'vmparams', 'singletimeout'):
                 if item.get(elem):
                     test[elem] = item[elem]
 
@@ -223,7 +222,7 @@ def determine_distros_from_change(change):
     for distro in distrolist:
         if distro.get('branch'):
             if not branch.startswith(distro['branch']):
-                    continue
+                continue
         distros.append(distro)
     return distros
 
@@ -493,7 +492,7 @@ def parse_checkpatch_output(out, path_line_comments, warning_count):
             except ValueError:
                 level, kind, message = None, None, None
 
-            if level != 'ERROR' and level != 'WARNING':
+            if level not in ('ERROR', 'WARNING'):
                 level, kind, message = None, None, None
 
 def find_and_abort_duplicates(workitem):
@@ -646,10 +645,10 @@ def add_review_comment(WorkItem):
         code_review_score = 0
 
     outputdict = {
-            'message': (message),
-            'labels': {
-                'Code-Review': code_review_score
-            },
+        'message': (message),
+        'labels': {
+            'Code-Review': code_review_score
+        },
         'comments': review_comments,
         'notify': notify,
         }
@@ -694,7 +693,7 @@ def make_requested_testlist(requestedlistparams, branch):
         for test in initialtestlist + fulltestlist + lnettestlist + zfstestlist + ldiskfstestlist:
             testname = test.get("name", test['test'])
             if item == testname:
-                for i in ("DNE","fstype","testparam","austerparam","vmparams","env",'SSK','SELINUX','singletimeout'):
+                for i in ("DNE", "fstype", "testparam", "austerparam", "vmparams", "env", 'SSK', 'SELINUX', 'singletimeout'):
                     if requestedlistparams.get(i):
                         test[i] = requestedlistparams[i]
 
@@ -724,7 +723,7 @@ def make_change_from_hash(githash, subject, branch):
         # This happens when we have merge commit at the top
         changenum = (random.randint(1, 10000000))
     change = {'branch':branch, '_number':changenum, 'branchwide':True,
-            'id':githash, 'subject':subject, 'current_revision':revision }
+              'id':githash, 'subject':subject, 'current_revision':revision }
 
     return change
 
@@ -1133,7 +1132,7 @@ class Reviewer(object):
                 DrainQueueAndStop = command['drain-and-stop']
                 StopOnIdle = DrainQueueAndStop
             else:
-                self._debug("Unknown command file contents: " + str(command));
+                self._debug("Unknown command file contents: " + str(command))
 
         # Now check if we have any branches to test
         for branch in os.listdir(GERRIT_BRANCHMONITORDIR):
@@ -1396,7 +1395,7 @@ def run_workitem_manager():
         managing_condition.acquire()
         while managing_queue.empty():
             if WorkList:
-                timeout=30
+                timeout = 30
             else:
                 timeout = 600
             managing_condition.wait(timeout=timeout)

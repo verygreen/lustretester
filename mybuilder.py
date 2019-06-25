@@ -4,9 +4,7 @@ import sys
 import os
 import threading
 import logging
-import queue
 import shlex
-import json
 from pprint import pprint
 from subprocess import Popen, PIPE, TimeoutExpired
 import time
@@ -169,7 +167,7 @@ class Builder(object):
             code = builder.returncode
             self.logger.warning("Build " + str(buildnr) + " failed with code " + str(code))
             message = ""
-            if code == 255 or code == 10:
+            if code in (255, 10):
                 # Technically we want to put the job back into build queue
                 message = "General error"
                 # return False

@@ -525,7 +525,7 @@ class Tester(object):
             outs, errs = setupprocess.communicate(timeout=600) # XXX timeout handling
             self.testouts += outs
             self.testerrs += errs
-            if setupprocess.returncode is not 0:
+            if setupprocess.returncode != 0:
                 self.logger.warning("Buildid " + str(workitem.buildnr) + " test " + testinfo['name'] + '-' + testinfo['fstype'] + " Failed to setup test environment: " + self.testerrs + " " + self.testouts)
                 server.terminate()
                 client.terminate()
@@ -576,7 +576,7 @@ class Tester(object):
                     "FSTYPE=" + fstype + DNEStr + SSKSTR + SELINUXSTR +
                     "MDSSIZE=0 OSTSIZE=0 " +
                     "MGSSIZE=0 " + ENVPARAMS + " "
-                    "NAME=ncli /home/green/git/lustre-release/lustre/tests/auster -D /tmp/testlogs/ -r -k " + AUSTERPARAMS + " " + testscript + " " + TESTPARAMS ]
+                    "NAME=ncli /home/green/git/lustre-release/lustre/tests/auster -D /tmp/testlogs/ -r -k " + AUSTERPARAMS + " " + testscript + " " + TESTPARAMS]
             testprocess = Popen(args, close_fds=True, stdin=PIPE, stdout=PIPE, stderr=PIPE, universal_newlines=True)
         except (OSError) as details:
             self.logger.warning("Buildid " + str(workitem.buildnr) + " test " + testinfo['name'] + '-' + testinfo['fstype'] + " Failed to run test " + str(details))
@@ -645,7 +645,6 @@ class Tester(object):
                                         break
                                     counter += 1
                                     time.sleep(5)
-                                # XXX copy arch and distro from testinfo/nodestruct
                                 mycrashanalyzer.Crasher(self.fsinfo, corefile, testinfo, clientdistro, self.clientarch, workitem, message, TIMEOUT=True, COND=self.out_cond, QUEUE=self.out_queue)
                         # Cannot break from the above loop
                         if self.error:
@@ -792,21 +791,21 @@ class Tester(object):
                                     skippedsubtests += subtest['name'].replace('test_', '') + "("
                                     skippedsubtests += str(subtest.get('error')) + ") "
 
-                        if yamltest.get('status', '') == "FAIL":
-                            Failure = True
-                            message = "Failure"
-                        elif yamltest.get('status', '') == "SKIP":
-                            message = "Skipped"
+                            if yamltest.get('status', '') == "FAIL":
+                                Failure = True
+                                message = "Failure"
+                            elif yamltest.get('status', '') == "SKIP":
+                                message = "Skipped"
                     except TypeError:
                         pass # Well, here's empty list for you I guess
                     # second pass for bug db, we probably might want to do it a single pass?
                     new, old = process_results(testresults, workitem, workitem.get_url_for_test(testinfo), testinfo['fstype'])
-                    if len(new):
+                    if new:
                         testinfo['NewFailures'] = new
-                    if len(old):
+                    if old:
                         testinfo['OldFailures'] = old
 
-            if testprocess.returncode is not 0:
+            if testprocess.returncode != 0:
                 Failure = True
                 message += " Test script terminated with error " + str(testprocess.returncode)
             elif not Failure and not message:
