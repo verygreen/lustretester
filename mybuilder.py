@@ -171,7 +171,7 @@ class Builder(object):
             elif code == 14:
                 # This is a build error, we can try to parse it
                 reviewitems = self.parse_compile_error(workitem.change, errs)
-                workitem.ReviewComments = reviewitems
+                buildinfo['ReviewComments'] = reviewitems
                 message = '%s: Compile failed\n' % (distro)
                 if not reviewitems:
                     message += errs.replace('\n', '\n ')
@@ -179,10 +179,7 @@ class Builder(object):
             workitem.UpdateBuildStatus(buildinfo, message, Timeout=True, Failed=True, BuildStdOut=outs, BuildStdErr=errs)
         else:
             message = "Success"
-
-        # XXX add a check that artifact exists
-
-
-        workitem.UpdateBuildStatus(buildinfo, message, Finished=True)
+            # XXX add a check that artifact exists
+            workitem.UpdateBuildStatus(buildinfo, message, Finished=True)
 
         return True

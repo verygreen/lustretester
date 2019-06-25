@@ -29,7 +29,7 @@ class GerritWorkItem(object):
         self.BuildDone = False
         self.BuildError = False
         if not builds: # Mostly for special request builds
-            distrolist = [{'distro':self.distro}]
+            self.builds = [{'distro':self.distro}]
         else:
             self.builds = builds
 
@@ -62,6 +62,9 @@ class GerritWorkItem(object):
             self.distro = "centos7" # only matters for old items
         if not self.__dict__.get('builds'):
             self.builds = [{"distro":"centos7",'BuildMessage':self.__dict__.get('BuildMessage')}] # only matters for old items
+        if not self.__dict__.get('ReviewComments'):
+            self.ReviewComments = {} # XXX for a bug.
+
 
     def get_results_filename(self):
         if self.retestiteration:
@@ -100,17 +103,21 @@ class GerritWorkItem(object):
         else:
             print("Failure posting review")
 
-    def UpdateBuildStatus(self, buildinfo, message, Failed=False,
-                          Finished=False, Timeout=False,
+    def UpdateBuildStatus(self, buildinfo, message, Failed=None,
+                          Finished=None, Timeout=None,
                           BuildStdOut=None, BuildStdErr=None):
         self.lock.acquire()
         buildinfo['BuildMessage'] = message
         if Failed or Timeout:
             Finished = True
             self.BuildError = True
-        buildinfo['Failed'] = Failed
-        buildinfo['Finished'] = Finished
-        buildinfo['Timeout'] = Timeout
+        if Failed != None:
+            buildinfo['Failed'] = Failed
+        if Finished != None:
+            buildinfo['Finished'] = Finished
+        if Timeout != None:
+            buildinfo['Timeout'] = Timeout
+
         if BuildStdOut:
             buildinfo['stdout'] = BuildStdOut
         if BuildStdErr:

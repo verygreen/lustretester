@@ -575,20 +575,24 @@ def add_review_comment(WorkItem):
                 message += TrivialNagMessage
     elif WorkItem.BuildDone and not WorkItem.InitialTestingStarted and not WorkItem.TestingStarted:
         # This is after initial build completion
+        message = ""
         if WorkItem.BuildError:
+            for buildinfo in WorkItem.builds:
+                if buildinfo.get('Failed'):
+                    message += buildinfo.get('BuildMessage', 'Build Failed') + "\n"
+                    if buildinfo.get('ReviewComments'):
+                        review_comments.update(buildinfo['ReviewComments'])
 
-            if WorkItem.BuildMessage:
-                message = WorkItem.BuildMessage
-            else:
-                message = 'Build failed\n'
-            message += ' Job output URL: ' + WorkItem.get_base_url() + "/" + WorkItem.get_results_filename()
+            message += '\n Job output URL: ' + WorkItem.get_base_url() + "/" + WorkItem.get_results_filename()
             score = -1
-            review_comments = WorkItem.ReviewComments
         else:
             if WorkItem.retestiteration:
                 message = "This is a retest #%d\n" % (WorkItem.retestiteration)
             else:
-                message = 'Build for x86_64 centos7 successful\n'
+                distros = []
+                for buildinfo in WorkItem.builds:
+                    distros.append(buildinfo['distro'])
+                message = 'Builds for x86_64 ' + ",".join(distros) + ' successful\n'
             message += 'Job output URL: ' + WorkItem.get_base_url() + '/' + WorkItem.get_results_filename() + '\n\n'
             if WorkItem.initial_tests:
                 message += ' Commencing initial testing: ' + WorkItem.requested_tests_string(WorkItem.initial_tests)
@@ -1028,7 +1032,7 @@ class Reviewer(object):
                     continue
                 print("Asking for single change " + desiredchange)
                 open_changes = self.get_changes({'status':'open',
-                                                 'change':change},
+                                                 'change':desiredchange},
                                                 Absolute=True)
                 if open_changes:
                     change = open_changes[0]
@@ -1085,6 +1089,10 @@ class Reviewer(object):
                 workitem.InitialTestingDone = False
                 workitem.InitialTestingError = False
                 workitem.InitialTestingStarted = False
+                # If they requested a different distro to test, lets
+                # cross our fingers and hope the artefacts really are there.
+                if distro:
+                    workitem.distro = distro
 
                 try:
                     if testlist:
