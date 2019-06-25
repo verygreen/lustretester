@@ -40,7 +40,7 @@ class Builder(object):
             in_cond.release()
             buildinfo = job[0] # Unused for now
             workitem = job[1]
-            self.logger.info("Got build job for id " + str(workitem.buildnr))
+            self.logger.info("Got build job " + buildinfo.get('distro', 'NONE') + " for id " + str(workitem.buildnr))
             result = self.build_worker(buildinfo, workitem)
             self.logger.info("Finished build job for id " + str(workitem.buildnr))
             if result:
@@ -134,7 +134,7 @@ class Builder(object):
         distro = buildinfo.get('distro', workitem.distro)
 
         try:
-            env = os.environ
+            env = os.environ.copy()
             env['DISTRO'] = distro
 
             builder = Popen(args, close_fds=True, stdin=PIPE, stdout=PIPE, stderr=PIPE, universal_newlines=True, env=env)

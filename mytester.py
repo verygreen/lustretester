@@ -467,7 +467,7 @@ class Tester(object):
 
         # SELinux check here since it needs a command line argument
 
-        env = os.environ
+        env = os.environ.copy()
         if testinfo.get("vmparams"):
             VMPARAMS = dict(re.findall(r'(\S+)=(".*?"|\S+)', testinfo.get['vmparams']))
             for p in VMPARAMS:
