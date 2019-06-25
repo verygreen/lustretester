@@ -263,6 +263,8 @@ class Tester(object):
 
     def update_permissions(self):
         """ Update all files to be readable in the test dir """
+        if not os.path.exists(self.testresultsdir):
+            return
         for filename in os.listdir(self.testresultsdir):
             path = self.testresultsdir + "/" + filename
             if not os.path.isdir(path):
@@ -436,7 +438,7 @@ class Tester(object):
            not os.path.exists(serverkernel) or not os.path.exists(serverinitrd) or \
            not os.path.exists(clientkernel) or not os.path.exists(clientinitrd):
             self.logger.error("Our build artifacts are missing for build" + str(workitem.buildnr))
-            workitem.UpdateTestStatus("Build artifacts missing", Failed=True)
+            workitem.UpdateTestStatus(testinfo, "Build artifacts missing", Failed=True)
             return True # If we don't see 'em, nobody can see 'em
 
         # Let's see if this is a retest and create a new dir for that
