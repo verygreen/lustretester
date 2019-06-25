@@ -190,16 +190,24 @@ class Tester(object):
             testinfo = job[1]
             workitem = job[2]
             self.logger.info("Got job buildid " + str(workitem.buildnr) + " test " + str(testinfo))
-            result = self.test_worker(testinfo, workitem)
-            # save the test output if any
-            if self.testresultsdir and self.testouts:
-                try:
-                    with open(self.testresultsdir + "/test.stdout", "w") as sout:
-                        sout.write(self.testouts)
-                    with open(self.testresultsdir + "/test.stderr", "w") as serr:
-                        serr.write(self.testerrs)
-                except OSError:
-                    pass # what can we do
+            try:
+                result = self.test_worker(testinfo, workitem)
+                # save the test output if any
+                if self.testresultsdir and self.testouts:
+                    try:
+                        with open(self.testresultsdir + "/test.stdout", "w") as sout:
+                            sout.write(self.testouts)
+                        with open(self.testresultsdir + "/test.stderr", "w") as serr:
+                            serr.write(self.testerrs)
+                    except OSError:
+                        pass # what can we do
+            except:
+                self.logger.info("Exception in job buildid " + str(workitem.buildnr) + testinfo['name'] + '-' + testinfo['fstype'] + ": " + str(sys.exc_info()))
+                result = True # No point in restarting a bad job?
+                              # Note it would probably hang forever in the
+                              # queue requiring a restart of some sort
+                self.fatal_exceptions += 1
+
             if result:
                 sleep_on_error = 15 # Reset the backoff time after successful run
                 self.collect_syslogs()
@@ -255,6 +263,7 @@ class Tester(object):
         self.testerrs = ''
         self.testouts = ''
         self.startTime = 0
+        self.fatal_exceptions = 0
         self.out_cond = out_cond
         self.out_queue = out_queue
         self.daemon = threading.Thread(target=self.run_daemon, args=(in_cond, in_queue, out_cond, out_queue))

@@ -38,11 +38,17 @@ class Builder(object):
             job = in_queue.get()
             self.logger.info("Remaining Builder items in the queue left: " + str(in_queue.qsize()))
             in_cond.release()
-            buildinfo = job[0] # Unused for now
+            buildinfo = job[0]
             workitem = job[1]
             self.logger.info("Got build job " + buildinfo.get('distro', 'NONE') + " for id " + str(workitem.buildnr))
-            result = self.build_worker(buildinfo, workitem)
-            self.logger.info("Finished build job for id " + str(workitem.buildnr))
+            try:
+                result = self.build_worker(buildinfo, workitem)
+                self.logger.info("Finished build job " + buildinfo.get('distro', 'NONE') + " for id " + str(workitem.buildnr))
+            except:
+                self.logger.info("Exception in build job " + buildinfo.get('distro', 'NONE') + " for id " + str(workitem.buildnr) + ": " + str(sys.exc_info()))
+                result = True # No point in restarting a bad job?
+                self.fatal_exceptions += 1
+
             if result:
                 # On correct run return it to manager
                 out_cond.acquire()
@@ -65,6 +71,7 @@ class Builder(object):
         self.command = builderinfo['run']
         self.fsinfo = fsinfo
         self.Busy = False
+        self.fatal_exceptions = 0
         self.daemon = threading.Thread(target=self.run_daemon, args=(in_cond, in_queue, out_cond, out_queue))
         self.daemon.daemon = True
         self.daemon.start()

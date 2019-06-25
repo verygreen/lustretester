@@ -14,7 +14,7 @@ class StatsWriter:
                                            a_influxuser, a_influxpass,
                                            a_influxdb)
 
-    def builderstats(self, total, dead, busy, idle, queue):
+    def builderstats(self, total, dead, busy, idle, fatalexceptions, queue):
         json_body = [
             {
                 "measurement": "builder",
@@ -29,12 +29,13 @@ class StatsWriter:
                    "busy" : busy,
                    "dead" : dead,
                    "idle" : idle,
+                   "fatalexceptions" : fatalexceptions,
                 }
             }
         ]
         self.influxclient.write_points(json_body)
 
-    def testerstats(self, total, dead, busy, invalid, idle, queue):
+    def testerstats(self, total, dead, busy, invalid, idle, fatalexceptions, queue):
         json_body = [
             {
                 "measurement": "tester",
@@ -50,6 +51,7 @@ class StatsWriter:
                    "invalid" : invalid,
                    "dead" : dead,
                    "idle" : idle,
+                   "fatalexceptions" : fatalexceptions,
                 }
             }
         ]

@@ -94,6 +94,7 @@ LAST_BUILD_ID="LASTBUILD_ID"
 StopMachine = False
 StopOnIdle = False
 DrainQueueAndStop = False
+managerthread = None
 
 # GERRIT_AUTH should contain a single JSON dictionary of the form:
 # {
@@ -1176,7 +1177,7 @@ class Reviewer(object):
                 print_WorkList_to_HTML()
                 sys.exit(0)
 
-            if not DrainQueueAndStop:
+            if not DrainQueueAndStop and managerthread.is_alive():
                 self.update()
             time.sleep(self.update_interval)
 
@@ -1262,7 +1263,9 @@ def print_WorkList_to_HTML():
 </body>
 </html>
 """
-    if DrainQueueAndStop or GERRIT_DRYRUN or GERRIT_CHANGE_NUMBER:
+    if not managerthread.is_alive():
+        status = "Managerial thread dead!"
+    elif DrainQueueAndStop or GERRIT_DRYRUN or GERRIT_CHANGE_NUMBER:
         status = "Draining Test Queue and Stopping"
     elif StopMachine:
         status = "Stopped"
@@ -1310,9 +1313,12 @@ def print_WorkList_to_HTML():
     busy = 0
     invalid = 0
     dead = 0
+    fatalexceptions = 0
     for worker in workers:
         if not worker.get('thread'):
             continue
+        if worker['thread'].fatal_exceptions:
+            fatalexceptions += worker['thread'].fatal_exceptions
         if not worker['thread'].daemon.is_alive():
             dead += 1
             continue
@@ -1325,20 +1331,26 @@ def print_WorkList_to_HTML():
             idle += 1
 
     try:
-        StatsWriter.testerstats(len(workers), dead, busy, invalid, idle, testing_queue.qsize())
+        StatsWriter.testerstats(len(workers), dead, busy, invalid, idle, fatalexceptions, testing_queue.qsize())
     except:
         pass # Don't want statistics to disrupt main operations.
 
     deadmsg = ""
     if dead:
         deadmsg = "(%d dead)" % (dead)
+    if fatalexceptions:
+        deadmsg += "(%d fatal exceptions caught)" % (fatalexceptions)
     testclusters = "Total: %d%s, busy %d, in_error_state %d, idle %d. Items in queue: %d" % (len(workers), deadmsg, busy, invalid, idle, testing_queue.qsize())
 
     idle = 0
     busy = 0
     dead = 0
+    fatalexceptions = 0
     deadmsg = ""
     for worker in builders:
+        if worker.fatal_exceptions:
+            fatalexceptions += worker.fatal_exceptions
+
         if not worker.daemon.is_alive():
             dead += 1
             continue
@@ -1348,13 +1360,15 @@ def print_WorkList_to_HTML():
             idle += 1
 
     try:
-        StatsWriter.builderstats(len(builders), dead, busy, idle, build_queue.qsize())
+        StatsWriter.builderstats(len(builders), dead, busy, idle, fatalexceptions, build_queue.qsize())
     except:
         pass # Don't want statistics to disrupt main operations.
 
     deadmsg = ""
     if dead:
         deadmsg = "(%d dead)" % (dead)
+    if fatalexceptions:
+        deadmsg += "(%d fatal exceptions caught)" % (fatalexceptions)
     buildclusters = "Total: %d%s, busy %d, idle %d. Items in queue: %d" % (len(builders), deadmsg, busy, idle, build_queue.qsize())
 
     all_items = {'status':status, 'workitems':workitems, 'testers':testclusters,\
