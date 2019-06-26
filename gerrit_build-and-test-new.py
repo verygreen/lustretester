@@ -1207,7 +1207,10 @@ def donewith_WorkItem(workitem):
         link = ""
         if workitem.artifactsdir:
             link = '<a href="' + workitem.artifactsdir.replace(fsconfig['root_path_offset'], "") + "/" + workitem.get_results_filename() + '">'
-        item['build'] = link + str(workitem.buildnr) + '</a>'
+        item['build'] = link + str(workitem.buildnr)
+        if workitem.retestiteration:
+            item['build'] += " retest %d" % (workitem.retestiteration)
+        item['build'] += '</a>'
         item['subject'] = link + workitem.change['subject'] + '</a>'
         item['status'] = workitem.get_current_text_status()
         DoneList.append(item)
@@ -1285,6 +1288,8 @@ def print_WorkList_to_HTML():
         if workitem.artifactsdir:
             workitems += '<a href="' + workitem.artifactsdir.replace(fsconfig['root_path_offset'], "") + "/" + workitem.get_results_filename() + '">'
         workitems += str(workitem.buildnr)
+        if workitem.retestiteration:
+            workitems += " retest %d" % (workitem.retestiteration)
         if workitem.artifactsdir:
             workitems += '</a>'
         workitems += '</td><td>'

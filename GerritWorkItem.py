@@ -457,7 +457,7 @@ class GerritWorkItem(object):
             testlist += "\nSkipped:\n- " + skippedtests + "\n"
 
         allresults = self.artifactsdir + "/" + self.get_results_filename()
-        testlist += "\nAll results and logs: " + allresults.replace(self.fsconfig['root_path_offset'], self.fsconfig['http_server'])
+        testlist += "\n(" + self.distro +")All results and logs: " + allresults.replace(self.fsconfig['root_path_offset'], self.fsconfig['http_server'])
 
         return testlist
 
