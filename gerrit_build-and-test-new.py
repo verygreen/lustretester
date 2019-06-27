@@ -1403,10 +1403,10 @@ def run_workitem_manager():
                 timeout = 30
             else:
                 timeout = 600
-            managing_condition.wait(timeout=timeout)
             # Update html (and more importantly, statsdb)
             # all the time.
             print_WorkList_to_HTML()
+            managing_condition.wait(timeout=timeout)
         workitem = managing_queue.get()
 
         managing_condition.release()
