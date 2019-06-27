@@ -167,10 +167,12 @@ class Builder(object):
             code = builder.returncode
             self.logger.warning("Build " + str(buildnr) + " failed with code " + str(code))
             message = ""
-            if code in (255, 10):
+            if code in (255, 10, 1):
                 # Technically we want to put the job back into build queue
                 message = "General error"
-                # return False
+                self.logger.warning("stdout: " + outs)
+                self.logger.warning("stderr: " + errs)
+                return False
             elif code == 12:
                 message = "Configure error: \n" + errs
             elif code == 14:
@@ -180,6 +182,9 @@ class Builder(object):
                 message = '%s: Compile failed\n' % (distro)
                 if not reviewitems:
                     message += errs.replace('\n', '\n ')
+            else:
+                self.logger.warning("stdout: " + outs)
+                self.logger.warning("stderr: " + errs)
 
             workitem.UpdateBuildStatus(buildinfo, message, Timeout=True, Failed=True, BuildStdOut=outs, BuildStdErr=errs)
         else:
