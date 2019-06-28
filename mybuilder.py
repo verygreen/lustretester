@@ -167,12 +167,14 @@ class Builder(object):
             code = builder.returncode
             self.logger.warning("Build " + str(buildnr) + " failed with code " + str(code))
             message = ""
-            if code in (255, 10, 1):
+            if code in (255, 2, 1):
                 # Technically we want to put the job back into build queue
                 message = "General error"
                 self.logger.warning("stdout: " + outs)
                 self.logger.warning("stderr: " + errs)
                 return False
+            elif code == 10:
+                message = "git checkout error error: \n" + errs
             elif code == 12:
                 message = "Configure error: \n" + errs
             elif code == 14:

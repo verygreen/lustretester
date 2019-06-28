@@ -41,7 +41,7 @@ log "Starting to work on REF ${REF} for ${DISTRO} on ${ARCH}"
 
 
 cd ${TGTBUILD}
-cp -a ${SRCLOCATION}/.git .
+cp -a ${SRCLOCATION}/.git . || exit 2
 git reset --hard >/dev/null 2>&1
 
 echo $REF | grep -q '^refs/' || git pull >/dev/null 2>&1
