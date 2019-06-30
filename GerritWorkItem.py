@@ -104,10 +104,12 @@ class GerritWorkItem(object):
             print("Failure posting review")
 
     def UpdateBuildStatus(self, buildinfo, message, Failed=None,
-                          Finished=None, Timeout=None,
+                          Finished=None, Timeout=None, BuildStarted=None,
                           BuildStdOut=None, BuildStdErr=None):
         self.lock.acquire()
-        buildinfo['BuildMessage'] = message
+
+        if message:
+            buildinfo['BuildMessage'] = message
         if Failed or Timeout:
             Finished = True
             self.BuildError = True
@@ -117,6 +119,8 @@ class GerritWorkItem(object):
             buildinfo['Finished'] = Finished
         if Timeout != None:
             buildinfo['Timeout'] = Timeout
+        if BuildStarted != None:
+            buildinfo['Timeout'] = BuildStarted
 
         if BuildStdOut:
             buildinfo['stdout'] = BuildStdOut
@@ -136,8 +140,9 @@ class GerritWorkItem(object):
                 try:
                     os.chown(self.artifactsdir, 0, -1)
                 except OSError:
-                    pass # not thta it wver was a problem, but just in case
+                    pass # not that it ever was a problem, but just in case
 
+        self.Write_HTML_Status()
         self.lock.release()
 
 

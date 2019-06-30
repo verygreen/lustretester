@@ -138,6 +138,8 @@ class Builder(object):
 
         distro = buildinfo.get('distro', workitem.distro)
 
+        workitem.UpdateBuildStatus(buildinfo, "", BuildStarted=True)
+
         try:
             env = os.environ.copy()
             env['DISTRO'] = distro
