@@ -92,7 +92,7 @@ def extract_crash_from_dmesg_string(crashlog):
                 continue
 
             # Now to see if it is a start of a new test
-            if "Lustre: DEBUG MARKER: == " in line:
+            if "Lustre: DEBUG MARKER: == " in line and "rpc test complete, duration -o sec" not in line:
                 lasttestline = line.replace('Lustre: DEBUG MARKER: == ', '')
                 index = lasttestline.find('==') # some people forget spaces
                 if index > 0:
