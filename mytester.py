@@ -11,6 +11,7 @@ import re
 import shlex
 import json
 import shutil
+import traceback
 import yaml
 from pprint import pprint
 from subprocess import Popen, PIPE, TimeoutExpired
@@ -202,7 +203,9 @@ class Tester(object):
                     except OSError:
                         pass # what can we do
             except:
+                tb = traceback.format_exc()
                 self.logger.info("Exception in job buildid " + str(workitem.buildnr) + testinfo['name'] + '-' + testinfo['fstype'] + ": " + str(sys.exc_info()))
+                self.logger.info("backtrace: " + str(tb))
                 result = True # No point in restarting a bad job?
                               # Note it would probably hang forever in the
                               # queue requiring a restart of some sort
@@ -601,6 +604,8 @@ class Tester(object):
                 # poll once per call and we do our sleeping ourselves.
                 # XXX - perhaps consider doing some sort of a manual select call?
                 time.sleep(5) # every 5 seconds, not ideal because that becomes our latency
+                outs = "" # avoid repeats
+                errs = ""
                 outs, errs = testprocess.communicate(timeout=0.01) # cannot have 0 somehow
             except ValueError:
                 testprocess.poll()

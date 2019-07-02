@@ -5,6 +5,7 @@ import os
 import threading
 import logging
 import shlex
+import traceback
 from pprint import pprint
 from subprocess import Popen, PIPE, TimeoutExpired
 import time
@@ -43,7 +44,9 @@ class Builder(object):
                 result = self.build_worker(buildinfo, workitem)
                 self.logger.info("Finished build job " + buildinfo.get('distro', 'NONE') + " for id " + str(workitem.buildnr))
             except:
+                tb = traceback.format_exc()
                 self.logger.info("Exception in build job " + buildinfo.get('distro', 'NONE') + " for id " + str(workitem.buildnr) + ": " + str(sys.exc_info()))
+                self.logger.info("backtrace: " + str(tb))
                 result = True # No point in restarting a bad job?
                 self.fatal_exceptions += 1
 
