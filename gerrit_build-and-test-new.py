@@ -1121,7 +1121,7 @@ class Reviewer(object):
                         # Redetermine testlist based on current rules
                         # instead of depending on old rules in place of
                         # initial run
-                        change = saveitem.change
+                        change = workitem.change
                         current_revision = change.get('current_revision')
                         commit_message = change['revisions'][str(current_revision)]['commit']['message']
                         files = change['revisions'][str(current_revision)].get('files', [])
