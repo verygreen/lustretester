@@ -727,6 +727,25 @@ def make_change_from_hash(githash, subject, branch):
 
     return change
 
+def isJobListStatic():
+    if testing_queue.qsize():
+        return False # Don't shutdown anything if we have jobs waiting in the
+                     # wings
+    if not WorkList:
+        return True  # No jobs at all - sleep everybody
+
+    for item in WorkList: # let's see if we have anything in the list that
+                          # might need mode nodes soon
+        if item.Aborted:
+            continue # Whatever is in there does not really matter.
+        if not item.BuildDone and not item.BuildError and item.initial_tests:
+            return False # new build job with actual tests
+        if not item.InitialTestingDone and not item.InitialTestingError and item.tests:
+            return False # In initial testing, not failed and about to start full testing.
+
+    # Did not find anything in the testlist, so no new jobs expected.
+    return True
+
 class Reviewer(object):
     """
     * Poll gerrit instance for updates to changes matching project and branch.
@@ -1382,6 +1401,7 @@ def print_WorkList_to_HTML():
 
 
 def run_workitem_manager():
+    JobListStatic = True
     current_build = 1
 
     try:
@@ -1396,6 +1416,19 @@ def run_workitem_manager():
         current_build += 1
 
     while True:
+
+        if isJobListStatic() != JobListStatic:
+            # Since it's a bool, just revert it
+            JobListStatic = not JobListStatic
+            # Now let's send command if we have it.
+            if fsconfig.get("power-cb"):
+                logger.info("Switching power saving mode to " + str(JobListStatic))
+                args = [fsconfig['power-cb'], str(JobListStatic)]
+                try:
+                    subprocess.call(args)
+                except OSError as e:
+                    logger.error("Error running power callback for " + str(args) + " " + str(e))
+
         sys.stdout.flush()
         managing_condition.acquire()
         while managing_queue.empty():

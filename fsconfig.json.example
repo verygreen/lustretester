@@ -8,6 +8,7 @@
 	"http_server":"http://testing.linuxhacker.ru:3333/lustre-reports/",
 	"root_path_offset":"/exports/testreports/",
 	"defaultdistro":"centos7",
+	"power-cb":"./power-ok-to-sleep.sh",
 	"testdone-cb":"./bin/onetestdone.sh",
 	"testsetdone-cb":"./bin/testsetdone.sh"
 }
