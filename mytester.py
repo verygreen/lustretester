@@ -779,6 +779,16 @@ class Tester(object):
                             if yamltest.get('name', '') != testscript:
                                 self.logger.warning("Buildid " + str(workitem.buildnr) + " test " + testinfo['name'] + '-' + testinfo['fstype'] + " Skipping unexpected test results for " + yamltest.get('name', 'EMPTYNAME'))
                                 continue
+
+                            if yamltest.get('status', '') == "FAIL":
+                                Failure = True
+                                message = "Failure"
+                            elif yamltest.get('status', '') == "SKIP":
+                                message = "Skipped"
+
+                            if not yamltest.get('SubTests', []):
+                                continue # no subtests?
+
                             for subtest in yamltest.get('SubTests', []):
                                 if subtest.get('status', '') == "FAIL":
                                     failedsubtests += subtest['name'].replace('test_', '') + "("
@@ -791,11 +801,6 @@ class Tester(object):
                                     skippedsubtests += subtest['name'].replace('test_', '') + "("
                                     skippedsubtests += str(subtest.get('error')) + ") "
 
-                            if yamltest.get('status', '') == "FAIL":
-                                Failure = True
-                                message = "Failure"
-                            elif yamltest.get('status', '') == "SKIP":
-                                message = "Skipped"
                     except TypeError:
                         pass # Well, here's empty list for you I guess
                     # second pass for bug db, we probably might want to do it a single pass?
