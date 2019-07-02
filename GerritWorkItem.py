@@ -351,15 +351,16 @@ class GerritWorkItem(object):
         all_items['buildinfo'] = buildinfo
 
         if self.initial_tests:
+            initialtesting = "<h3>Testing for: %s</h3>" % (self.distro)
             if self.InitialTestingStarted:
                 if not self.InitialTestingDone:
-                    initialtesting = '<h3>Initial testing: Running</h3><p>'
+                    initialtesting += '<h3>Initial testing: Running</h3><p>'
                 elif self.InitialTestingError:
-                    initialtesting = '<h3>Initial testing: Failure</h3><p>'
+                    initialtesting += '<h3>Initial testing: Failure</h3><p>'
                 elif self.InitialTestingDone:
-                    initialtesting = '<h3>Initial testing: Success</h3><p>'
+                    initialtesting += '<h3>Initial testing: Success</h3><p>'
             else:
-                initialtesting = '<h3>Initial testing: Not started</h3><p>'
+                initialtesting += '<h3>Initial testing: Not started</h3><p>'
             initialtesting += self.testresults_as_html(self.initial_tests)
         else:
             initialtesting = '<h3>Initial testing: Not planned</h3><p>'
