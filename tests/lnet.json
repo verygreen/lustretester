@@ -1,3 +1,4 @@
 [
-	{"test":"lnet-selftest", "timeout":1000}
+	{"test":"lnet-selftest", "timeout":1000},
+	{"test":"sanity-dlc", "timeout":1200,"disabled":true}
 ]
