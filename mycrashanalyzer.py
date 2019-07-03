@@ -79,10 +79,10 @@ def extract_crash_from_dmesg_string(crashlog):
             if recording_crash:
                 continue
             # Now lustre specific stuff
-            pattern = re.compile(r"LustreError: \d+:\d+:\([a-zA-Z0-9_\.]+:\d+:(\w+)\(\)\) (ASSERTION\( .* \) failed)")
+            pattern = re.compile(r"L[ustreN]+Error: \d+:\d+:\([a-zA-Z0-9_\.-]+:\d+:([a-zA-Z0-9_]+)\(\)\) (ASSERTION\( .* \) failed)")
             result = pattern.match(line)
             if not result:
-                pattern = re.compile(r"LustreError: \d+:\d+:\([a-zA-Z0-9_\.]+:\d+:(\w+)\(\)\) (LBUG)")
+                pattern = re.compile(r"L[ustreN]+Error: \d+:\d+:\([a-zA-Z0-9_\.]+:\d+:([a-zA-Z0-9_]+)\(\)\) (LBUG)")
                 result = pattern.match(line)
             if result:
                 entirecrash += line + "\n"
