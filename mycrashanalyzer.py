@@ -32,7 +32,7 @@ blacklisted_bt_funcs = [ "libcfs_call_trace", "dump_stack", "lbug_with_loc",
                          "0xffffffffffffffff", "ret_from_fork_nospec_begin",
                          "ret_from_fork_nospec_end", "dump_trace",
                          "show_stack_log_lvl", "show_stack"]
-crashenders = ["Code: ", "Kernel panic - not syncing: LBUG", "Starting crashdump kernel...", "DWARF2 unwinder stuck at", "Leftover inexact backtrace" ]
+crashenders = ["Code: ", "Kernel panic - not syncing: LBUG", "Starting crashdump kernel...", "DWARF2 unwinder stuck at", "Leftover inexact backtrace", "Kernel Offset: disabled"]
 lustremodules = [ "[ldiskfs]", "[ldiskfs]", "[lnet]", "[lnet_selftest]", "[ko2iblnd]", "[ksocklnd]", "[ost]", "[lvfs]", "[fsfilt_ldiskfs]", "[mgs]", "[fid]", "[lod]", "[llog_test]", "[obdclass]", "[ptlrpc_gss]", "[ptlrpc]", "[obdfilter]", "[mdc]", "[mdt]", "[nodemap]", "[mdd]", "[mgc]", "[fld]", "[cmm]", "[osd_ldiskfs]", "[lustre]", "[obdecho]", "[osp]", "[lov]", "[mds]", "[lfsck]", "[lquota]", "[ofd]", "[kinode]", "[osc]", "[lmv]", "[osd_zfs]", "[libcfs]" ]
 
 
@@ -107,14 +107,17 @@ def extract_crash_from_dmesg_string(crashlog):
                     lasttestline = 'Module load'
                     lasttestlogs = line + '\n'
         else:
-            # It's also ok if the crash ends with the file
-            # Like in case of ooms and such
-            for crashline in crashenders:
-                if crashline in line:
-                    recording_crash = False
-                    recording_backtrace = False
-                    stop_crash_recording = True
-                    break
+            # on 4.x+ kernels panic message is printed before the stack trace
+            # so ignore end nders until we saw a backtrace.
+            if recording_backtrace:
+                # It's also ok if the crash ends with the file
+                # Like in case of ooms and such
+                for crashline in crashenders:
+                    if crashline in line:
+                        recording_crash = False
+                        recording_backtrace = False
+                        stop_crash_recording = True
+                        break
 
             if stop_crash_recording:
                 break
