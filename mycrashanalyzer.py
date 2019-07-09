@@ -31,7 +31,7 @@ crashstarters = ["SysRq : Trigger a crash",
 blacklisted_bt_funcs = [ "libcfs_call_trace", "dump_stack", "lbug_with_loc",
                          "0xffffffffffffffff", "ret_from_fork_nospec_begin",
                          "ret_from_fork_nospec_end", "dump_trace",
-                         "show_stack_log_lvl", "show_stack"]
+                         "show_stack_log_lvl", "show_stack", "save_stack_trace_tsk"]
 crashenders = ["Code: ", "Kernel panic - not syncing: LBUG", "Starting crashdump kernel...", "DWARF2 unwinder stuck at", "Leftover inexact backtrace", "Kernel Offset: disabled"]
 lustremodules = [ "[ldiskfs]", "[ldiskfs]", "[lnet]", "[lnet_selftest]", "[ko2iblnd]", "[ksocklnd]", "[ost]", "[lvfs]", "[fsfilt_ldiskfs]", "[mgs]", "[fid]", "[lod]", "[llog_test]", "[obdclass]", "[ptlrpc_gss]", "[ptlrpc]", "[obdfilter]", "[mdc]", "[mdt]", "[nodemap]", "[mdd]", "[mgc]", "[fld]", "[cmm]", "[osd_ldiskfs]", "[lustre]", "[obdecho]", "[osp]", "[lov]", "[mds]", "[lfsck]", "[lquota]", "[ofd]", "[kinode]", "[osc]", "[lmv]", "[osd_zfs]", "[libcfs]" ]
 
@@ -470,7 +470,7 @@ class Crasher(object):
                         #print("not a file/line: " + str(tokens[0]) + " " + str(tokens[1]))
                         continue # not a file and line info, huh?
                     # Config variable!
-                    filename = tokens[0].replace("/home/green/git/lustre-release/", "")
+                    filename = tokens[0].replace("/home/green/git/lustre-release/", "").replace("lustre/ptlrpc/../../", "")
                     # Strip final colon
                     nsym = len(filename)
                     filename = filename[:nsym-1]
