@@ -56,10 +56,23 @@ fi
 
 echo "${REF}" >${OUTDIR}/REF
 
+CONFIGUREHASH=$(cat $(find -name "*.m4" -o -name "*.ac") | md5sum | cut -f1 -d " ")
 log "autogen.sh"
 sh autogen.sh >>${BUILDLOG} 2>&1
-log "Configure"
-./configure --with-linux=${KERNELDIR}  --with-zfs=/usr/local/src/zfs-0.8.0 --with-spl=/usr/local/src/spl-0.8.0 --with-zfs-devel=/usr/local --disable-shared >>${BUILDLOG} 2>&1
+# See if we have cached configure runs.
+# We cannot md5 all of it because it includes current git revision
+# so we cut first 5 lines that contain it
+# But otherwise we must ensure no autoconf files have changed.
+if [ -f /tmp/confcache/${CONFIGUREHASH} ] ; then
+	log "cached Configure"
+	cp /tmp/confcache/${CONFIGUREHASH} ./config.cache
+	# Mark it as used so we can prune old ones
+	touch /tmp/confcache/${CONFIGUREHASH}
+else
+	UNCACHEDCONFIGURE=true
+	log "Configure"
+fi
+./configure -C --with-linux=${KERNELDIR}  --with-zfs=/usr/local/src/zfs-0.8.0 --with-spl=/usr/local/src/spl-0.8.0 --with-zfs-devel=/usr/local --disable-shared >>${BUILDLOG} 2>&1
 RETVAL=$?
 if [ $RETVAL -ne 0 ] ; then
         echo "configure error!"
@@ -77,6 +90,10 @@ if [ $RETVAL -ne 0 ] ; then
 	PATTERN=$(echo ${TGTBUILD}/ | sed 's/\//\\\//g')
 	grep '[[:digit:]]\+:[[:digit:]]\+: ' ${OUTDIR}/build${EXTRANAME}.stderr | sed "s/^${PATTERN}//" 1>&2 # to stdout where it can be easily separated
         exit 14
+fi
+
+if [ -n "$UNCACHEDCONFIGURE" ] ; then
+	cp config.cache /tmp/confcache/${CONFIGUREHASH}
 fi
 
 HASH=$(git rev-parse --short HEAD)
