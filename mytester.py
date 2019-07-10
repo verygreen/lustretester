@@ -358,6 +358,28 @@ class Tester(object):
 
         return crashfilename
 
+    def match_test_output(self, testname, patterns):
+        """ search for array of patterns in test output for testname """
+        filename = self.testresultsdir + "/" + testname + ".suite_log." + self.clientnetname + ".log"
+        if not os.path.exists(filename):
+            self.logger.warning("suite log " + filename + " does not exist in match_test_output")
+            return False
+
+        if os.stat(filename).st_size == 0:
+            self.logger.warning("suite log is empty in match_test_output")
+            return False
+
+        try:
+            with open(filename, "r") as suitefd:
+                suitelog = suitefd.read()
+        except OSError:
+            return False
+
+        for pattern in patterns:
+            if pattern in suitelog:
+                return True
+        return False
+
     def get_duration(self):
         return int(time.time() - self.startTime)
 
@@ -701,6 +723,22 @@ class Tester(object):
                     client.terminate()
                     return False
 
+                # Match test suite output for signs of neessary restart.
+                # But only if test took under 5 minutes.
+                if self.get_duration() < 300 and os.path.exists("suite_errors_lookup.json"):
+                    suite_errors = []
+                    try:
+                        with open("suite_errors_lookup.json", "r") as errfile:
+                            suite_errors = json.load(errfile)
+                    except: # any error really
+                        self.logger.error("Failure loading suire errors description?")
+                    else:
+                        if self.match_test_output(testscript, suite_errors):
+                            self.logger.warning("Buildid " + str(workitem.buildnr) + " test " + testinfo['name'] + '-' + testinfo['fstype'] + " matched suite error pattern")
+                            server.terminate()
+                            client.terminate()
+                            return False
+
                 # It's also possible either a client or server are dead or
                 # are dying (crashdumping), need to check for it here
                 #kdump_start_message = "Starting Kdump Vmcore Save Service"
@@ -821,7 +859,7 @@ class Tester(object):
             elif not Failure and not message:
                 message = "Success"
 
-        duration = int(time.time() - self.startTime)
+        duration = self.get_duration()
         message += "(" + str(duration) + "s)"
 
         # See if there was anything in error logs
