@@ -7,5 +7,8 @@
 	{"error":" at lib/list_debug.c","message":"Linked list warning message"},
 	{"error":" at lib/kobject.c","message":"kobject warning message"},
 	{"error":"sysfs: cannot create duplicate filename ","message":"Creation of duplicate sysfs name"},
+	{"error":"do not call blocking ops when !TASK_RUNNING","message":"Blocking in !RUNNING state"},
+	{"error":"WARNING: possible circular locking dependency detected","message":"Circular lock dependency"},
+	{"error":"Bad or missing usercopy whitelist?","message":"Bad usercopy"},
 	{"error":"VFS: Busy inodes after unmount of ","message":"Busy inodes on umount"}
 ]
