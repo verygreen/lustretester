@@ -2,5 +2,12 @@
 	"*Makefile*",
        	"LUSTRE-VERSION-GEN",
        	"autogen.sh",
+	"lustre/scripts/ko2iblnd-probe",
+	"lustre/scripts/haconfig",
+	"lustre/scripts/dkms.mkconf",
+	"lustre/scripts/lustre_start.in",
+	"lustre/scripts/lnet.in",
+	"lustre/scripts/lustre",
+	"lustre/scripts/systemd/*",
         "lnet/klnds/o2iblnd/*"
 ]
