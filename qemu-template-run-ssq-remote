@@ -30,7 +30,7 @@ fi
 
 # See if we do NFS or NBD. check NBD first:
 if nbd-client -l ${NFSSERVER} | grep -q -x $DISTRO ; then
-	CMDROOT="root=nbd:${NFSSERVER}:${DISTRO}:ext4:ro"
+	CMDROOT="netroot=nbd:${NFSSERVER}:${DISTRO}:ext4:ro:-p,-b4096"
 elif [ -d "${EXPORT}" ] ; then
 	# We assume it's visible over nfs
 	CMDROOT="root=nfs:${NFSSERVER}:${EXPORT}"
