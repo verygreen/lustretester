@@ -29,8 +29,16 @@ class Builder(object):
         self.logger = self.setup_custom_logger("builder-%s.log" % (self.name), self.fsinfo.get("mylogsdir", "logs") + "/")
         self.logger.info("Started daemon")
         while True:
+            if self.RequestExit:
+                return # painfully terminate our thread. no locks held.
             in_cond.acquire()
             while in_queue.empty():
+                # This means we cannot remove workers while build queue is
+                # not empty.
+                if self.OneShot or self.RequestExit:
+                    self.RequestExit = True
+                    in_cond.release()
+                    return # This terminates our thread
                 in_cond.wait()
 
             self.Busy = True
@@ -72,6 +80,8 @@ class Builder(object):
         self.command = builderinfo['run']
         self.fsinfo = fsinfo
         self.Busy = False
+        self.RequestExit = False
+        self.OneShot = builderinfo.get('oneshot', False)
         self.fatal_exceptions = 0
         self.daemon = threading.Thread(target=self.run_daemon, args=(in_cond, in_queue, out_cond, out_queue))
         self.daemon.daemon = True

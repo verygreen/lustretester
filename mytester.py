@@ -179,8 +179,16 @@ class Tester(object):
         # default ones in json config?
         sleep_on_error = 15
         while True:
+            if self.RequestExit:
+                return # painfully terminate our thread. no locks held.
             in_cond.acquire()
             while in_queue.empty():
+                # This means we cannot remove workers while work queue is
+                # not empty.
+                if self.OneShot or self.RequestExit:
+                    self.RequestExit = True
+                    in_cond.release()
+                    return # This terminates our thread
                 in_cond.wait()
 
             job = in_queue.get()
@@ -258,6 +266,9 @@ class Tester(object):
         self.fsinfo = fsinfo
         self.Busy = False
         self.Invalid = False
+        self.RequestExit = False
+        # Oneshot means exit as soon as there are no more queued test items.
+        self.OneShot = workerinfo.get('oneshot', False)
         self.CrashDetected = False # This is for wen core was detected
         self.Crashed = False # This is when something died
         self.TimeoutDetected = False

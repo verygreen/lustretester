@@ -1150,6 +1150,62 @@ class Reviewer(object):
             elif command.get("drain-and-stop") != None:
                 DrainQueueAndStop = command['drain-and-stop']
                 StopOnIdle = DrainQueueAndStop
+            elif command.get("add-builders") != None:
+                buildersfilename = command['add-builders']
+                try:
+                    with open(buildersfilename) as buildersfile:
+                        buildersinfo = json.load(buildersfile)
+                except:
+                    self._debug("Malformed builders file " + buildersfilename)
+                else:
+                    for builderinfo in buildersinfo:
+                        if not builderinfo.get('run'):
+                            continue
+                        builders.append(mybuilder.Builder(builderinfo, fsconfig, build_condition, build_queue, managing_condition, managing_queue))
+            elif command.get("add-workers") != None:
+                workersfilename = command['add-workers']
+                try:
+                    with open(workersfilename) as nodes_file:
+                        newworkers = json.load(nodes_file)
+                except:
+                    self._debug("Malformed testnodes file " + workersfilename)
+                else:
+                    for worker in newworkers:
+                        if not worker.get('name'):
+                            continue
+                        # we need to ensure the worker we are adding
+                        # does not yet exist or hilarity will ensue
+                        found = False
+                        for t in workers:
+                            if t['name'] == worker['name']:
+                                found = True
+                                break
+                        if not found:
+                            worker['thread'] = mytester.Tester(worker, fsconfig, testing_condition, testing_queue, managing_condition, managing_queue)
+                            workers.append(worker)
+
+            elif command.get("del-builders") != None:
+                self._debug("Removing builders is not yet implemented")
+            elif command.get("del-workers") != None:
+                workersfilename = command['add-workers']
+                try:
+                    with open(workersfilename) as nodes_file:
+                        newworkers = json.load(nodes_file)
+                except:
+                    self._debug("Malformed testnodes file " + workersfilename)
+                else:
+                    found = False
+                    for worker in newworkers:
+                        for t in workers:
+                            if t['name'] == worker.get('name'):
+                                t['thread'].RequestExit = True
+                                found = True
+                                break
+                    if found: # need to wake all waiters to ensure threads exit
+                        testing_condition.acquire()
+                        testing_condition.notifyAll()
+                        testing_condition.release()
+
             else:
                 self._debug("Unknown command file contents: " + str(command))
 
@@ -1343,7 +1399,12 @@ def print_WorkList_to_HTML():
         if worker['thread'].fatal_exceptions:
             fatalexceptions += worker['thread'].fatal_exceptions
         if not worker['thread'].daemon.is_alive():
-            dead += 1
+            if worker['thread'].RequestExit:
+                # This was a oneshot thread or otherwise requested termination,
+                # just quietly remove it from the list
+                workers.remove(worker)
+            else:
+                dead += 1
             continue
         if worker['thread'].Busy:
             if worker['thread'].Invalid:
@@ -1375,7 +1436,12 @@ def print_WorkList_to_HTML():
             fatalexceptions += worker.fatal_exceptions
 
         if not worker.daemon.is_alive():
-            dead += 1
+            if worker.RequestExit:
+                # This was a oneshot thread or otherwise requested termination,
+                # just quietly remove it from the list
+                builders.remove(worker)
+            else:
+                dead += 1
             continue
         if worker.Busy:
             busy += 1
