@@ -324,7 +324,9 @@ def determine_testlist(filelist, commit_message, ForceFull=False, Branch=None):
         ZFSOnly = True
         LNetOnly = True
         BuildOnly = False
-        trivial_requested = False
+        # If they asked testonly, we only test what they request.
+        if not is_testonly_requested(commit_message):
+            trivial_requested = False
 
     # Always reload testlists
     with open("tests/initial.json", "r") as blah:
