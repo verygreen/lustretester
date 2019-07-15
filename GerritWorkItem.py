@@ -156,7 +156,11 @@ class GerritWorkItem(object):
         elif self.TestingStarted and not self.TestingDone:
             worklist = self.tests
         else:
-            print("Weird state, huh?" + str(vars(self)));
+            try:
+                print("Weird state, huh?" + str(vars(self)));
+            except BlockingIOError:
+                print("Weird state, huh?, too long vars. build " + str(self.buildnr))
+
             if testinfo in self.initial_tests:
                 worklist = self.initial_tests
             elif testinfo in self.tests:
