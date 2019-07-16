@@ -30,7 +30,8 @@ class Builder(object):
         self.logger.info("Started daemon")
         while True:
             if self.RequestExit:
-                return # painfully terminate our thread. no locks held.
+                self.logger.info("Exiting on request")
+                return # painlessly terminate our thread. no locks held.
             in_cond.acquire()
             while in_queue.empty():
                 # This means we cannot remove workers while build queue is
@@ -38,6 +39,7 @@ class Builder(object):
                 if self.OneShot or self.RequestExit:
                     self.RequestExit = True
                     in_cond.release()
+                    self.logger.info("Exiting. Oneshot " + str(self.OneShot))
                     return # This terminates our thread
                 in_cond.wait()
 
