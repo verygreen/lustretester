@@ -53,5 +53,8 @@ if [ "${COMPRESS_CORE_AFTER_DONE}" = "yes" ] ; then
 	nice -n 19 xz -9 "$COREFILE" >/dev/null 2>&1 </dev/null &
 fi
 
+# Also need to link the debug kernel and sources-debugmodules into the target dir
+ln -s "../.." $(dirname ${COREFILE})/debug-kernel-and-modules
+
 rm -rf "$TEMPDIR"
 exit 0

@@ -321,6 +321,9 @@ class GerritWorkItem(object):
 <tr><th>Distro</th><th>details</th></tr>
 {buildinfo}
 </table>
+<p>
+<a href=\"./\">Debug kernel and modules location</a>
+<p>
 {initialtesting}
 {fulltesting}
 </body>
