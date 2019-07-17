@@ -206,7 +206,7 @@ class GerritWorkItem(object):
 
         try:
             print("Build " + str(self.buildnr) + " Updated test element " + str(item))
-            sys.stdout.flush() # Make sure it's visible in its entirety over a pipe
+            #sys.stdout.flush() # Make sure it's visible in its entirety over a pipe
         except BlockingIOError:
             # Sometimes the print is so big we cannot really output it in one go?
             print("Build " + str(self.buildnr) + " Updated test element, but output too long!")

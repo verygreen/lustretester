@@ -1506,6 +1506,10 @@ def run_workitem_manager():
             pass
         managing_condition.acquire()
         while managing_queue.empty():
+            try:
+                sys.stdout.flush()
+            except:
+                pass
             if WorkList:
                 timeout = 30
             else:
