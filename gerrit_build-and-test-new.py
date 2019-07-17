@@ -1269,7 +1269,10 @@ def print_garbage():
     print("MEMORY:")
     for stat in top_stats[:20]:
         print(stat)
-    sys.stdout.flush()
+    try:
+        sys.stdout.flush()
+    except:
+        pass
 
 def donewith_WorkItem(workitem):
     print_WorkList_to_HTML()
@@ -1497,7 +1500,10 @@ def run_workitem_manager():
                 except OSError as e:
                     logger.error("Error running power callback for " + str(args) + " " + str(e))
 
-        sys.stdout.flush()
+        try:
+            sys.stdout.flush()
+        except:
+            pass
         managing_condition.acquire()
         while managing_queue.empty():
             if WorkList:
@@ -1515,7 +1521,10 @@ def run_workitem_manager():
 
         #teststr = vars(workitem)
         #pprint(teststr)
-        sys.stdout.flush()
+        try:
+            sys.stdout.flush()
+        except:
+            pass
 
         if workitem.buildnr is None:
             # New item, we need to build it
