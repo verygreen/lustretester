@@ -1191,7 +1191,7 @@ class Reviewer(object):
             elif command.get("del-builders") != None:
                 self._debug("Removing builders is not yet implemented")
             elif command.get("del-workers") != None:
-                workersfilename = command['add-workers']
+                workersfilename = command['del-workers']
                 try:
                     with open(workersfilename) as nodes_file:
                         newworkers = json.load(nodes_file)
