@@ -1104,6 +1104,8 @@ class Reviewer(object):
                 while os.path.exists(DONEWITH_DIR + "/" + workitem.get_saved_name()):
                     workitem.retestiteration += 1
 
+                workitem.Aborted = False
+                workitem.AbortDone = False
                 workitem.TestingDone = False
                 workitem.TestingStarted = False
                 workitem.TestingError = False
