@@ -98,6 +98,8 @@ class Node(object):
                 string = self.process.stderr.read()
                 self.errs += string
                 return "Process died"
+            if "Failed to start nbd nbd0" is string:
+                return "Cannot start nbd0"
             if "login:" in string:
                 # Restore old blocking behavior
                 fcntl.fcntl(fd, fcntl.F_SETFL, fl)
