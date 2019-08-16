@@ -100,6 +100,9 @@ class Node(object):
                 return "Process died"
             if "Failed to start nbd nbd0" is string:
                 return "Cannot start nbd0"
+            if "Entering emergency mode. Exit the shell to continue" in string:
+                print("Emergency mode shell detected!")
+                return "Emergency shell"
             if "login:" in string:
                 # Restore old blocking behavior
                 fcntl.fcntl(fd, fcntl.F_SETFL, fl)
