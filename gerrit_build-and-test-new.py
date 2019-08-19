@@ -73,7 +73,7 @@ def _getenv_list(key, default=None, sep=':'):
 
 GERRIT_HOST = os.getenv('GERRIT_HOST', 'review.whamcloud.com')
 GERRIT_PROJECT = os.getenv('GERRIT_PROJECT', 'fs/lustre-release')
-GERRIT_BRANCH = os.getenv('GERRIT_BRANCH', 'master')
+GERRIT_BRANCH = ['master', 'b2_12'] # os.getenv('GERRIT_BRANCH', 'master')
 GERRIT_AUTH_PATH = os.getenv('GERRIT_AUTH_PATH', 'GERRIT_AUTH')
 GERRIT_CHANGE_NUMBER = os.getenv('GERRIT_CHANGE_NUMBER', None)
 GERRIT_DRYRUN = os.getenv('GERRIT_DRYRUN', None)
@@ -881,15 +881,22 @@ class Reviewer(object):
             [ChangeInfo()...]
         """
         query = dict(query)
+        branches = ""
         if not Absolute:
             project = query.get('project', self.project)
             query['project'] = urllib.parse.quote(project, safe='')
-            branch = query.get('branch', self.branch)
-            query['branch'] = urllib.parse.quote(branch, safe='')
+            if isinstance(self.branch, list):
+                b2 = []
+                for tmp in self.branch:
+                    b2.append("branch:" + urllib.parse.quote(tmp, safe=''))
+                branches = "(" + "+OR+".join(b2) + ")+"
+            else:
+                branch = query.get('branch', self.branch)
+                query['branch'] = urllib.parse.quote(branch, safe='')
             if GERRIT_FORCETOPIC:
                 query['topic'] = GERRIT_FORCETOPIC
 
-        path = ('/changes/?q=' +
+        path = ('/changes/?q=' + branches +
                 '+'.join(k + ':' + v for k, v in query.items()) +
                 '&o=CURRENT_REVISION&o=CURRENT_COMMIT&o=CURRENT_FILES')
         res = self._get(path)
@@ -1363,7 +1370,7 @@ def print_WorkList_to_HTML():
         if GERRIT_FORCETOPIC:
             status += "(Only querying changes with topic: %s)" % (GERRIT_FORCETOPIC)
         if GERRIT_FORCETOPIC:
-            status += "(Only querying changes on branch: %s)" % (GERRIT_BRANCH)
+            status += "(Only querying changes on branch: %s)" % (str(GERRIT_BRANCH))
     workitems = ""
     for workitem in WorkList:
         workitems += '<tr><td>'
