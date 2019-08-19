@@ -1315,13 +1315,13 @@ def donewith_WorkItem(workitem):
             else:
                 status = "GOOD"
             if workitem.change.get("completion-cb"):
-                args = [workitem.change['completion-cb'], workitem.change['subject'], status, str(workitem.buildnr)]
+                args = [workitem.change['completion-cb'], workitem.change['subject'], status, str(workitem.buildnr), str(workitem.retestiteration)]
                 try:
                     subprocess.call(args)
                 except OSError as e:
                     print("Error running custom callback for " + str(args))
             if fsconfig.get("testsetdone-cb"):
-                args = [fsconfig["testsetdone-cb"], workitem.change['subject'], status, str(workitem.buildnr)]
+                args = [fsconfig["testsetdone-cb"], workitem.change['subject'], status, str(workitem.buildnr), str(workitem.retestiteration)]
                 try:
                     subprocess.call(args)
                 except OSError as e:
