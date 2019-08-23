@@ -209,6 +209,6 @@ class Builder(object):
         else:
             message = "Success"
             # XXX add a check that artifact exists
-            workitem.UpdateBuildStatus(buildinfo, message, Finished=True)
+            workitem.UpdateBuildStatus(buildinfo, message, Finished=True, BuildStdOut=outs, BuildStdErr=errs)
 
         return True
