@@ -120,7 +120,7 @@ class GerritWorkItem(object):
         if Timeout != None:
             buildinfo['Timeout'] = Timeout
         if BuildStarted != None:
-            buildinfo['Timeout'] = BuildStarted
+            buildinfo['BuildStarted'] = BuildStarted
 
         if BuildStdOut:
             buildinfo['stdout'] = BuildStdOut
