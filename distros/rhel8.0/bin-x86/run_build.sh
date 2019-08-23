@@ -111,7 +111,7 @@ for i in '*.c' '*.o' '*.h' '*Makefile*' '*.cmd' ; do
 done
 find -name "*.ko" -exec strip --strip-debug {} \;
 
-mksquashfs . ${OUTDIR}/lustre${EXTRANAME}.ssq -comp xz -no-exports -no-progress
+mksquashfs . ${OUTDIR}/lustre${EXTRANAME}.ssq -comp xz -no-exports -no-progress || exit -1
 
 # Also add kernel, initrd and compressed debug kernel
 cp ${KERNELDIR}/arch/${ARCH}/boot/bzImage ${OUTDIR}/kernel${EXTRANAME}
