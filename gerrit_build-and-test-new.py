@@ -567,7 +567,7 @@ def add_review_comment(WorkItem):
             # No messages were printed anywhere, pretend we did not even see it
             return
 
-        message = "Newer revision detected, aborting all work on revision " + str(WorkItem.change['revisions'][str(WorkItem.revision)]['_number'])
+        message = "Newer revision detected, aborting all work on revision " + str(WorkItem.change.get('revisions', {}).get(str(WorkItem.revision), {}).get('_number', -1))
     elif WorkItem.EmptyJob:
         if is_notknow_howto_test(WorkItem.change['revisions'][str(WorkItem.revision)]['files']):
             message = "This patch only contains changes that I don't know how to test or build. Skipping"
@@ -1539,10 +1539,13 @@ def run_workitem_manager():
         except:
             pass
 
-        if workitem.buildnr is None:
+        if workitem.buildnr is None or workitem.recovering:
             # New item, we need to build it
-            workitem.buildnr = current_build
-            current_build += 1
+            if not workitem.recovering:
+                workitem.buildnr = current_build
+                current_build += 1
+            else:
+                workitem.recovering = False
 
             with open(LAST_BUILD_ID, 'w') as output:
                 output.write('%d' % current_build)
@@ -1772,6 +1775,7 @@ if __name__ == "__main__":
                     shutil.rmtree(fsconfig["outputs"] + "/" + str(saveitem.buildnr))
                 except OSError:
                     pass # Ok if it's not there
+                saveitem.recovering = True
             elif saveitem.BuildError or (saveitem.InitialTestingError and saveitem.InitialTestingDone) or (saveitem.TestingError and saveitem.TestingDone):
                 pass # just insert for final notify
             elif saveitem.InitialTestingStarted and not saveitem.InitialTestingDone:

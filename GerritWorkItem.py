@@ -28,6 +28,7 @@ class GerritWorkItem(object):
         self.AbortDone = False
         self.BuildDone = False
         self.BuildError = False
+        self.recovering = False
         if not builds: # Mostly for special request builds
             self.builds = [{'distro':self.distro}]
         else:
