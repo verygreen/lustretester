@@ -1765,6 +1765,7 @@ if __name__ == "__main__":
             except:
                 # delete bad item.
                 os.unlink(SAVEDSTATE_DIR + "/" + savedstateitem)
+                continue
 
             sys.stdout.flush()
             if saveitem.Aborted: # Kill it
