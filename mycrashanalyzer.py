@@ -10,6 +10,7 @@ import json
 import re
 import psycopg2
 from pprint import pprint
+import subprocess
 from subprocess import Popen, PIPE, TimeoutExpired
 
 ### Important - we need transform_null_equals = on in postgresql.conf or =null logic breaks
@@ -326,20 +327,54 @@ def add_new_crash(lasttest, crashtrigger, crashfunction, crashbt, fullcrash, tes
 
     return (newid, numreports)
 
+class Compressor(object):
+    def __init__(self, fsconfig, queue):
+        self.fsconfig = fsconfig
+        self.queue = queue
+        self.daemon = threading.Thread(target=self.compress_manager, args=())
+        self.daemon.daemon = True
+        self.daemon.start()
+
+    def compress_manager(self):
+        while True:
+            item = self.queue.get()
+            if not item:
+                continue
+            # read actual processor from the fsconfig?
+            commandline = "nice -n 19 xz -9 " + item
+            subprocess.run(commandline, shell=True, check=True)
+
+def crasher_add_work(fsconfig, corefile, testinfo, distro, arch, workitem, message, COND=None, QUEUE=None, TIMEOUT=False):
+    item = {'corefile':corefile, 'testinfo':testinfo, 'distro':distro, 'arch':arch, 'workitem':workitem, 'message':message, 'COND':COND, 'QUEUE':QUEUE, 'TIMEOUT':TIMEOUT}
+    fsconfig['core-queue'].put(item)
 
 class Crasher(object):
 
     def logger(self, message):
         self.extrainfo += "(%s)" % (message)
 
-    def __init__(self, fsconfig, corefile, testinfo, distro, arch, workitem, message, COND=None, QUEUE=None, TIMEOUT=False):
+    def __init__(self, fsconfig, corequeue, compressqueue):
         self.fsconfig = fsconfig
-        self.cond = COND
-        self.queue = QUEUE
-        self.Timeout = TIMEOUT
+        self.corequeue = corequeue
+        self.cond = None
+        self.queue = None
+        self.Timeout = False
         self.extrainfo = ''
-        self.daemon = threading.Thread(target=self.crash_worker, args=(corefile, testinfo, distro, arch, workitem, message))
+        self.daemon = threading.Thread(target=self.crash_manager, args=[compressqueue])
+        self.daemon.daemon = True
         self.daemon.start()
+
+    def crash_manager(self, compressqueue):
+        while True:
+            item = self.corequeue.get()
+            if not item:
+                continue
+            self.cond = item['COND']
+            self.queue = item['QUEUE']
+            self.Timeout = item['TIMEOUT']
+            self.extrainfo = ''
+            self.crash_worker(item['corefile'], item['testinfo'], item['distro'], item['arch'], item['workitem'], item['message'])
+            compressqueue.put(item['corefile'])
 
     def crash_worker(self, crashfilename, testinfo, distro, arch, workitem, testmessage):
         try:

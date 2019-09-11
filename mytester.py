@@ -690,7 +690,7 @@ class Tester(object):
                                         break
                                     counter += 1
                                     time.sleep(5)
-                                mycrashanalyzer.Crasher(self.fsinfo, corefile, testinfo, clientdistro, self.clientarch, workitem, message, TIMEOUT=True, COND=self.out_cond, QUEUE=self.out_queue)
+                                mycrashanalyzer.crasher_add_work(self.fsinfo, corefile, testinfo, clientdistro, self.clientarch, workitem, message, TIMEOUT=True, COND=self.out_cond, QUEUE=self.out_queue)
                         # Cannot break from the above loop
                         if self.error:
                             break
@@ -715,9 +715,9 @@ class Tester(object):
                         counter += 1
                         time.sleep(5)
                     if clientcore:
-                        mycrashanalyzer.Crasher(self.fsinfo, clientcore, testinfo, clientdistro, self.clientarch, workitem, message, TIMEOUT=True, COND=self.out_cond, QUEUE=self.out_queue)
+                        mycrashanalyzer.crasher_add_work(self.fsinfo, clientcore, testinfo, clientdistro, self.clientarch, workitem, message, TIMEOUT=True, COND=self.out_cond, QUEUE=self.out_queue)
                     if servercore:
-                        mycrashanalyzer.Crasher(self.fsinfo, servercore, testinfo, serverdistro, self.serverarch, workitem, message, TIMEOUT=True, COND=self.out_cond, QUEUE=self.out_queue)
+                        mycrashanalyzer.crasher_add_work(self.fsinfo, servercore, testinfo, serverdistro, self.serverarch, workitem, message, TIMEOUT=True, COND=self.out_cond, QUEUE=self.out_queue)
                     # XXX kick some additional analyzer for backtraces or such
                     break
             else:
@@ -962,11 +962,11 @@ class Tester(object):
         # See if we have any crashdumps
         crashname = self.collect_crashdump(server)
         if crashname:
-            mycrashanalyzer.Crasher(self.fsinfo, crashname, testinfo, serverdistro, self.serverarch, workitem, message, COND=self.out_cond, QUEUE=self.out_queue)
+            mycrashanalyzer.crasher_add_work(self.fsinfo, crashname, testinfo, serverdistro, self.serverarch, workitem, message, COND=self.out_cond, QUEUE=self.out_queue)
 
         crashname = self.collect_crashdump(client)
         if crashname:
-            mycrashanalyzer.Crasher(self.fsinfo, crashname, testinfo, clientdistro, self.clientarch, workitem, message, COND=self.out_cond, QUEUE=self.out_queue)
+            mycrashanalyzer.crasher_add_work(self.fsinfo, crashname, testinfo, clientdistro, self.clientarch, workitem, message, COND=self.out_cond, QUEUE=self.out_queue)
 
         if self.CrashDetected:
             # These would post stuff separately

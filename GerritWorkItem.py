@@ -51,6 +51,7 @@ class GerritWorkItem(object):
     def __getstate__(self):
         state = self.__dict__.copy()
         del state['lock']
+        del state['fsconfig']
         del state['Reviewer'] # no posts on restarts?
         return state
     def __setstate__(self, state):
@@ -522,4 +523,8 @@ class GerritWorkItem(object):
                 pickle.dump(self, output, pickle.HIGHEST_PROTOCOL )
             except RuntimeError:
                 pass # We just want to avoid the crash. next iteration will write it out.
+            except TypeError:
+                # This is not supposed to happen, I guess
+                print("Cannot save due to type error")
+                print(self)
             self.lock.release()

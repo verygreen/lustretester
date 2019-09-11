@@ -50,6 +50,7 @@ import random
 import operator
 import mybuilder
 import mytester
+import mycrashanalyzer
 import mystatswriter
 from mytuplesorter import TupleSortingOn0
 from datetime import datetime
@@ -1744,6 +1745,16 @@ if __name__ == "__main__":
                                            testing_queue, managing_condition, \
                                            managing_queue)
 
+    # Now crash analyzer and compressor threads
+    fsconfig['core-queue'] = queue.Queue()
+    fsconfig['core-threads'] = []
+    fsconfig['compressor-queue'] = queue.Queue()
+    fsconfig['compressor-threads'] = []
+    for i in range(fsconfig['core-processors']):
+            fsconfig['core-threads'].append(mycrashanalyzer.Crasher(fsconfig, fsconfig['core-queue'], fsconfig['compressor-queue']))
+    for i in range(fsconfig['core-compressors']):
+            fsconfig['compressor-threads'].append(mycrashanalyzer.Compressor(fsconfig, fsconfig['compressor-queue']))
+
     managerthread = threading.Thread(target=run_workitem_manager, args=())
     managerthread.daemon = True
     managerthread.start()
@@ -1787,6 +1798,7 @@ if __name__ == "__main__":
                 saveitem.TestingStarted = False
 
             saveitem.Reviewer = reviewer # Since it cannot be saved otherwise
+            saveitem.fsconfig = fsconfig
 
             WorkList.append(saveitem)
             managing_condition.acquire()

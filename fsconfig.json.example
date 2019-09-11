@@ -10,5 +10,7 @@
 	"defaultdistro":"centos7",
 	"power-cb":"./power-ok-to-sleep.sh",
 	"testdone-cb":"./bin/onetestdone.sh",
-	"testsetdone-cb":"./bin/testsetdone.sh"
+	"testsetdone-cb":"./bin/testsetdone.sh",
+	"core-processors":3,
+	"core-compressors":1
 }
