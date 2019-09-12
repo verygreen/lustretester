@@ -1107,6 +1107,8 @@ class Reviewer(object):
                     # Cannot retest a failed build
                     continue
 
+                workitem.Reviewer = reviewer # Since it cannot be saved otherwise
+                workitem.fsconfig = fsconfig
                 # We don't know how many times it was retested so need to find
                 # out by checkign the done with place.
                 while os.path.exists(DONEWITH_DIR + "/" + workitem.get_saved_name()):
