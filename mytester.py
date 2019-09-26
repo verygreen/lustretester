@@ -612,7 +612,8 @@ class Tester(object):
             ENVPARAMS = testinfo.get('env', '')
             AUSTERPARAMS = testinfo.get('austerparam', '')
             # XXX - this stuff should be in some config
-            args = ["ssh", "-tt", "-o", "StrictHostKeyChecking=no", "root@" + self.clientnetname,
+            args = ["ssh", "-tt", "-o", "ServerAliveInterval=0", "-o",
+                    "StrictHostKeyChecking=no", "root@" + self.clientnetname,
                     'PDSH="pdsh -S -Rssh -w" mds_HOST=' + self.servernetname +
                     " ost_HOST=" + self.servernetname + " MDSDEV1=/dev/vdc " +
                     "OSTDEV1=/dev/vde OSTDEV2=/dev/vdf LOAD_MODULES_REMOTE=true " +
@@ -661,12 +662,26 @@ class Tester(object):
                 self.testouts += outs
                 self.testerrs += errs
                 if not server.check_node_alive():
+                    # See if ssh timed out and we need to restart
+                    if "Timeout, server" in server.errs:
+                        self.logger.info(server.name + " ssh session died, need to restart")
+                        testprocess.terminate()
+                        client.terminate()
+                        return False
+
                     self.logger.info(server.name + " died while processing test job Buildid " + str(workitem.buildnr) + " test " + testinfo['name'] + '-' + testinfo['fstype'])
                     self.error = True
                     self.Crashed = True
                     message = "Server crashed"
                     break
                 if not client.check_node_alive():
+                    # See if ssh timed out and we need to restart
+                    if "Timeout, server" in client.errs:
+                        self.logger.info(client.name + " ssh session died, need to restart")
+                        testprocess.terminate()
+                        server.terminate()
+                        return False
+
                     self.logger.info(client.name + " died while processing test job Buildid " + str(workitem.buildnr) + " test " + testinfo['name'] + '-' + testinfo['fstype'])
                     message += "Client crashed"
                     self.Crashed = True
