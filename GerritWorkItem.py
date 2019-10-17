@@ -66,6 +66,8 @@ class GerritWorkItem(object):
             self.builds = [{"distro":"centos7",'BuildMessage':self.__dict__.get('BuildMessage')}] # only matters for old items
         if not self.__dict__.get('ReviewComments'):
             self.ReviewComments = {} # XXX for a bug.
+        if not self.__dict__.get('recovering'):
+            self.recovering = False
 
 
     def get_results_filename(self):
