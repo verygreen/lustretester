@@ -1,4 +1,4 @@
 [
 	{"test":"runtests", "timeout":800},
-	{"name":"runtests-ssk","test":"runtests", "timeout":1000, "SSK":true, "fstype":"ldiskfs","onlybranch":"master"}
+	{"name":"runtests-ssk","test":"runtests", "timeout":1200, "SSK":true, "fstype":"ldiskfs","onlybranch":"master"}
 ]
