@@ -42,6 +42,7 @@ class GerritWorkItem(object):
         self.TestingStarted = False
         self.TestingDone = False
         self.TestingError = False
+        self.AddedTestFailure = False
         self.initial_tests = initialtestlist
         self.tests = testlist
         self.lock = threading.Lock()
@@ -68,6 +69,8 @@ class GerritWorkItem(object):
             self.ReviewComments = {} # XXX for a bug.
         if not self.__dict__.get('recovering'):
             self.recovering = False
+        if not self.__dict__.get('AddedTestFailure'):
+            self.AddedTestFailure = False
 
 
     def get_results_filename(self):

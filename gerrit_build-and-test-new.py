@@ -33,6 +33,7 @@ Gerrit Universal Reviewer Daemon
 * POST reviews back to gerrit based on results
 """
 
+import base64
 import fnmatch
 import logging
 import json
@@ -227,7 +228,7 @@ def determine_distros_from_change(change):
         distros.append(distro)
     return distros
 
-def determine_testlist(filelist, commit_message, ForceFull=False, Branch=None):
+def determine_testlist(change, filelist, commit_message, ForceFull=False, Branch=None):
     """ Try to guess what tests to run based on the changes """
     trivial_requested = is_trivial_requested(commit_message)
     DoNothing = True
@@ -319,6 +320,9 @@ def determine_testlist(filelist, commit_message, ForceFull=False, Branch=None):
         FullRun = True
         LNetOnly = True
         DoNothing = False
+    else:
+        if change.get('CommentOnly'):
+            DoNothing = True
 
     if FullRun:
         LDiskfsOnly = True
@@ -391,6 +395,18 @@ def determine_testlist(filelist, commit_message, ForceFull=False, Branch=None):
         # non-test - add standard initial testing too.
         if not initial or NonTestFilesToo:
             populate_testlist_from_array(initial, initialtestlist, LDiskfsOnly, ZFSOnly, Branch=Branch)
+        if change.get('updated_tests'):
+            updtests = change['updated_tests']
+            updtestlist = []
+            for i in updtests.keys():
+                subtests = []
+                for j in updtests[i]:
+                    subtests.append(j.replace('test_', ''))
+                updtestlist.append({"name":i+"-special", "test":i, "timeout":-1, "austerparam":"-i 10","testparam":"--only " + ','.join(subtests)})
+                populate_testlist_from_array(initial, updtestlist, True, False, DNE=True)
+                populate_testlist_from_array(initial, updtestlist, False, True, DNE=True)
+
+
 
         if LNetOnly:
             # For items in this list we don't care about fs as it's supposed
@@ -607,7 +623,11 @@ def add_review_comment(WorkItem):
     elif WorkItem.InitialTestingDone and not WorkItem.TestingStarted:
         # This is after initial tests
         if WorkItem.InitialTestingError:
-            message = 'Initial testing failed:\n'
+            if WorkItem.AddedTestFailure:
+                message = 'Newly added or changed test failed in initial testing:\n'
+            else:
+                message = 'Initial testing failed:\n'
+
             message += WorkItem.test_status_output(WorkItem.initial_tests)
             score = -1
             review_comments = WorkItem.ReviewComments
@@ -645,7 +665,10 @@ def add_review_comment(WorkItem):
     if USE_CODE_REVIEW_SCORE:
         code_review_score = score
     else:
-        code_review_score = 0
+        if WorkItem.AddedTestFailure:
+            code_review_score = -1
+        else:
+            code_review_score = 0
 
     outputdict = {
         'message': (message),
@@ -907,6 +930,125 @@ class Reviewer(object):
         # Gerrit uses " )]}'" to guard against XSSI.
         return json.loads(res.content[5:])
 
+    def decode_patch(self, content):
+        """
+        Decode gerrit's idea of base64.
+
+        The base64 encoded patch returned by gerrit isn't always
+        padded correctly according to b64decode. Don't know why. Work
+        around this by appending more '=' characters or truncating the
+        content until it decodes. But do try the unmodified content
+        first.
+        """
+        try:
+            return base64.b64decode(content)
+        except base64.binascii.Error as exc:
+            self._debug("decode_patch: len = %d, exception = %s",
+                       len(content), str(exc))
+
+    def get_patch(self, change):
+        """
+        GET and decode the (current) patch for change.
+        """
+        revision = change.get('current_revision')
+        args = "cd /home/green/git/lustre-release ; git fetch https://" + GERRIT_HOST + "/" + GERRIT_PROJECT + " " + change['revisions'][revision]['ref'] + "&& git format-patch -1 --stdout FETCH_HEAD"
+        pipe = subprocess.Popen(args, shell=True, stdin=subprocess.PIPE,
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE)
+        out, err = pipe.communicate("")
+        return out
+        path = '/changes/' + change['id'] + '/revisions/' + revision + '/patch'
+        self._debug("get_patch: path = '%s'", path)
+        res = self._get(path)
+        if not res:
+            return ''
+
+        self._debug("get_patch: len(content) = %d, content = '%s...'",
+                len(res.content), res.content[:20])
+
+        return self.decode_patch(res.content)
+
+    def analyze_patch(self, change):
+        """ Extract useful info from a patch. Things like new tests added,
+            tests modified, is it a comment-only change and so on. """
+        patch = self.get_patch(change)
+        if not patch:
+            return
+
+        chfile = None
+        function = None
+        commentonly = True
+        newtests = []
+        for line in patch.splitlines():
+            line = line.decode("utf-8")
+            # print("Working on: " + line)
+            if line.startswith('+++ '):
+                if newtests:
+                    if not change.get('updated_tests'):
+                        change['updated_tests'] = {}
+                    if basename.endswith('.sh'):
+                        change['updated_tests'].update({basename.replace('.sh', ''):newtests})
+                    newtests = []
+                chfile = line.replace('+++ b/', '')
+                basename = os.path.basename(chfile)
+            if not chfile: # diff did not start yet - skip
+                continue
+            if line.startswith('--- '): # src file - skip
+                continue
+            if line.startswith('@@ '):
+                tags = line.split(' ', 5)
+                if tags[0] != '@@' or tags[3] != '@@':
+                    print("Malformed patch line: " + line)
+                    continue
+                if len(tags) > 4:
+                    function = tags[4].replace('()', '')
+                else:
+                    function = None
+            if line.startswith(' '): # context line, not a change - skip
+                if basename.endswith(".sh") and line.startswith(' test_'): # context changed to new function, record it.
+                    tags = line[1:].split(' ')
+                    function = tags[0].replace('()', '')
+                continue
+            if line.startswith('-') or line.startswith('+'): # added/removed/changed line
+                tmp = line.replace(' ', '').replace('\t', '') # remove spaces
+                if not line[1:]: # empty line? skip
+                    continue
+                if (basename.endswith('.c') or basename.endswith('.h')) \
+                    and not (tmp[1:].startswith('/*') or tmp[1:].startswith('//') or \
+                   tmp[1:].startswith('*')):
+                    commentonly = False
+                if (basename.endswith('.sh') or basename.endswith('.pl') or
+                    basename in ('runtests', 'auster', 'rundbench', 'runiozone', 'runmultiop_bg_pause', 'runtests', 'runvmstat', 'runobdstat')) \
+                   and not tmp[1:].startswith('#'):
+                    commentonly = False
+                if line[1:].startswith('test_'):
+                    function = None
+                if function and function not in newtests:
+                    if basename.endswith('.sh'):
+                        newtests.append(function)
+                    function = None # To ease our work
+
+            if line.startswith('+'): # Added/changed line
+                if basename.endswith('.sh'):
+                    # Try to detect a new test added.
+                    # while we can try and detect new function added, instead
+                    # in our framework there's a very specific pattern:
+                    # +run_test 65 "Check lfs quota result"
+                    # So let's match for that instead
+                    if line.startswith("+run_test "):
+                        tags = line.split(" ")
+                        if len(tags) > 1:
+                            test = "test_" + tags[1]
+                            newtests.append(test)
+
+        # Catch remaining stuff
+        if newtests and basename.endswith('.sh'):
+            if not change.get('updated_tests'):
+                change['updated_tests'] = {}
+            change['updated_tests'].update({basename.replace('.sh', ''):newtests})
+        if commentonly:
+            change['CommentOnly'] = True
+
     def post_review(self, change, revision, review_input):
         """
         POST review_input for the given revision of change.
@@ -972,8 +1114,9 @@ class Reviewer(object):
         else:
             files = change['revisions'][str(current_revision)].get('files', [])
             isMerge = len(change['revisions'][str(current_revision)]['commit']['parents']) > 1
+            self.analyze_patch(change)
 
-        (DoNothing, ilist, clist) = determine_testlist(files, commit_message,
+        (DoNothing, ilist, clist) = determine_testlist(change, files, commit_message,
                                                        ForceFull=isMerge,
                                                        Branch=change.get('branch'))
 
@@ -1140,7 +1283,7 @@ class Reviewer(object):
                         commit_message = change['revisions'][str(current_revision)]['commit']['message']
                         files = change['revisions'][str(current_revision)].get('files', [])
                         isMerge = len(change['revisions'][str(current_revision)]['commit']['parents']) > 1
-                        (DoNothing, ilist, clist) = determine_testlist(files, commit_message, ForceFull=isMerge, Branch=change.get('branch'))
+                        (DoNothing, ilist, clist) = determine_testlist(change, files, commit_message, ForceFull=isMerge, Branch=change.get('branch'))
                         workitem.initial_tests = ilist
                         workitem.tests = clist
                 except: # Add some array list here?

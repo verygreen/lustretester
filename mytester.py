@@ -867,6 +867,9 @@ class Tester(object):
 
                             for subtest in yamltest.get('SubTests', []):
                                 if subtest.get('status', '') == "FAIL":
+                                    if workitem.change.get('updated_tests'):
+                                        if subtest['name'] in workitem.change['updated_tests'].get(testscript, []):
+                                            workitem.AddedTestFailure = True
                                     failedsubtests += subtest['name'].replace('test_', '') + "("
                                     if subtest.get('error'):
                                         failedsubtests += subtest['error']
