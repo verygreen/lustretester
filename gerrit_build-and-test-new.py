@@ -402,7 +402,8 @@ def determine_testlist(change, filelist, commit_message, ForceFull=False, Branch
                 subtests = []
                 for j in updtests[i]:
                     subtests.append(j.replace('test_', ''))
-                updtestlist.append({"name":i+"-special", "test":i, "timeout":-1, "austerparam":"-i 10","testparam":"--only " + ','.join(subtests)})
+                for j in range(10):
+                    updtestlist.append({"name":i+"-special"+str(j+1), "test":i, "timeout":-1, "testparam":"--only " + ','.join(subtests)})
                 populate_testlist_from_array(initial, updtestlist, True, False, DNE=True)
                 populate_testlist_from_array(initial, updtestlist, False, True, DNE=True)
 
