@@ -1023,7 +1023,7 @@ class Reviewer(object):
                    and not tmp[1:].startswith('#'):
                     commentonly = False
                 if line[1:].startswith('test_'):
-                    function = None
+                    function = None # Added or removed function, we'll catch with the +run_test
                 if function and function not in newtests:
                     if basename.endswith('.sh'):
                         newtests.append(function)

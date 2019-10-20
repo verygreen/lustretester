@@ -870,6 +870,8 @@ class Tester(object):
                                     if workitem.change.get('updated_tests'):
                                         if subtest['name'] in workitem.change['updated_tests'].get(testscript, []):
                                             workitem.AddedTestFailure = True
+                                            msg = "Test script %s subtest %s that was touched by this patch failed. This is just a heads up on first fatal failure and a full report would be posted on test completion. See the results link above if you want intermediate results."
+                                            workitem.post_immediate_review_comment(msg, {}, 0)
                                     failedsubtests += subtest['name'].replace('test_', '') + "("
                                     if subtest.get('error'):
                                         failedsubtests += subtest['error']
@@ -883,11 +885,13 @@ class Tester(object):
                     except TypeError:
                         pass # Well, here's empty list for you I guess
                     # second pass for bug db, we probably might want to do it a single pass?
-                    new, old = process_results(testresults, workitem, workitem.get_url_for_test(testinfo), testinfo['fstype'])
-                    if new:
-                        testinfo['NewFailures'] = new
-                    if old:
-                        testinfo['OldFailures'] = old
+                    # Skip "Special" testsets
+                    if not "-special" in testinfo.get('name', "nope"):
+                        new, old = process_results(testresults, workitem, workitem.get_url_for_test(testinfo), testinfo['fstype'])
+                        if new:
+                            testinfo['NewFailures'] = new
+                        if old:
+                            testinfo['OldFailures'] = old
 
             if testprocess.returncode != 0:
                 Failure = True

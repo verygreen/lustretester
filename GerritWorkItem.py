@@ -101,8 +101,11 @@ class GerritWorkItem(object):
         if not self.Reviewer: # Well, no object = nothing to do
             print("No reviewer")
             return
-        if not review or not message:
-            print("message or review empty")
+        if not review and newid != 0:
+            print("review empty and newid != 0")
+            return # Not printing empty reviews
+        if not message:
+            print("message empty")
             return # Not printing empty reviews
 
         if self.Reviewer.post_review(self.change, self.revision, {'message':message, 'notify':'OWNER', 'labels':{'Code-Review':0}, 'comments':review}):
