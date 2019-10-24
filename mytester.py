@@ -870,7 +870,7 @@ class Tester(object):
                                     if workitem.change.get('updated_tests'):
                                         if subtest['name'] in workitem.change['updated_tests'].get(testscript, []):
                                             workitem.AddedTestFailure = True
-                                            msg = "Test script %s subtest %s that was touched by this patch failed. This is just a heads up on first fatal failure and a full report would be posted on test completion. See the results link above if you want intermediate results."
+                                            msg = "Test script %s subtest %s that was touched by this patch failed with '%s'. This is just a heads up on first fatal failure and a full report would be posted on test completion. See the results link above if you want intermediate results." % (testscript, subtest['name'], subtest.get('error', ""))
                                             workitem.post_immediate_review_comment(msg, {}, 0)
                                     failedsubtests += subtest['name'].replace('test_', '') + "("
                                     if subtest.get('error'):

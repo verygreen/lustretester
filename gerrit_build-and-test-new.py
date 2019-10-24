@@ -931,43 +931,17 @@ class Reviewer(object):
         # Gerrit uses " )]}'" to guard against XSSI.
         return json.loads(res.content[5:])
 
-    def decode_patch(self, content):
-        """
-        Decode gerrit's idea of base64.
-
-        The base64 encoded patch returned by gerrit isn't always
-        padded correctly according to b64decode. Don't know why. Work
-        around this by appending more '=' characters or truncating the
-        content until it decodes. But do try the unmodified content
-        first.
-        """
-        try:
-            return base64.b64decode(content)
-        except base64.binascii.Error as exc:
-            self._debug("decode_patch: len = %d, exception = %s",
-                       len(content), str(exc))
-
     def get_patch(self, change):
         """
         GET and decode the (current) patch for change.
         """
         revision = change.get('current_revision')
-        args = "cd /home/green/git/lustre-release ; git fetch https://" + GERRIT_HOST + "/" + GERRIT_PROJECT + " " + change['revisions'][revision]['ref'] + "&& git format-patch -1 --stdout FETCH_HEAD"
+        args = "cd /home/green/git/lustre-release ; git fetch https://" + GERRIT_HOST + "/" + GERRIT_PROJECT + " " + change['revisions'][revision]['ref'] + "&& git format-patch -1 -n --stdout FETCH_HEAD | head -n -3"
         pipe = subprocess.Popen(args, shell=True, stdin=subprocess.PIPE,
                                 stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE)
         out, err = pipe.communicate("")
         return out
-        path = '/changes/' + change['id'] + '/revisions/' + revision + '/patch'
-        self._debug("get_patch: path = '%s'", path)
-        res = self._get(path)
-        if not res:
-            return ''
-
-        self._debug("get_patch: len(content) = %d, content = '%s...'",
-                len(res.content), res.content[:20])
-
-        return self.decode_patch(res.content)
 
     def analyze_patch(self, change):
         """ Extract useful info from a patch. Things like new tests added,
