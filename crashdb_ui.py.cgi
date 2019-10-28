@@ -328,7 +328,7 @@ def convert_new_crash(dbconn, form):
                 # and I need to do extra hoops to save old values and stuff
                 # in EXTRACONDS and EXTRACONDvars
                 if link.startswith('https://testing.whamcloud.com'):
-                    print("marking " + link + " " + row[1] + "<br>")
+                    print("marking " + link + " " + str(row[1]) + "<br>")
                     sys.stdout.flush()
                     res = reporter.associate_bug_by_url(link, bugdescription, row[1])
                     malooreport += '<tr><td><a href="%s">%s</a></td><td>' % (link, link)
