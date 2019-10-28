@@ -999,7 +999,7 @@ class Reviewer(object):
                 if line[1:].startswith('test_'):
                     function = None # Added or removed function, we'll catch with the +run_test
                 if function and function not in newtests:
-                    if basename.endswith('.sh'):
+                    if basename.endswith('.sh') and function.startswith("test_"):
                         newtests.append(function)
                     function = None # To ease our work
 
