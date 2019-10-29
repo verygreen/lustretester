@@ -4,8 +4,8 @@ export PATH=/usr/lib64/ccache:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/
 
 SRCLOCATION=/home/green/git/lustre-release-base
 TGTBUILD=/home/green/git/lustre-release
-KERNELDIR=/home/green/bk/linux-3.10.0-957.el7-debug
-#KERNELDIR=/home/green/bk/linux-3.10.0-1062.el7-debug
+#KERNELDIR=/home/green/bk/linux-3.10.0-957.el7-debug
+KERNELDIR=/home/green/bk/linux-3.10.0-1062.1.2.el7-debug
 OUTDIR=/tmp/out
 
 ARCH=$(uname -m)
