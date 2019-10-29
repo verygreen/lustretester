@@ -520,49 +520,6 @@ def find_and_abort_duplicates(workitem):
         if item.changenr == workitem.changenr:
             item.Aborted = True
 
-def review_input_and_score(path_line_comments, warning_count):
-    """
-    Convert { PATH: { LINE: [COMMENT, ...] }, ... }, [11] to a gerrit
-    ReviewInput() and score
-    """
-    review_comments = {}
-
-    for path, line_comments in path_line_comments.items():
-        path_comments = []
-        for line, comment_list in line_comments.items():
-            message = '\n'.join(comment_list)
-            path_comments.append({'line': line, 'message': message})
-        review_comments[path] = path_comments
-
-    if warning_count[0] > 0:
-        score = -1
-    else:
-        score = +1
-
-    if USE_CODE_REVIEW_SCORE:
-        code_review_score = score
-    else:
-        code_review_score = 0
-
-    if score < 0:
-        return {
-            'message': ('%d style warning(s).\nFor more details please see %s' %
-                        (warning_count[0], STYLE_LINK)),
-            'labels': {
-                'Code-Review': code_review_score
-                },
-            'comments': review_comments,
-            'notify': 'OWNER',
-            }, score
-    else:
-        return {
-            'message': 'Looks good to me.',
-            'labels': {
-                'Code-Review': code_review_score
-                },
-            'notify': 'NONE',
-            }, score
-
 def add_review_comment(WorkItem):
     """
     Convert { PATH: { LINE: [COMMENT, ...] }, ... }, [11] to a gerrit
@@ -977,12 +934,16 @@ class Reviewer(object):
                     continue
                 if len(tags) > 4:
                     function = tags[4].replace('()', '')
+                    if function.endswith("{"):
+                        function = function[:-1]
                 else:
                     function = None
             if line.startswith(' '): # context line, not a change - skip
                 if basename.endswith(".sh") and line.startswith(' test_'): # context changed to new function, record it.
                     tags = line[1:].split(' ')
                     function = tags[0].replace('()', '')
+                    if function.endswith("{"):
+                        function = function[:-1]
                 continue
             if line.startswith('-') or line.startswith('+'): # added/removed/changed line
                 tmp = line.replace(' ', '').replace('\t', '') # remove spaces
