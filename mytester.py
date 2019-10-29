@@ -847,7 +847,8 @@ class Tester(object):
                     with open(yamlfile, "r") as fl:
                         fldata = fl.read()
                         testresults = yaml.load(fldata.replace('\\', ''))
-                except (OSError, ImportError, yaml.parser.ParserError) as e:
+                except (OSError, ImportError, yaml.parser.ParserError, UnicodeDecodeError) as e:
+                    warnings += "(yaml read error" + str(e) + ", check logs)"
                     self.logger.error("Buildid " + str(workitem.buildnr) + " test " + testinfo['name'] + '-' + testinfo['fstype'] + " Exception when trying to read results.yml: " + str(e))
                 else:
                     try:
