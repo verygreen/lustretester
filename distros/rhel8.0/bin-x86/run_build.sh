@@ -112,10 +112,14 @@ done
 find -name "*.ko" -exec strip --strip-debug {} \;
 
 mksquashfs . ${OUTDIR}/lustre${EXTRANAME}.ssq -comp xz -no-exports -no-progress || exit -1
+if [ ! -s ${OUTDIR}/lustre${EXTRANAME}.ssq ] ; then
+        log "Somehow mksquashfs did not create the file but did not return an error either"
+        exit -1
+fi
 
 # Also add kernel, initrd and compressed debug kernel
-cp ${KERNELDIR}/arch/${ARCH}/boot/bzImage ${OUTDIR}/kernel${EXTRANAME}
-cp ${KERNELDIR}/initrd.img ${OUTDIR}/initrd${EXTRANAME}.img
-cp ${KERNELDIR}/vmlinux.xz ${OUTDIR}/debug-vmlinux${EXTRANAME}.xz
+cp ${KERNELDIR}/arch/${ARCH}/boot/bzImage ${OUTDIR}/kernel${EXTRANAME} || exit -1
+cp ${KERNELDIR}/initrd.img ${OUTDIR}/initrd${EXTRANAME}.img || exit -1
+cp ${KERNELDIR}/vmlinux.xz ${OUTDIR}/debug-vmlinux${EXTRANAME}.xz || exit -1
 
 log "BUILDID ${BUILDNR} ${DISTRO} for ${HASH} completed"
