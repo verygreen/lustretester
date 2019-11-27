@@ -1358,12 +1358,15 @@ def print_garbage():
     snapshot = tracemalloc.take_snapshot()
     top_stats = snapshot.statistics('lineno')
     print("MEMORY:")
-    for stat in top_stats[:20]:
-        print(stat)
     try:
-        sys.stdout.flush()
-    except:
-        pass
+        for stat in top_stats[:20]:
+            print(stat)
+        try:
+            sys.stdout.flush()
+        except:
+            pass
+    except BlockingIOError:
+        print("Overflow of printing queue")
 
 def donewith_WorkItem(workitem):
     print_WorkList_to_HTML()
