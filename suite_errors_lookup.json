@@ -1,3 +1,5 @@
 [
-	".ko: File exists"
+	{"string":".ko: File exists","fatal":true,"name":"Module Insert Failure"},
+	{"string":": syntax error:", "warn":true, "name":"Script Syntax Error"},
+	{"string":": command not found", "warn":true, "name":"command not found"}
 ]

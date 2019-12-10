@@ -377,26 +377,29 @@ class Tester(object):
         return crashfilename
 
     def match_test_output(self, testname, patterns):
-        """ search for array of patterns in test output for testname """
+        """ search for array of patterns in test output for testname
+            and return matching patterns
+        """
+        matches = []
         filename = self.testresultsdir + "/" + testname + ".suite_log." + self.clientnetname + ".log"
         if not os.path.exists(filename):
             self.logger.warning("suite log " + filename + " does not exist in match_test_output")
-            return False
+            return matches
 
         if os.stat(filename).st_size == 0:
             self.logger.warning("suite log is empty in match_test_output")
-            return False
+            return matches
 
         try:
-            with open(filename, "r") as suitefd:
+            with open(filename, "r", encoding = "ISO-8859-1") as suitefd:
                 suitelog = suitefd.read()
         except OSError:
-            return False
+            return matches
 
         for pattern in patterns:
-            if pattern in suitelog:
-                return True
-        return False
+            if pattern.get('string', 'blahblah') in suitelog:
+                matches.append(pattern)
+        return matches
 
     def get_duration(self):
         return int(time.time() - self.startTime)
@@ -757,20 +760,24 @@ class Tester(object):
                     return False
 
                 # Match test suite output for signs of neessary restart.
-                # But only if test took under 5 minutes.
-                if self.get_duration() < 300 and os.path.exists("suite_errors_lookup.json"):
+                # Also see if we can print various warnings.
+                if os.path.exists("suite_errors_lookup.json"):
                     suite_errors = []
                     try:
                         with open("suite_errors_lookup.json", "r") as errfile:
                             suite_errors = json.load(errfile)
                     except: # any error really
-                        self.logger.error("Failure loading suire errors description?")
+                        self.logger.error("Failure loading suite errors description?")
                     else:
-                        if self.match_test_output(testscript, suite_errors):
-                            self.logger.warning("Buildid " + str(workitem.buildnr) + " test " + testinfo['name'] + '-' + testinfo['fstype'] + " matched suite error pattern")
-                            server.terminate()
-                            client.terminate()
-                            return False
+                        for match in self.match_test_output(testscript, suite_errors):
+                            # self.get_duration() < 300 and ?
+                            if match.get("fatal"):
+                                self.logger.warning("Buildid " + str(workitem.buildnr) + " test " + testinfo['name'] + '-' + testinfo['fstype'] + " matched suite error pattern " + match.get("name", "no name"))
+                                server.terminate()
+                                client.terminate()
+                                return False
+                            if match.get("warn"):
+                                warnings += "(%s)" % (match.get("name", "no name"))
 
                 # It's also possible either a client or server are dead or
                 # are dying (crashdumping), need to check for it here
