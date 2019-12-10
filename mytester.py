@@ -44,7 +44,7 @@ class Node(object):
         # because it was closed by terminate or some such
         if not self.consolelogdesc and not self.consoleoutput:
             try:
-                self.consolelogdesc = io.open(self.consolelogfile, "r", encoding="utf-8")
+                self.consolelogdesc = io.open(self.consolelogfile, "r", encoding = "ISO-8859-1")
             except OSError:
                 return False
             fd = self.consolelogdesc.fileno()
@@ -844,7 +844,7 @@ class Tester(object):
             Failure = False
             if os.path.exists(yamlfile):
                 try:
-                    with open(yamlfile, "r") as fl:
+                    with open(yamlfile, "r", encoding = "ISO-8859-1") as fl:
                         fldata = fl.read()
                         testresults = yaml.load(fldata.replace('\\', ''))
                 except (OSError, ImportError, yaml.parser.ParserError, UnicodeDecodeError) as e:
