@@ -548,7 +548,7 @@ def add_review_comment(WorkItem):
             message = "This patch only contains changes that I don't know how to test or build. Skipping"
         else:
             message = 'Cannot detect any functional changes in this patch\n'
-            if not is_trivial_requested(commit_message):
+            if not (is_trivial_requested(commit_message) or is_testonly_requested(commit_message) or is_buildonly_requested(commit_message)):
                 message += TrivialNagMessage
     elif WorkItem.BuildDone and not WorkItem.InitialTestingStarted and not WorkItem.TestingStarted:
         # This is after initial build completion
@@ -575,7 +575,7 @@ def add_review_comment(WorkItem):
                 message += ' Commencing initial testing: ' + WorkItem.requested_tests_string(WorkItem.initial_tests)
             else:
                 message += ' This was detected as a build-only change, no further testing would be performed by this bot.\n'
-                if not is_trivial_requested(commit_message):
+                if not (is_trivial_requested(commit_message) or is_testonly_requested(commit_message) or is_buildonly_requested(commit_message)):
                     message += TrivialNagMessage
                 score = 1
     elif WorkItem.InitialTestingDone and not WorkItem.TestingStarted:
