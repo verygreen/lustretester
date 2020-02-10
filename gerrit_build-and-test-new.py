@@ -677,7 +677,7 @@ def make_requested_testlist(requestedlistparams, branch):
         for test in initialtestlist + fulltestlist + lnettestlist + zfstestlist + ldiskfstestlist:
             testname = test.get("name", test['test'])
             if item == testname:
-                for i in ("DNE", "fstype", "testparam", "austerparam", "vmparams", "env", 'SSK', 'SELINUX', 'singletimeout'):
+                for i in ("DNE", "fstype", "testparam", "austerparam", "vmparams", "env", 'SSK', 'SELINUX', 'singletimeout','timeout'):
                     if requestedlistparams.get(i):
                         test[i] = requestedlistparams[i]
 
