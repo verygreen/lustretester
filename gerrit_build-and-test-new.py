@@ -949,6 +949,8 @@ class Reviewer(object):
                 tmp = line.replace(' ', '').replace('\t', '') # remove spaces
                 if not line[1:]: # empty line? skip
                     continue
+                if "/kernel_patches/" in chfile:
+                    commentonly = False
                 if (basename.endswith('.c') or basename.endswith('.h')) \
                     and not (tmp[1:].startswith('/*') or tmp[1:].startswith('//') or \
                    tmp[1:].startswith('*')):
