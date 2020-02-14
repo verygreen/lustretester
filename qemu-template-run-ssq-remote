@@ -91,7 +91,13 @@ NCPID=$!
 
 #echo started netcat pid $! port $PORT
 
-MEM=${MEM:-4078}
+if [ ${DISTRO} = "rhel8.1" ] ; then
+	MEM=${MEM:-4206}
+	CRASHKERNEL=${CRASHKERNEL:-256M}
+else
+	MEM=${MEM:-4078}
+	CRASHKERNEL=${CRASHKERNEL:-128M}
+fi
 
 #EXTRAKERNELARGS="kmemleak=on"
 EXTRAKERNELARGS=${EXTRAKERNELARGS:-"audit=0"}
@@ -106,7 +112,7 @@ sleep $((RANDOM % 5)).$((RANDOM % 100))
 
 renice -n -10 $$
 echo "Starting Qemu for $NAME"
-exec ssh -tt -o StrictHostKeyChecking=no root@${SERVERHOST} nice -n 10 qemu-system-x86_64 -nographic -nodefaults -no-reboot ${MLOCK} -nic bridge,model=virtio,mac=${MAC},br=br1 -name guest=${NAME},debug-threads=on -machine pc-i440fx-1.6,accel=kvm,usb=off,dump-guest-core=off -m ${MEM} -realtime mlock=off -smp 4,sockets=1,cores=2,threads=2 -rtc base=utc -chardev stdio,mux=on,id=char0 -mon chardev=char0,mode=readline -serial chardev:char0 -serial tcp:"$HOSTNAME":"$PORT",nodelay -drive file="${HOMEDATA}",format=file,locking=off,if=none,id=drive-virtio-disk0 -device virtio-blk-pci,scsi=off,bus=pci.0,addr=0x5,drive=drive-virtio-disk0,id=virtio-disk0,write-cache=on -drive file="${SWAPDEV}",format=raw,if=none,id=drive-virtio-disk1,cache=unsafe ${EXTRADEV} -device virtio-blk-pci,scsi=off,bus=pci.0,addr=0x6,drive=drive-virtio-disk1,id=virtio-disk1,write-cache=on $EXTRADEVS -msg timestamp=on -kernel "${KERNEL}" -initrd "${INITRD}" -append '"rd.shell '${CMDROOT}' ro crashkernel=128M panic=1 nomodeset ipmtu=9000 ip=dhcp rd.neednet=1 noibrs noibpb pti=off spectre_v2=off l1tf=off nospec_store_bypass_disable console=ttyS1,115200 '${EXTRAKERNELARGS}'"' \; echo 'dead bees know no mercy' \| nc $HOSTNAME $PORT 2\>/dev/null
+exec ssh -tt -o StrictHostKeyChecking=no root@${SERVERHOST} nice -n 10 qemu-system-x86_64 -nographic -nodefaults -no-reboot ${MLOCK} -nic bridge,model=virtio,mac=${MAC},br=br1 -name guest=${NAME},debug-threads=on -machine pc-i440fx-1.6,accel=kvm,usb=off,dump-guest-core=off -m ${MEM} -realtime mlock=off -smp 4,sockets=1,cores=2,threads=2 -rtc base=utc -chardev stdio,mux=on,id=char0 -mon chardev=char0,mode=readline -serial chardev:char0 -serial tcp:"$HOSTNAME":"$PORT",nodelay -drive file="${HOMEDATA}",format=file,locking=off,if=none,id=drive-virtio-disk0 -device virtio-blk-pci,scsi=off,bus=pci.0,addr=0x5,drive=drive-virtio-disk0,id=virtio-disk0,write-cache=on -drive file="${SWAPDEV}",format=raw,if=none,id=drive-virtio-disk1,cache=unsafe ${EXTRADEV} -device virtio-blk-pci,scsi=off,bus=pci.0,addr=0x6,drive=drive-virtio-disk1,id=virtio-disk1,write-cache=on $EXTRADEVS -msg timestamp=on -kernel "${KERNEL}" -initrd "${INITRD}" -append '"rd.shell '${CMDROOT}' ro crashkernel='${CRASHKERNEL}' panic=1 nomodeset ipmtu=9000 ip=dhcp rd.neednet=1 noibrs noibpb pti=off spectre_v2=off l1tf=off nospec_store_bypass_disable console=ttyS1,115200 '${EXTRAKERNELARGS}'"' \; echo 'dead bees know no mercy' \| nc $HOSTNAME $PORT 2\>/dev/null
 
 # this is for the case ssh terminating without starting the qemu successfully
 # e.g. due to connections error

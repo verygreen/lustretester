@@ -143,20 +143,15 @@ def extract_crash_from_dmesg_string(crashlog):
                     #    abbreviated_backtrace += " " + bttokens[2]
                     abbreviated_backtrace += '\n'
             elif not crashfunction:
-                pattern = re.compile(r"IP: \[<\w+>\] (\w+).*\+0x")
-                result = pattern.match(line)
-                if result:
-                    crashfunction = result.group(1)
-                    continue
-                pattern = re.compile(r"RIP: \d+:\[<\w+>\]  \[<\w+>\] (\w+).*\+0x")
-                result = pattern.match(line)
-                if result:
-                    crashfunction = result.group(1)
-                    continue
-                pattern = re.compile(r"PC is at (\w+)\+0x")
-                result = pattern.match(line)
-                if result:
-                    crashfunction = result.group(1)
+                funcresult = None
+                for regex in (r"IP: \[<\w+>\] (\w+).*\+0x", r"RIP: \d+:\[<\w+>\]  \[<\w+>\] (\w+).*\+0x", r"RIP: \d+:(\w+)\+0x", r"PC is at (\w+)\+0x"):
+                    pattern = re.compile(regex)
+                    result = pattern.match(line)
+                    if result:
+                        funcresult = result.group(1)
+                        break
+                if funcresult:
+                    crashfunction = funcresult
                     continue
             if line == 'Call Trace:' or line == 'Call trace:':
                 recording_backtrace = True
