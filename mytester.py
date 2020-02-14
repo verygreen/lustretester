@@ -961,7 +961,7 @@ class Tester(object):
             else:
                 warnings += "(%s)" % (warnmsg)
         elif "Backtrace: " in self.testouts:
-            warnmsg += "userspace backtrace - please investigate"
+            warnmsg = "userspace backtrace - please investigate"
             uniq = process_warning(testinfo['name'], warnmsg,
                                    workitem.change,
                                    workitem.get_url_for_test(testinfo),
