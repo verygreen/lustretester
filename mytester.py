@@ -219,7 +219,7 @@ class Tester(object):
                         pass # what can we do
             except:
                 tb = traceback.format_exc()
-                self.logger.info("Exception in job buildid " + str(workitem.buildnr) + testinfo['name'] + '-' + testinfo['fstype'] + ": " + str(sys.exc_info()))
+                self.logger.info("Exception in job buildid " + str(workitem.buildnr) + " " + testinfo['name'] + '-' + testinfo['fstype'] + ": " + str(sys.exc_info()))
                 self.logger.info("backtrace: " + str(tb))
                 result = True # No point in restarting a bad job?
                               # Note it would probably hang forever in the
