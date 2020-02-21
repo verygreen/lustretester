@@ -113,7 +113,8 @@ for i in '*.c' '*.o' '*.h' '*Makefile*' '*.cmd' ; do
 done
 find -name "*.ko" -exec strip --strip-debug {} \;
 
-mksquashfs . ${OUTDIR}/lustre${EXTRANAME}.ssq -comp xz -no-exports -no-progress || exit -1
+rm -f ${OUTDIR}/lustre${EXTRANAME}.ssq
+mksquashfs . ${OUTDIR}/lustre${EXTRANAME}.ssq -comp xz -no-exports -no-progress -noappend || exit -1
 
 if [ ! -s ${OUTDIR}/lustre${EXTRANAME}.ssq ] ; then
 	log "Somehow mksquashfs did not create the file but did not return an error either"
