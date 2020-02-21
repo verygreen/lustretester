@@ -166,7 +166,7 @@ def populate_testlist_from_array(testlist, testarray, LDiskfsOnly, ZFSOnly, DNE=
             # Must always have these two
             test['test'] = item['test']
             test['timeout'] = item['timeout']
-            for elem in ('name', 'testparam', 'DNE', 'env', 'SSK', 'SELINUX', 'fstype', 'austerparam', 'vmparams', 'singletimeout'):
+            for elem in ('name', 'testparam', 'DNE', 'env', 'SSK', 'SELINUX', 'fstype', 'austerparam', 'vmparams', 'singletimeout', 'clientdistro', 'serverdistro', 'forcedistro'):
                 if item.get(elem):
                     test[elem] = item[elem]
 
@@ -677,7 +677,7 @@ def make_requested_testlist(requestedlistparams, branch):
         for test in initialtestlist + fulltestlist + lnettestlist + zfstestlist + ldiskfstestlist:
             testname = test.get("name", test['test'])
             if item == testname:
-                for i in ("DNE", "fstype", "testparam", "austerparam", "vmparams", "env", 'SSK', 'SELINUX', 'singletimeout','timeout'):
+                for i in ("DNE", "fstype", "testparam", "austerparam", "vmparams", "env", 'SSK', 'SELINUX', 'singletimeout','timeout', 'clientdistro', 'serverdistro', 'forcedistro'):
                     if requestedlistparams.get(i):
                         test[i] = requestedlistparams[i]
 

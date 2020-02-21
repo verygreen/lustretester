@@ -435,8 +435,9 @@ class Tester(object):
         self.init_new_run()
         artifactdir = workitem.artifactsdir
         outdir = workitem.testresultsdir
-        clientdistro = workitem.distro
-        serverdistro = workitem.distro
+        distro = testinfo.get("forcedistro", workitem.distro)
+        clientdistro = testinfo.get("clientdistro", distro)
+        serverdistro = testinfo.get("serverdistro", distro)
 
         # XXX Incorporate distro into this somehow?
         testscript = testinfo.get("test", None)
