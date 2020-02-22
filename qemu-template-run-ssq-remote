@@ -85,7 +85,7 @@ while fuser ${PORT}/tcp ; do
 	# if port is busy, try another one
 	PORT=$((RANDOM + 2000))
 done
-nice --19 nc -l --no-shutdown -o "${RUNDIR}"/"${NAME}"-console.txt -4 0.0.0.0 $PORT >/dev/null </dev/null 2>&1 &
+nice --19 nc -i 2h -l --no-shutdown -o "${RUNDIR}"/"${NAME}"-console.txt -4 0.0.0.0 $PORT >/dev/null </dev/null 2>&1 &
 
 NCPID=$!
 
