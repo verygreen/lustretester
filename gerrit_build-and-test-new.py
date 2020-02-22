@@ -1428,6 +1428,10 @@ def print_WorkList_to_HTML():
 <b>Builders</b>: {builders}
 <p>
 <b>Test Clusters</b>: {testers}
+<p>
+<b>Core queue</b>: {corequeue}
+<p>
+<b>Compressor queue</b>: {compressorqueue}
 <h2>Work Items status</h2>
 <table border=1>
 <tr><th>Build number</th><th>Description</th><th>Status</th></tr>
@@ -1562,7 +1566,9 @@ def print_WorkList_to_HTML():
     buildclusters = "Total: %d%s, busy %d, idle %d. Items in queue: %d" % (len(builders), deadmsg, busy, idle, build_queue.qsize())
 
     all_items = {'status':status, 'workitems':workitems, 'testers':testclusters,\
-            'builders':buildclusters, 'completeditems':completeditems}
+            'builders':buildclusters, 'completeditems':completeditems, \
+            'corequeue':fsconfig["core-queue"].qsize(), \
+            'compressorqueue':fsconfig["compressor-queue"].qsize()}
     with open(fsconfig["outputs"] + "/status.html", "w") as indexfile:
         indexfile.write(template.format(**all_items))
 
