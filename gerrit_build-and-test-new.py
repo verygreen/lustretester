@@ -584,6 +584,9 @@ def add_review_comment(WorkItem):
             if WorkItem.AddedTestFailure:
                 message = 'Newly added or changed test failed in initial testing:\n'
             else:
+                if WorkItem.FinalReportPosted:
+                    return # final testing repeats filter on crash/timeout
+                WorkItem.FinalReportPosted = True
                 message = 'Initial testing failed:\n'
 
             message += WorkItem.test_status_output(WorkItem.initial_tests)
@@ -597,6 +600,10 @@ def add_review_comment(WorkItem):
                 message += '\nNo additional testing was requested'
                 score = 1
     elif WorkItem.TestingDone:
+        if WorkItem.FinalReportPosted:
+            return # We already posted final report, these are remaining timeout/crash strugglers.
+
+        WorkItem.FinalReportPosted = True
         message = ""
         if is_trivial_requested(commit_message):
             message += TrivialIgnoredMessage + '\n\n'
@@ -1190,6 +1197,8 @@ class Reviewer(object):
 
                 workitem.Reviewer = reviewer # Since it cannot be saved otherwise
                 workitem.fsconfig = fsconfig
+                workitem.FinalReportPosted = False # To post new report.
+
                 # We don't know how many times it was retested so need to find
                 # out by checkign the done with place.
                 while os.path.exists(DONEWITH_DIR + "/" + workitem.get_saved_name()):

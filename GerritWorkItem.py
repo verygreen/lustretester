@@ -48,6 +48,7 @@ class GerritWorkItem(object):
         self.lock = threading.Lock()
         self.retestiteration = 0
         self.crash_ids_reported = []
+        self.FinalReportPosted = False
 
     def __getstate__(self):
         state = self.__dict__.copy()
