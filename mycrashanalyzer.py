@@ -337,7 +337,10 @@ class Compressor(object):
                 continue
             # read actual processor from the fsconfig?
             commandline = "nice -n 19 xz -9 " + item
-            subprocess.run(commandline, shell=True, check=True)
+            try:
+                subprocess.run(commandline, shell=True, check=True)
+            except:
+                pass # We don't care if it failed.
 
 def crasher_add_work(fsconfig, corefile, testinfo, distro, arch, workitem, message, COND=None, QUEUE=None, TIMEOUT=False):
     item = {'corefile':corefile, 'testinfo':testinfo, 'distro':distro, 'arch':arch, 'workitem':workitem, 'message':message, 'COND':COND, 'QUEUE':QUEUE, 'TIMEOUT':TIMEOUT}
