@@ -30,7 +30,7 @@ def process_warning(testname, warning, change, resultlink, fstype, testtime=None
             unique = True
         if gerritid:
             cur.execute("INSERT INTO warnings(created_at, branch, GerritID, test, warning, Link, fstype) VALUES (%s, %s, %s, %s, %s, %s, %s)", (testtime, branch, gerritid, testname, warning, resultlink, fstype))
-        elif not (branch_next and unique): # don't want new -next branch results stored
+        elif not branch_next: # don't want new -next branch results stored
             cur.execute("INSERT INTO warnings(created_at, branch, test, warning, Link, fstype) VALUES (%s, %s, %s, %s, %s, %s)", (testtime, branch, testname, warning, resultlink, fstype))
 
         dbconn.commit()
@@ -103,7 +103,7 @@ def process_one(testname, subtestname, error, duration, branch, gerritid, result
         # Because you cannot insert NULL into integer field apparently
         if gerritid:
             cur.execute("INSERT INTO failures(created_at, branch, GerritID, test, subtest, duration, error, Link, fstype) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)", (testtime, branch, gerritid, testname, subtestname, duration, error, resultlink, fstype))
-        elif not (branch_next and unique): # don't want new -next branch results stored
+        elif not branch_next: # don't want new -next branch results stored
             cur.execute("INSERT INTO failures(created_at, branch, test, subtest, duration, error, Link, fstype) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)", (testtime, branch, testname, subtestname, duration, error, resultlink, fstype))
 
         dbconn.commit()
