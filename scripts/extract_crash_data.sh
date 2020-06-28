@@ -27,9 +27,21 @@ fi
 
 TEMPDIR=$(mktemp -d /tmp/crash-anaysis.XXXXX)
 
+cleanup_crash_dir() {
+	trap 0
+	rm -rf ${TEMPDIR}
+}
+
+trap cleanup_crash_dir EXIT
 
 nice -n 19 xzcat "${BUILDDIR}/debug-vmlinux${SUFFIX}.xz" >${TEMPDIR}/vmlinux || exit 3
-tar -C ${TEMPDIR} -a -x -f "${BUILDDIR}/source-and-binaries${SUFFIX}".tar* || exit 4
+
+# if .tar file exists - use it
+test -f "${BUILDDIR}/source-and-binaries${SUFFIX}".tar && tar -C ${TEMPDIR} -a -x -f "${BUILDDIR}/source-and-binaries${SUFFIX}".tar
+
+# If that failed to produce anything - switch to compressed
+test -f ${TEMPDIR}/Makefile || tar -C ${TEMPDIR} -a -x -f "${BUILDDIR}/source-and-binaries${SUFFIX}".tar.* || exit 4
+
 mkdir ${TEMPDIR}/modules
 find ${TEMPDIR} -name "*.ko" -exec mv {} ${TEMPDIR}/modules \;
 # XXX - copy other kernel modules here too
