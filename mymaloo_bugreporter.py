@@ -107,14 +107,8 @@ class maloo_poster(object):
             url = self.base_api_url + "sub_tests?test_set_id=" + testsetid + "&offset=" + str(offset)
 
             res = requests.get(url, auth=(self.username, self.password))
-            if res.status_code != requests.codes.ok:
+            if res.status_code != requests.codes.ok or not res.json():
                 return self.post_buggable(testsetid, 'TestSet', testsetid, bug)
-
-            if not res.json():
-                self.error = "Error2 getting list of subtests"
-                # XXX huh? can this even happen?
-                #print(res.text)
-                return False
 
             data = res.json().get('data', [])
             if not data:
