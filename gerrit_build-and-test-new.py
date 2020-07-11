@@ -111,7 +111,8 @@ managerthread = None
 REVIEW_HISTORY_PATH = os.getenv('REVIEW_HISTORY_PATH', 'REVIEW_HISTORY')
 STYLE_LINK = os.getenv('STYLE_LINK',
         'http://wiki.lustre.org/Lustre_Coding_Style_Guidelines')
-TrivialNagMessage = 'It is recommended to add "Test-Parameters: trivial" directive to patches that do not change any running code to ease the load on the testing subsystem'
+#TrivialNagMessage = 'It is recommended to add "Test-Parameters: trivial" directive to patches that do not change any running code to ease the load on the testing subsystem'
+TrivialNagMessage = '' # don't want to promote trivial anymore
 TrivialIgnoredMessage = 'Even though "Test-Parameters: trivial" was detected, this deeply suspicious bot still run some testing'
 
 USE_CODE_REVIEW_SCORE = False
