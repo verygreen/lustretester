@@ -91,7 +91,7 @@ NCPID=$!
 
 #echo started netcat pid $! port $PORT
 
-if [ ${DISTRO} = "rhel8.1" ] ; then
+if echo "${DISTRO}" | grep -q "rhel8."  ; then
 	MEM=${MEM:-4206}
 	CRASHKERNEL=${CRASHKERNEL:-256M}
 else
