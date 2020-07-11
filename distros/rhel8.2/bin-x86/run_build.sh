@@ -4,7 +4,7 @@ export PATH=/usr/lib64/ccache:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/
 
 SRCLOCATION=/home/green/git/lustre-release-base
 TGTBUILD=/home/green/git/lustre-release
-KERNELDIR=/home/green/bk/linux-4.18.0-80.11.2.el8_0-debug
+KERNELDIR=/home/green/bk/linux-4.18.0-193.6.3.el8_2-debug
 OUTDIR=/tmp/out
 
 ARCH=$(uname -m)
@@ -72,7 +72,7 @@ else
 	UNCACHEDCONFIGURE=true
 	log "Configure"
 fi
-./configure -C --with-linux=${KERNELDIR}  --with-zfs=/usr/local/src/zfs-0.8.2 --with-spl=/usr/local/src/spl-0.8.2 --with-zfs-devel=/usr/local --disable-shared >>${BUILDLOG} 2>&1
+./configure -C --with-linux=${KERNELDIR}  --with-zfs=/usr/local/src/zfs-0.8.4 --with-spl=/usr/local/src/spl-0.8.4 --with-zfs-devel=/usr/local --disable-shared >>${BUILDLOG} 2>&1
 RETVAL=$?
 if [ $RETVAL -ne 0 ] ; then
         echo "configure error!"
@@ -111,7 +111,8 @@ for i in '*.c' '*.o' '*.h' '*Makefile*' '*.cmd' ; do
 done
 find -name "*.ko" -exec strip --strip-debug {} \;
 
-mksquashfs . ${OUTDIR}/lustre${EXTRANAME}.ssq -comp xz -no-exports -no-progress || exit -1
+rm -f ${OUTDIR}/lustre${EXTRANAME}.ssq
+mksquashfs . ${OUTDIR}/lustre${EXTRANAME}.ssq -comp xz -no-exports -no-progress -noappend || exit -1
 if [ ! -s ${OUTDIR}/lustre${EXTRANAME}.ssq ] ; then
         log "Somehow mksquashfs did not create the file but did not return an error either"
         exit -1
