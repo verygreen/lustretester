@@ -1,5 +1,6 @@
 [
 	{"test":"lnet-selftest", "timeout":1000},
-	{"test":"sanity-lnet", "timeout":-1,"onlybranch":"master"},
-	{"test":"sanity-dlc", "timeout":1200,"disabled":true}
+	{"test":"sanity-lnet", "timeout":-1},
+	{"test":"sanity-dlc", "timeout":1200,"disabled":true},
+	{"test":"lutf", "timeout":-1,"disabled":true}
 ]
