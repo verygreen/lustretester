@@ -57,7 +57,7 @@ fi
 
 echo "${REF}" >${OUTDIR}/REF
 
-CONFIGUREHASH=$(cat $(find -name "*.m4" -o -name "*.ac") | md5sum | cut -f1 -d " ")
+CONFIGUREHASH=$(cat LUSTRE-VERSION-GEN $(find -name "*.m4" -o -name "*.ac") | md5sum | cut -f1 -d " ")
 log "autogen.sh"
 sh autogen.sh >>${BUILDLOG} 2>&1
 
