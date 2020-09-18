@@ -1,5 +1,6 @@
 [
 	{"error":"obdclass_exit()) obd_memory max:", "message":"Memory Leaks Detected"},
+	{"error":"libcfs_exit()) Portals memory leaked:", "message":"Portals Memory Leaks Detected"},
 	{"error":"BUG: sleeping function called from invalid context at", "message":"sleeping in atomic"},
 	{"error":"BUG: scheduling while atomic", "message":"scheduling in atomic"},
 	{"error":"BUG: spinlock ", "message":"Spinlock badness"},
