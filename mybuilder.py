@@ -192,6 +192,7 @@ class Builder(object):
                 return False
             elif code == 10:
                 message = "git checkout error error: \n" + errs
+                return False #let's retry
             elif code == 12:
                 message = "Configure error: \n" + errs
             elif code == 14:
