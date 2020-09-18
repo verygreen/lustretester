@@ -136,7 +136,7 @@ def process_results(results, workitem, resultlink, fstype):
             for subtest in yamltest.get('SubTests', []):
                 try:
                     if subtest.get('status', '') == "FAIL":
-                        error = subtest.get('error', '')
+                        error = subtest.get('error', '').replace('\\', '')
                         subtestname = subtest['name']
                         testname = yamltest.get('name', '')
                         testduration = subtest.get('duration', 0)

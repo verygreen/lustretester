@@ -71,7 +71,7 @@ for savefile in sorted(os.listdir("donewith"), key=lambda x: int(x.split(".")[0]
                 try:
                     with open(yamlfile, "r") as fl:
                         fldata = fl.read()
-                        testresults = yaml.load(fldata.replace('\\', ''))
+                        testresults = yaml.safe_load(fldata.replace('"', ''))
                 except (OSError, ImportError) as e:
                     print("Error loading " + yamlfile + " : " + str(e))
                     continue

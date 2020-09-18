@@ -854,8 +854,8 @@ class Tester(object):
                 try:
                     with open(yamlfile, "r", encoding = "ISO-8859-1") as fl:
                         fldata = fl.read()
-                        testresults = yaml.load(fldata.replace('\\', ''))
-                except (OSError, ImportError, yaml.parser.ParserError, UnicodeDecodeError) as e:
+                        testresults = yaml.safe_load(fldata.replace('"', ''))
+                except (OSError, ImportError, yaml.parser.ParserError, UnicodeDecodeError, yaml.scanner.ScannerError) as e:
                     warnings += "(yaml read error" + str(e) + ", check logs)"
                     self.logger.error("Buildid " + str(workitem.buildnr) + " test " + testinfo['name'] + '-' + testinfo['fstype'] + " Exception when trying to read results.yml: " + str(e))
                 else:
@@ -875,6 +875,10 @@ class Tester(object):
                                 continue # no subtests?
 
                             for subtest in yamltest.get('SubTests', []):
+                                if not subtest.get('status'):
+                                    subtest['status'] = "FAIL"
+                                    if not subtest.get('error'):
+                                        subtest['error'] = "No status. Crash?"
                                 if subtest.get('status', '') == "FAIL":
                                     if workitem.change.get('updated_tests'):
                                         if subtest['name'] in workitem.change['updated_tests'].get(testscript, []):
@@ -883,7 +887,7 @@ class Tester(object):
                                             workitem.post_immediate_review_comment(msg, {}, 0)
                                     failedsubtests += subtest['name'].replace('test_', '') + "("
                                     if subtest.get('error'):
-                                        failedsubtests += subtest['error']
+                                        failedsubtests += subtest['error'].replace('\\', '')
                                     else:
                                         failedsubtests += "ret " + str(subtest['return_code'])
                                     failedsubtests += ") "
