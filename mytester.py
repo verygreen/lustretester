@@ -98,7 +98,7 @@ class Node(object):
                 string = self.process.stderr.read()
                 self.errs += string
                 return "Process died"
-            if "Failed to start nbd nbd0" is string:
+            if "Failed to start nbd nbd0" == string:
                 return "Cannot start nbd0"
             if "Entering emergency mode. Exit the shell to continue" in string:
                 print("Emergency mode shell detected!")
@@ -346,7 +346,7 @@ class Tester(object):
                     self.logger.warning("Error trying to capture corefile " + str(e))
                 else:
                     outs, errs = result.communicate()
-                    if result.returncode is not 0:
+                    if result.returncode != 0:
                         self.logger.warning("Failed processing of core file " + filename + " to " + outputlocationpathprefix + "vmcore with " + outs + " and " + errs)
                     else:
                         try:

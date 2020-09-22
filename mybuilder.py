@@ -180,7 +180,7 @@ class Builder(object):
             workitem.UpdateBuildStatus(buildinfo, "Build is taking too long, aborting", Timeout=True, Failed=True, BuildStdOut=outs, BuildStdErr=errs)
             return True
 
-        if builder.returncode is not 0:
+        if builder.returncode != 0:
             code = builder.returncode
             self.logger.warning("Build " + str(buildnr) + " failed with code " + str(code))
             message = ""

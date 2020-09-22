@@ -403,7 +403,7 @@ class Crasher(object):
             # mannered local job
             outs, errs = processor.communicate()
 
-            if processor.returncode is not 0:
+            if processor.returncode != 0:
                 self.logger("Crash processing failed with code " + str(processor.returncode) + " stdout: " + outs + " stderr: " + errs)
 
             del processor
