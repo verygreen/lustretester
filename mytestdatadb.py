@@ -6,6 +6,7 @@ import psycopg2
 
 def process_warning(testname, warning, change, resultlink, fstype, testtime=None):
     unique = False
+    dbconn = None
 
     branch = change['branch']
     if change.get('change_id'): # because "branchwide" was added later
@@ -38,7 +39,8 @@ def process_warning(testname, warning, change, resultlink, fstype, testtime=None
     except psycopg2.DatabaseError as e:
         print("Cannot insert new warning entry " + str(e))
     finally:
-        dbconn.close()
+        if dbconn:
+            dbconn.close()
 
     return unique
 
@@ -47,6 +49,7 @@ def process_one(testname, subtestname, error, duration, branch, gerritid, result
     unique = False
     msg = ""
     branch_next = branch.endswith("-next")
+    dbconn = None
 
     if branch_next:
         branch = branch.replace("-next", "")
@@ -111,7 +114,8 @@ def process_one(testname, subtestname, error, duration, branch, gerritid, result
     except psycopg2.DatabaseError as e:
         print("Cannot insert new failure entry " + str(e))
     finally:
-        dbconn.close()
+        if dbconn:
+            dbconn.close()
 
     return (unique, msg)
 
