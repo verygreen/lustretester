@@ -5,6 +5,7 @@ from pprint import pprint
 import psycopg2
 import cgi
 import cgitb
+import html
 from mycrashanalyzer import add_known_crash
 import mymaloo_bugreporter
 cgitb.enable()
@@ -32,7 +33,7 @@ def newreport_rows_to_table(rows):
     REPORTS = ""
     for row in rows:
         REPORTS += '<tr><td>%d</td>' % (row[0])
-        REPORTS += '<td><a href="' + basenameurl + '?newid=%d">%s</a></td><td>%s</td>' % (row[0], cgi.escape(row[1]), cgi.escape(xstr(row[2])))
+        REPORTS += '<td><a href="' + basenameurl + '?newid=%d">%s</a></td><td>%s</td>' % (row[0], html.escape(row[1]), html.escape(xstr(row[2])))
         REPORTS += '<td>%s</td>' % (row[3].replace('\n', '<br>'))
         REPORTS += '<td>' + str(row[4]) + '</td>'
         REPORTS += '<td>' + str(row[5]) + '</td></tr>'
@@ -121,8 +122,8 @@ def examine_one_new_crash(dbconn, newid_str):
         print(e)
         pass
     else:
-        REPORTS += '<tr><td>%s</td>' % (cgi.escape(xstr(row[1])))
-        REPORTS += '<td>%s</td>' % (cgi.escape(xstr(row[2])))
+        REPORTS += '<tr><td>%s</td>' % (html.escape(xstr(row[1])))
+        REPORTS += '<td>%s</td>' % (html.escape(xstr(row[2])))
         REPORTS += '<td>'
         for idx, btline in enumerate(row[3].splitlines()):
             REPORTS += '<input type="radio" name="btline" value="cutat%d"/>%s<br>' % (idx, btline)
@@ -146,14 +147,14 @@ def examine_one_new_crash(dbconn, newid_str):
         for row in rows:
             linktext = ""
             if "http" in row[4]:
-                TRIAGE += '<tr><td><a href="%s">%s</a></td>' % (row[4], cgi.escape(xstr(row[1])))
+                TRIAGE += '<tr><td><a href="%s">%s</a></td>' % (row[4], html.escape(xstr(row[1])))
                 linktext = '<a href="%s">Link to test</a>' % (row[4])
             else:
-                TRIAGE += '<tr><td>%s</td>' % (cgi.escape(xstr(row[1])))
-                linktext = "Externally reported by " + cgi.escape(xstr(row[4]))
+                TRIAGE += '<tr><td>%s</td>' % (html.escape(xstr(row[1])))
+                linktext = "Externally reported by " + html.escape(xstr(row[4]))
 
-            TRIAGE += '<td><div style="overflow: auto; width:30vw; height:300px;">%s</div></td>' % (cgi.escape(row[2]).replace('\n', '<br>'))
-            TRIAGE += '<td><div style="overflow: auto; width:50vw; height:300px;">%s</div></td>' % (cgi.escape(xstr(row[3])).replace('\n', '<br>'))
+            TRIAGE += '<td><div style="overflow: auto; width:30vw; height:300px;">%s</div></td>' % (html.escape(row[2]).replace('\n', '<br>'))
+            TRIAGE += '<td><div style="overflow: auto; width:50vw; height:300px;">%s</div></td>' % (html.escape(xstr(row[3])).replace('\n', '<br>'))
             TRIAGE += "<td>%s</td</tr>" % (linktext)
 
     all_items = {'NEWCRASHID':newid_str, 'REPORT': REPORTS, 'TRIAGE':TRIAGE, 'BASENAMEURL':basenameurl}
