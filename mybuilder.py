@@ -25,18 +25,15 @@ def parse_compile_error(change, stderr):
         # lustre/llite/file.c:247:2: error: 'blah' undeclared (first use in this function)
         tokens = line.split(' ', 2)
         if len(tokens) != 3:
-            print("Token len not matching: ", len(tokens))
             continue
 
         tmp = tokens[0].strip().split(':', 2)
         if len(tmp) != 3:
-            print("Token len not matching2: ", len(tokens))
             continue
 
         path = tmp[0].strip().replace('lustre/ptlrpc/../../','').replace('/home/green/git/lustre-release/', '') # also strip ptlrpc/ldlm cruft
         lineno_str = tmp[1].strip()
         if not lineno_str.isdigit():
-            print("line no not digit: ", lineno_str)
             continue
 
         line_number = int(lineno_str)
