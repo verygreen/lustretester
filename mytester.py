@@ -880,9 +880,10 @@ class Tester(object):
 
                             for subtest in yamltest.get('SubTests', []):
                                 if not subtest.get('status'):
-                                    subtest['status'] = "FAIL"
-                                    if not subtest.get('error'):
-                                        subtest['error'] = "No status. Crash?"
+                                    if (testscript != "sanity-dom") or (subtest['name'] not in ("sanity", "sanityn")):
+                                        subtest['status'] = "FAIL"
+                                        if not subtest.get('error'):
+                                            subtest['error'] = "No status. Crash?"
                                 if subtest.get('status', '') == "FAIL":
                                     if workitem.change.get('updated_tests'):
                                         if subtest['name'] in workitem.change['updated_tests'].get(testscript, []):
