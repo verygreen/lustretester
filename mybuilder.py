@@ -10,6 +10,59 @@ from pprint import pprint
 from subprocess import Popen, PIPE, TimeoutExpired
 import time
 
+def parse_compile_error(change, stderr):
+    """ Parse build error and create annotated gettit object """
+    reviews = {}
+    if not change.get('revisions'):
+        return reviews
+
+    files = change['revisions'][str(change['current_revision'])]['files']
+    pprint(files)
+    if not files:
+        return reviews
+    for line in stderr.splitlines():
+        print("Working on: " + line)
+        # lustre/llite/file.c:247:2: error: 'blah' undeclared (first use in this function)
+        tokens = line.split(' ', 2)
+        if len(tokens) != 3:
+            print("Token len not matching: ", len(tokens))
+            continue
+
+        tmp = tokens[0].strip().split(':', 2)
+        if len(tmp) != 3:
+            print("Token len not matching2: ", len(tokens))
+            continue
+
+        path = tmp[0].strip().replace('lustre/ptlrpc/../../','').replace('/home/green/git/lustre-release/', '') # also strip ptlrpc/ldlm cruft
+        lineno_str = tmp[1].strip()
+        if not lineno_str.isdigit():
+            print("line no not digit: ", lineno_str)
+            continue
+
+        line_number = int(lineno_str)
+        message = tokens[2].strip()
+        level = tokens[1].strip()
+        comment = level + " " + message
+
+        if path not in files and "/" not in path:
+            # Userspace files don't provide full path name, so
+            # lets try to find it in the list
+            for item in sorted(files):
+                if os.path.basename(item) == path:
+                    path = item
+                    break
+
+        # Let's see if it was found once more, if not - we cannot add
+        # this item - gerrit would reject this comment
+        if path not in files:
+            print("path not in files", path)
+            continue
+
+        path_comments = reviews.setdefault(path, [])
+        path_comments.append({'line':line_number, 'message': comment})
+
+    return reviews
+
 class Builder(object):
     def setup_custom_logger(self, name, logdir):
         formatter = logging.Formatter(fmt='%(asctime)s %(levelname)-8s %(message)s',
@@ -89,54 +142,6 @@ class Builder(object):
         self.daemon.daemon = True
         self.daemon.start()
 
-    def parse_compile_error(self, change, stderr):
-        reviews = {}
-        if not change.get('revisions'):
-            return reviews
-
-        files = change['revisions'][str(change['current_revision'])]['files']
-        pprint(files)
-        if not files:
-            return reviews
-        for line in stderr.splitlines():
-            print("Working on: " + line)
-            # lustre/llite/file.c:247:2: error: 'blah' undeclared (first use in this function)
-            tokens = line.split(' ', 2)
-            if len(tokens) != 3:
-                continue
-
-            tmp = tokens[0].strip().split(':', 2)
-            if len(tmp) != 3:
-                continue
-
-            path = tmp[0].strip().replace('lustre/ptlrpc/../../','') # also strip ptlrpc/ldlm cruft
-            lineno_str = tmp[1].strip()
-            if not lineno_str.isdigit():
-                continue
-
-            line_number = int(lineno_str)
-            message = tokens[2].strip()
-            level = tokens[1].strip()
-            comment = level + " " + message
-
-            if path not in files and "/" not in path:
-                # Userspace files don't provide full path name, so
-                # lets try to find it in the list
-                for item in sorted(files):
-                    if os.path.basename(item) == path:
-                        path = item
-                        break
-
-            # Let's see if it was found once more, if not - we cannot add
-            # this item - gerrit would reject this comment
-            if path not in files:
-                continue
-
-            path_comments = reviews.setdefault(path, [])
-            path_comments.append({'line':line_number, 'message': comment})
-
-        return reviews
-
     def build_worker(self, buildinfo, workitem):
         # Might need to make this per-arch?
 
@@ -197,7 +202,7 @@ class Builder(object):
                 message = "Configure error: \n" + errs
             elif code == 14:
                 # This is a build error, we can try to parse it
-                reviewitems = self.parse_compile_error(workitem.change, errs)
+                reviewitems = parse_compile_error(workitem.change, errs)
                 buildinfo['ReviewComments'] = reviewitems
                 message = '%s: Compile failed\n' % (distro)
                 if not reviewitems:
