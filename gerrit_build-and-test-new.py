@@ -957,13 +957,14 @@ class Reviewer(object):
                 tmp = line.replace(' ', '').replace('\t', '') # remove spaces
                 if not line[1:]: # empty line? skip
                     continue
-                if "/kernel_patches/" in chfile:
+                if "ldiskfs/kernel_patches/" in chfile:
                     commentonly = False
                 if (basename.endswith('.c') or basename.endswith('.h')) \
                     and not (tmp[1:].startswith('/*') or tmp[1:].startswith('//') or \
                    tmp[1:].startswith('*')):
                     commentonly = False
                 if (basename.endswith('.sh') or basename.endswith('.pl') or
+                    basename.endswith('.py') or
                     basename in ('runtests', 'auster', 'rundbench', 'runiozone', 'runmultiop_bg_pause', 'runtests', 'runvmstat', 'runobdstat')) \
                    and not tmp[1:].startswith('#'):
                     commentonly = False
