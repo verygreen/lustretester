@@ -31,7 +31,7 @@ def parse_compile_error(change, stderr):
         if len(tmp) != 3:
             continue
 
-        path = tmp[0].strip().replace('lustre/ptlrpc/../../','').replace('/home/green/git/lustre-release/', '') # also strip ptlrpc/ldlm cruft
+        path = tmp[0].strip().replace('lustre/ptlrpc/../../','') # also strip ptlrpc/ldlm cruft
         lineno_str = tmp[1].strip()
         if not lineno_str.isdigit():
             continue

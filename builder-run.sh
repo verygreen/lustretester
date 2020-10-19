@@ -17,7 +17,7 @@ fi
 
 # XXX - we run the builder at the lowest priority so that it does not disrupt
 # parallel VMs
-exec nice -n 10 systemd-nspawn -M "${5}.builder.localnet" -q --read-only --bind=$1:/tmp/out \
+exec nice -n 10 systemd-nspawn -M "${5}.builder.localnet" -P -q --read-only --bind=$1:/tmp/out \
 	--bind-ro=${BASENAME}/distros/${DISTRO}/bin-x86:/home/green/bin \
 	--bind-ro=${GITSOURCE}:/home/green/git/lustre-release-base \
 	--bind=${CONFCACHESOURCE}:/tmp/confcache \
