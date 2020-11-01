@@ -23,6 +23,7 @@ crashstarters = ["SysRq : Trigger a crash",
                  "WARNING: MMP writes to pool",
                  "Kernel panic - not syncing: Out of memory",
                  "kernel BUG at ",
+                 "divide error: ",
                  "general protection fault:", #
                  "Synchronous External Abort:", # And now ARM stuff
                  "Unable to handle kernel NULL pointer dereference",
