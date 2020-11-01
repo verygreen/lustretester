@@ -19,6 +19,7 @@ import mycrashanalyzer
 from mytestdatadb import process_results
 from mytestdatadb import process_warning
 from mytuplesorter import TupleSortingOn0
+import myyamlsanitizer
 
 class Node(object):
     def __init__(self, name, outputdir):
@@ -855,10 +856,10 @@ class Tester(object):
                     with open(yamlfile, "r", encoding = "ISO-8859-1") as fl:
                         fldata = fl.read()
                         try:
-                            testresults = yaml.safe_load(fldata.replace('"', '\'').replace('\\',''))
+                            testresults = yaml.safe_load(fldata)
                         except (ImportError, yaml.parser.ParserError,yaml.scanner.ScannerError):
-                            # Above fails when we have single quotes in the stream so try plan B
-                            testresults = yaml.safe_load(fldata.replace('\\',''))
+                            # If yaml is invalid we need to sanitize it
+                            testresults = yaml.safe_load(myyamlsanitizer.sanitize(fldata))
                 except (OSError, ImportError, yaml.parser.ParserError, UnicodeDecodeError, yaml.scanner.ScannerError) as e:
                     warnings += "(yaml read error" + str(e) + ", check logs)"
                     self.logger.error("Buildid " + str(workitem.buildnr) + " test " + testinfo['name'] + '-' + testinfo['fstype'] + " Exception when trying to read results.yml: " + str(e))
