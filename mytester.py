@@ -881,7 +881,7 @@ class Tester(object):
 
                             for subtest in yamltest.get('SubTests', []):
                                 if not subtest.get('status'):
-                                    if (testscript != "sanity-dom") or (subtest['name'] not in ("sanity", "sanityn")):
+                                    if (testscript != "sanity-dom") or (subtest['name'] not in ("test_sanity", "test_sanityn")):
                                         subtest['status'] = "FAIL"
                                         if not subtest.get('error'):
                                             subtest['error'] = "No status. Crash?"
