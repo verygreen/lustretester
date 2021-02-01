@@ -528,7 +528,7 @@ class Tester(object):
 
         env = os.environ.copy()
         if testinfo.get("vmparams"):
-            VMPARAMS = dict(re.findall(r'(\S+)=(".*?"|\S+)', testinfo.get['vmparams']))
+            VMPARAMS = dict(re.findall(r'(\S+)=(".*?"|\S+)', testinfo['vmparams']))
             for p in VMPARAMS:
                 env[p] = VMPARAMS[p]
 
