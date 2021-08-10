@@ -1,4 +1,4 @@
 [
 	{"distro":"centos7"},
-	{"distro":"rhel8.2", "branch":"master"}
+	{"distro":"rhel8.3", "branch":"master"}
 ]

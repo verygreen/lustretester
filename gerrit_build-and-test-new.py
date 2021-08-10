@@ -750,7 +750,7 @@ class Reviewer(object):
         self.host = host
         self.project = project
         self.branch = branch
-        self.auth = requests.auth.HTTPDigestAuth(username, password)
+        self.auth = requests.auth.HTTPBasicAuth(username, password)
         self.logger = logging.getLogger(__name__)
         self.history_path = history_path
         self.history_mode = 'rw'
