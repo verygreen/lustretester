@@ -1074,7 +1074,14 @@ class Reviewer(object):
         if is_buildonly_requested(commit_message):
             clist = []
             ilist = []
-        distrolist = determine_distros_from_change(change)
+        if DISTRO:
+            distrolist = []
+            for d in DISTRO.split(","):
+                distrolist.append({"distro":d})
+                DISTRO = d
+                break # only want the first item for now
+        else:
+            distrolist = determine_distros_from_change(change)
         workItem = GerritWorkItem(change, distrolist, ilist, clist, fsconfig, EmptyJob=DoNothing, Reviewer=self, DISTRO=DISTRO)
         if DoNothing:
             add_review_comment(workItem)
