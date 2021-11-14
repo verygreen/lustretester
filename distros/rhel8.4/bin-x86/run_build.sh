@@ -4,12 +4,16 @@ export PATH=/usr/lib64/ccache:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/
 
 SRCLOCATION=/home/green/git/lustre-release-base
 TGTBUILD=/home/green/git/lustre-release
-KERNELDIR=/home/green/bk/linux-4.18.0-193.6.3.el8_2-debug
+KERNELVERSION=linux-4.18.0-305.19.1.el8_4-debug
+ZFSVERSION=2.1.0
+KERNELDIR=/home/green/bk/linux-4.18.0-305.19.1.el8_4-debug
 OUTDIR=/tmp/out
 
 ARCH=$(uname -m)
 . /etc/os-release
-DISTRO="${ID}${VERSION_ID}"
+#DISTRO="${ID}${VERSION_ID}"
+# XXX
+DISTRO=rhel8.4
 EXTRANAME="-${DISTRO}-${ARCH}"
 
 # log straight to the out dir for convenience I guess?
@@ -72,7 +76,7 @@ else
 	UNCACHEDCONFIGURE=true
 	log "Configure"
 fi
-./configure -C --with-linux=${KERNELDIR}  --with-zfs=/usr/local/src/zfs-0.8.4 --with-spl=/usr/local/src/spl-0.8.4 --with-zfs-devel=/usr/local --disable-shared >>${BUILDLOG} 2>&1
+./configure -C --with-linux=${KERNELDIR}  --with-zfs=/usr/local/src/zfs-${ZFSVERSION} --with-spl=/usr/local/src/spl-${ZFSVERSION} --with-zfs-devel=/usr/local --disable-shared >>${BUILDLOG} 2>&1
 RETVAL=$?
 if [ $RETVAL -ne 0 ] ; then
         echo "configure error!"
