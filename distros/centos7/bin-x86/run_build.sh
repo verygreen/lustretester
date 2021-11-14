@@ -4,8 +4,9 @@ export PATH=/usr/lib64/ccache:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/
 
 SRCLOCATION=/home/green/git/lustre-release-base
 TGTBUILD=/home/green/git/lustre-release
-#KERNELDIR=/home/green/bk/linux-3.10.0-1062.1.2.el7-debug
-KERNELDIR=/home/green/bk/linux-3.10.0-1127.13.1.el7-debug
+KERNELVERSION=linux-3.10.0-1160.45.1.el7-debug
+ZFSVERSION=0.8.6
+KERNELDIR=/home/green/bk/${KERNELVERSION}
 OUTDIR=/tmp/out
 
 ARCH=$(uname -m)
@@ -74,7 +75,7 @@ else
 	UNCACHEDCONFIGURE=true
 	log "Configure"
 fi
-./configure -C --with-linux=${KERNELDIR}  --with-zfs=/usr/local/src/zfs-0.7.13 --with-spl=/usr/local/src/spl-0.7.13 --with-zfs-devel=/usr/local --disable-shared >>${BUILDLOG} 2>&1
+./configure -C --with-linux=${KERNELDIR}  --with-zfs=/usr/local/src/zfs-${ZFSVERSION} --with-spl=/usr/local/src/spl-${ZFSVERSION} --with-zfs-devel=/usr/local --disable-shared >>${BUILDLOG} 2>&1
 RETVAL=$?
 if [ $RETVAL -ne 0 ] ; then
         echo "configure error!"
