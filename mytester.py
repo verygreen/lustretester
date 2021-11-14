@@ -497,7 +497,13 @@ class Tester(object):
         if not os.path.exists(serverbuild) or not os.path.exists(clientbuild) or \
            not os.path.exists(serverkernel) or not os.path.exists(serverinitrd) or \
            not os.path.exists(clientkernel) or not os.path.exists(clientinitrd):
-            self.logger.error("Our build artifacts are missing for build" + str(workitem.buildnr))
+            self.logger.error("Our build artifacts are missing for build " + str(workitem.buildnr))
+            self.logger.error("server build " + serverbuild + ": " + str(os.path.exists(serverbuild)))
+            self.logger.error("client build " + clientbuild + ": " + str(os.path.exists(clientbuild)))
+            self.logger.error("server kernel " + serverkernel + ": " + str(os.path.exists(serverkernel)))
+            self.logger.error("client kernel " + clientkernel + ": " + str(os.path.exists(clientkernel)))
+            self.logger.error("server initrd " + serverinitrd + ": " + str(os.path.exists(serverinitrd)))
+            self.logger.error("client initrd " + clientinitrd + ": " + str(os.path.exists(clientinitrd)))
             workitem.UpdateTestStatus(testinfo, "Build artifacts missing", Failed=True)
             return True # If we don't see 'em, nobody can see 'em
 
