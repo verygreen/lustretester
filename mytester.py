@@ -651,6 +651,7 @@ class Tester(object):
         deadlinetime = self.startTime + timeout
         message = ""
         warnings = ""
+        matched_suite_errors = []
         while testprocess.returncode is None: # XXX add a timer
             try:
                 # This is a very ugly workaround to the fact that when you call
@@ -780,15 +781,14 @@ class Tester(object):
                     except: # any error really
                         self.logger.error("Failure loading suite errors description?")
                     else:
-                        for match in self.match_test_output(testscript, suite_errors):
+                        matched_suite_errors = self.match_test_output(testscript, suite_errors)
+                        for match in matched_suite_errors:
                             # self.get_duration() < 300 and ?
                             if match.get("fatal"):
                                 self.logger.warning("Buildid " + str(workitem.buildnr) + " test " + testinfo['name'] + '-' + testinfo['fstype'] + " matched suite error pattern " + match.get("name", "no name"))
                                 server.terminate()
                                 client.terminate()
                                 return False
-                            if match.get("warn"):
-                                warnings += "(%s)" % (match.get("name", "no name"))
 
                 # It's also possible either a client or server are dead or
                 # are dying (crashdumping), need to check for it here
@@ -934,6 +934,22 @@ class Tester(object):
         matched_server_errors = []
         matched_client_errors = []
         uniq_warns = []
+
+        oldwarns = []
+        for match in matched_suite_errors:
+            if match.get("warn"):
+                warnmsg = match.get("name", "no name")
+                uniq = process_warning(testinfo['name'], warnmsg,
+                                       workitem.change,
+                                       workitem.get_url_for_test(testinfo),
+                                       testinfo['fstype'])
+                if uniq:
+                    uniq_warns.append(warnmsg)
+                else:
+                    oldwarns.append(warnmsg)
+        if oldwarns:
+            warnings += "(Scripts: " + ",".join(oldwarns) + ")"
+
         for item in console_errors:
             if item.get('error') and item.get('message'):
                 if server.match_console_string(item['error']):
