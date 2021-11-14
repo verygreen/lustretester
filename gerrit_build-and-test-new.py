@@ -1125,6 +1125,7 @@ class Reviewer(object):
     def check_for_commands(self):
         global StopOnIdle
         global DrainQueueAndStop
+        global GERRIT_FORCETOPIC
         # See if we got any commands
         for commandfile in os.listdir(GERRIT_COMMANDMONITORDIR):
             command = {}
@@ -1263,6 +1264,10 @@ class Reviewer(object):
             elif command.get("drain-and-stop") != None:
                 DrainQueueAndStop = command['drain-and-stop']
                 StopOnIdle = DrainQueueAndStop
+            elif command.get("forcetopic") != None:
+                GERRIT_FORCETOPIC = command['forcetopic']
+            elif command.get("removetopic") != None:
+                GERRIT_FORCETOPIC = None
             elif command.get("add-builders") != None:
                 buildersfilename = command['add-builders']
                 try:
