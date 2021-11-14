@@ -31,7 +31,7 @@ crashstarters = ["SysRq : Trigger a crash",
                  "watchdog: BUG: soft lockup - "
                  ]
 blacklisted_bt_funcs = [ "libcfs_call_trace", "dump_stack", "lbug_with_loc",
-                         "0xffffffffffffffff", "ret_from_fork_nospec_begin",
+                         "ret_from_fork_nospec_begin",
                          "ret_from_fork_nospec_end", "dump_trace",
                          "show_stack_log_lvl", "show_stack", "save_stack_trace_tsk"]
 crashenders = ["Code: ", "Kernel panic - not syncing: LBUG", "Starting crashdump kernel...", "DWARF2 unwinder stuck at", "Leftover inexact backtrace", "Kernel Offset: disabled"]
@@ -131,12 +131,19 @@ def extract_crash_from_dmesg_string(crashlog):
                     # sometimes we get no address
                     if not "+0x" in bttokens[0]:
                         continue # Not an address so some cruft
-                    bttokens.insert(0, "[<fakeaddress>]")
+                    bttokens.insert(0, "[<0>]")
                 if len(bttokens) < 2:
                     continue
                 if bttokens[1] != '?':
                     # strip address and parts/isra/.. stuff
                     function = bttokens[1].split('+')[0].split('.')[0]
+                    if function.startswith("0xfffffffffffff"):
+                        # These are invalid addreses common with end of trace
+                        continue
+                    if function.startswith("0x"):
+                        # This is some address - either we cannot resolve it or
+                        # it's some stack garbage
+                        function = "UNRESOLVEDADDRESS"
                     if function in blacklisted_bt_funcs:
                         continue
                     abbreviated_backtrace += function
