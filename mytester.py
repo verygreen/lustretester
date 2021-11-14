@@ -256,6 +256,9 @@ class Tester(object):
                 time.sleep(sleep_on_error)
                 self.logger.info("Woke after sleep")
                 sleep_on_error *= 2
+                # Cap sleep on error at 10 minutes
+                if sleep_on_error > 600:
+                    sleep_on_error = 600
                 self.Invalid = False
 
             self.Busy = False
