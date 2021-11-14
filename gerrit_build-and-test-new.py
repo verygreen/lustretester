@@ -1076,10 +1076,10 @@ class Reviewer(object):
             ilist = []
         if DISTRO:
             distrolist = []
-            for d in DISTRO.split(","):
-                distrolist.append({"distro":d})
-                DISTRO = d
-                break # only want the first item for now
+            if "," in DISTRO:
+                for d in DISTRO.split(","):
+                    distrolist.append({"distro":d})
+                DISTRO = DISTRO.split(",")[0] # Make first one the main one
         else:
             distrolist = determine_distros_from_change(change)
         workItem = GerritWorkItem(change, distrolist, ilist, clist, fsconfig, EmptyJob=DoNothing, Reviewer=self, DISTRO=DISTRO)
