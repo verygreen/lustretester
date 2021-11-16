@@ -3,6 +3,7 @@ from datetime import timedelta
 import dateutil.parser
 from pprint import pprint
 import psycopg2
+import re
 
 def process_warning(testname, warning, change, resultlink, fstype, testtime=None):
     unique = False
@@ -50,6 +51,39 @@ def process_one(testname, subtestname, error, duration, branch, gerritid, result
     msg = ""
     branch_next = branch.endswith("-next")
     dbconn = None
+
+    if "service thread pid" in error and "was inactive for" in error:
+        error = "inactive service thread"
+
+    # Some errors have predictable variable parts that we want to turn into
+    # uniform format to ease matching
+    # NID
+    error = re.sub(r'\d+\.\d+\.\d+\.\d+@', 'IPADDR@', error)
+
+    # % usage in df
+    error = re.sub(r' \d+% /', ' USAGE% /', error)
+
+    # FID
+    error = re.sub(r'0x[0-9a-f]+:0x[0-9a-f]+:0x[0-9a-f]+', 'FID', error)
+
+    # Date time (e.g. hsm does this)
+    error = re.sub(r'\d{4}-\d{2}\-\d{2}', 'DATE', error)
+    error = re.sub(r'\d{2}:\d{2}:\d{2}', 'TIME', error) # ignore TZ
+
+    # UUID
+    error = re.sub(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', 'UUID', error)
+
+    # xx != YYY (constant for a test) only 2 or less digits since the rest is caught by bignum
+    error = re.sub(r'\s\d{,2} != ', ' NUM != ', error)
+
+    # duration in fraction seconds
+    error = re.sub(r'\d+\.\d+s', 'DURATION', error)
+
+    # big hex numbers (handles and whatnot
+    error = re.sub(r'[0-9a-f]{6,}', r'BIGHEX', error)
+    # 3+ digits numbers - super commong in grants and whatnot, exclude
+    # .._NUMBER (like test_xxx)
+    error = re.sub(r'([^_])\d{3,}',r'\1BIGNUM', error)
 
     if branch_next:
         branch = branch.replace("-next", "")
