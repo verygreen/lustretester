@@ -161,7 +161,7 @@ def extract_crash_from_dmesg_string(crashlog):
                 if funcresult:
                     crashfunction = funcresult
                     continue
-            if line == 'Call Trace:' or line == 'Call trace:':
+            if line in ('Call Trace:', 'Call trace:', 'Call Trace TBD:'):
                 recording_backtrace = True
             if crashfunction and line.startswith("LR is at "):
                 # Special ARM handling for backtraces
