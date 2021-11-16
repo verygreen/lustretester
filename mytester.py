@@ -99,12 +99,13 @@ class Node(object):
                 string = self.process.stderr.read()
                 self.errs += string
                 return "Process died"
-            if "Failed to start nbd nbd0" == string:
-                return "Cannot start nbd0"
-            if "Entering emergency mode. Exit the shell to continue" in string:
+            if "Entering emergency mode. Exit the shell to continue" in self.outs:
                 print("Emergency mode shell detected!")
                 return "Emergency shell"
-            if "login:" in string:
+            # Happens in fedora and rhel8 at times.
+            if "nbd: nbd0 already in use" in self.outs:
+                return "nbd0 is in use"
+            if "login:" in self.outs:
                 # Restore old blocking behavior
                 fcntl.fcntl(fd, fcntl.F_SETFL, fl)
                 return None
