@@ -139,6 +139,7 @@ I_DONT_KNOW_HOW_TO_TEST_THESE = [
         'contrib/lbuild/*', '*dkms*', '*spec*', 'debian/*', 'rpm/*',
         'lustre/kernel_patches/*' ]
 TEST_SCRIPT_FILES = [ 'lustre/tests/*' ]
+LUTF_ONLY_FILES = [ 'lustre/tests/lutf/*' ]
 
 
 # We store all job items here
@@ -236,6 +237,7 @@ def determine_testlist(change, filelist, commit_message, ForceFull=False, Branch
     NonTestFilesToo = False
     BuildOnly = False
     LNetOnly = False
+    LUTFOnly = False
     ZFSOnly = False
     LDiskfsOnly = False
     FullRun = False
@@ -283,12 +285,16 @@ def determine_testlist(change, filelist, commit_message, ForceFull=False, Branch
         if match_fnmatch_list(item, IGNORE_FILES):
             continue # with deletion would set BuildOnly
         DoNothing = False
+        if match_fnmatch_list(item, LUTF_ONLY_FILES):
+            LUTFOnly = True
+            continue
         if match_fnmatch_list(item, TEST_SCRIPT_FILES):
             testname = os.path.basename(item).replace('.sh', '')
             # if it was already requested by the test-params, don't add it again
             if not testname in requested_tests:
                 requested_tests.append(testname)
-            continue
+            if not item.endswith('.c'):
+                continue
         NonTestFilesToo = True
         if match_fnmatch_list(item, BUILD_ONLY_FILES):
             BuildOnly = True
@@ -334,6 +340,9 @@ def determine_testlist(change, filelist, commit_message, ForceFull=False, Branch
         if not is_testonly_requested(commit_message):
             trivial_requested = False
 
+    if LUTFOnly:
+        requested_tests.append("lutf")
+
     # Always reload testlists
     with open("tests/initial.json", "r") as blah:
         initialtestlist = json.load(blah)
@@ -354,7 +363,7 @@ def determine_testlist(change, filelist, commit_message, ForceFull=False, Branch
             UnknownItems = NonTestFilesToo
             foundtests = []
             for item in requested_tests:
-                if item == 'test-framework': # This needs a full run
+                if item in ('test-framework', 'functions', 'yaml'): # This needs a full run
                     LDiskfsOnly = True
                     ZFSOnly = True
                     LNetOnly = True
@@ -965,7 +974,7 @@ class Reviewer(object):
                     commentonly = False
                 if (basename.endswith('.sh') or basename.endswith('.pl') or
                     basename.endswith('.py') or
-                    basename in ('runtests', 'auster', 'rundbench', 'runiozone', 'runmultiop_bg_pause', 'runtests', 'runvmstat', 'runobdstat')) \
+                    basename in ('runtests', 'auster', 'rundbench', 'runiozone', 'runmultiop_bg_pause', 'runvmstat', 'runobdstat')) \
                    and not tmp[1:].startswith('#'):
                     commentonly = False
                 if line[1:].startswith('test_'):
