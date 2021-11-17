@@ -1514,6 +1514,7 @@ def print_WorkList_to_HTML():
         workitems += '</td><td>'
 
         workitems += workitem.get_current_text_status()
+        workitems += '</td></tr>'
 
     completeditems = ""
     for item in reversed(DoneList):
