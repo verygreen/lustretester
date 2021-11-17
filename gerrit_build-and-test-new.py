@@ -114,6 +114,7 @@ STYLE_LINK = os.getenv('STYLE_LINK',
 #TrivialNagMessage = 'It is recommended to add "Test-Parameters: trivial" directive to patches that do not change any running code to ease the load on the testing subsystem'
 TrivialNagMessage = '' # don't want to promote trivial anymore
 TrivialIgnoredMessage = 'Even though "Test-Parameters: trivial" was detected, this deeply suspicious bot still run some testing'
+SuspiciousTrivialUsage = 'Suspicious test-param trivial usage for general code changes'
 
 USE_CODE_REVIEW_SCORE = False
 
@@ -438,12 +439,15 @@ def determine_testlist(change, filelist, commit_message, ForceFull=False, Branch
 
     return (DoNothing, initial, comprehensive)
 
-def is_trivial_requested(message):
+def commitmsg_trivial_lineno(message):
     trivial_re = re.compile("^Test-Parameters:.*trivial")
-    for line in message.splitlines():
+    for idx, line in enumerate(message.splitlines()):
         if trivial_re.match(line):
-            return True
-    return False
+            return idx
+    return 0
+
+def is_trivial_requested(message):
+    return commitmsg_trivial_lineno(message) > 0
 
 def testlist_from_commit_message(message):
     testlist = []
@@ -580,6 +584,10 @@ def add_review_comment(WorkItem):
                 for buildinfo in WorkItem.builds:
                     distros.append(buildinfo['distro'])
                 message = 'Builds for x86_64 ' + ",".join(distros) + ' successful\n'
+                if WorkItem.tests and is_trivial_requested(commit_message):
+                    # +7 for line number is needed for our current gerrit since it also shows some metadata at the front
+                    review_comments.setdefault("/COMMIT_MSG", []).append({'line': commitmsg_trivial_lineno(commit_message) + 7, 'message': SuspiciousTrivialUsage})
+
             message += 'Job output URL: ' + WorkItem.get_base_url() + '/' + WorkItem.get_results_filename() + '\n\n'
             if WorkItem.initial_tests:
                 message += ' Commencing initial testing: ' + WorkItem.requested_tests_string(WorkItem.initial_tests)
