@@ -3,7 +3,8 @@ import pickle as pickle
 import json
 import requests
 import os
-from mymalooconfig import *
+from pprint import pprint
+from mymalooconfig import * # contains a_username and a_password for maloo
 
 class maloo_poster(object):
     def __init__(self):
@@ -38,17 +39,19 @@ class maloo_poster(object):
         tag = page.find('input', attrs = {'name':'authenticity_token'})
         token = tag['value']
         tag = page.find('input', attrs = {'name':'utf8'})
-        utf8 = tag['value']
         payload = {
-                'utf8': utf8.encode('utf-8'),
                 'authenticity_token': token,
-                'session[email]': self.username,
-                'session[password]': self.password,
+                'email': self.username,
+                'password': self.password,
                 'commit': "Sign in"
                 }
+        if tag:
+            utf8 = tag['value']
+            payload['utf8'] = utf8.encode('utf-8'),
 
         response = session.post(self.base_url + "sessions", data=payload, headers={'Content-type': 'application/x-www-form-urlencoded; charset=UTF-8'})
         if response.status_code != requests.codes.ok:
+            pprint(response)
             return None
 
         try:
@@ -92,8 +95,12 @@ class maloo_poster(object):
             'bug_upstream_id': bug
         }
         url = self.base_url + "buggable_links"
-        #print("About to post ", payload)
+        if DEBUG:
+            print("About to post ", payload)
         res = session.post(url, data=payload, headers={'Content-type': 'application/x-www-form-urlencoded; charset=UTF-8'})
+
+        if DEBUG:
+            pprint(res)
 
         return res.status_code == requests.codes.ok
 
@@ -127,13 +134,13 @@ class maloo_poster(object):
             offset += len(data)
 
         if found: # We found our crashed test
-            return self.associate_bug_to_subtest(testsetid, subtest['id'], bug)
+            return self.associate_bug_to_subtest(testsetid, subtest['id'], bug, DEBUG=DEBUG)
 
         if DEBUG:
             print("Cannot find crashed subtest, entries :" + str(len(data)))
             return False
 
-        return self.post_buggable(testsetid, 'TestSet', testsetid, bug)
+        return self.post_buggable(testsetid, 'TestSet', testsetid, bug, DEBUG=DEBUG)
 
     def associate_bug_by_url(self, url, bug, TESTLINE=None, DEBUG=False):
         if not url.startswith("https://testing.whamcloud.com/"):
