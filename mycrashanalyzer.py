@@ -25,6 +25,7 @@ crashstarters = ["SysRq : Trigger a crash",
                  "kernel BUG at ",
                  "divide error: ",
                  "general protection fault:", #
+                 "stack segment:", #
                  "Synchronous External Abort:", # And now ARM stuff
                  "Unable to handle kernel NULL pointer dereference",
                  "unable to handle kernel paging request",
