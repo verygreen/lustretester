@@ -53,16 +53,21 @@ def print_new_crashes(dbconn, form):
     """
 
     count = 20
+    sort = "last_seen"
     try:
         if form and form.getfirst("count"):
             count = int(form.getfirst("count"))
+        if form and form.getfirst("sort"):
+            if form.getfirst("sort") == "count":
+                sort = "hitcounts"
+
     except:
         pass
 
     REPORTS=""
     try:
         cur = dbconn.cursor()
-        cur.execute("SELECT new_crashes.id, new_crashes.reason, new_crashes.func, new_crashes.backtrace, count(triage.newcrash_id) as hitcounts, max(triage.created_at) as last_seen from new_crashes, triage where new_crashes.id = triage.newcrash_id group by new_crashes.id order by last_seen desc, hitcounts desc LIMIT %s", (count,))
+        cur.execute("SELECT new_crashes.id, new_crashes.reason, new_crashes.func, new_crashes.backtrace, count(triage.newcrash_id) as hitcounts, max(triage.created_at) as last_seen from new_crashes, triage where new_crashes.id = triage.newcrash_id group by new_crashes.id ORDER BY " + sort + " DESC, hitcounts desc LIMIT %s", (count,))
         rows = cur.fetchall()
         REPORTS = newreport_rows_to_table(rows)
         cur.close()
@@ -368,7 +373,7 @@ def convert_new_crash(dbconn, form):
 
 if __name__ == "__main__":
     form = cgi.FieldStorage()
-    if not form or form.getfirst("count"):
+    if not form or form.getfirst("count") or form.getfirst("sort"):
         result = print_new_crashes(dbconn, form)
     elif form.getfirst("newconvert_submit"):
         result = convert_new_crash(dbconn, form)
