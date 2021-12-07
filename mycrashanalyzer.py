@@ -294,7 +294,7 @@ def check_untriaged_crash(lasttest, crashtrigger, crashfunction, crashbt, fullcr
             dbconn.close()
     return newid, numreports
 
-def add_new_crash(lasttest, crashtrigger, crashfunction, crashbt, fullcrash, testlogs, link, DBCONN=None):
+def add_new_crash(lasttest, crashtrigger, crashfunction, crashbt, fullcrash, testlogs, link, CREATETIME=None, DBCONN=None):
     """ Check if we have a matching crash and add it, if we have a new one,
         add a new one """
     if not crashfunction:
@@ -318,7 +318,10 @@ def add_new_crash(lasttest, crashtrigger, crashfunction, crashbt, fullcrash, tes
             cur.execute("INSERT INTO new_crashes(reason, func, backtrace) VALUES(%s, %s, %s) RETURNING id", (crashtrigger, crashfunction, crashbt))
             newid = cur.fetchone()[0]
 
-        cur.execute("INSERT INTO triage(link, testline, fullcrash, testlogs, newcrash_id) VALUES (%s, %s, %s, %s, %s)", (link, lasttest, fullcrash, testlogs, newid))
+        if CREATETIME:
+            cur.execute("INSERT INTO triage(link, testline, fullcrash, testlogs, newcrash_id, created_at) VALUES (%s, %s, %s, %s, %s, %s)", (link, lasttest, fullcrash, testlogs, newid, CREATETIME))
+        else:
+            cur.execute("INSERT INTO triage(link, testline, fullcrash, testlogs, newcrash_id) VALUES (%s, %s, %s, %s, %s)", (link, lasttest, fullcrash, testlogs, newid))
         dbconn.commit()
         cur.close()
     except psycopg2.DatabaseError as e:
