@@ -64,7 +64,7 @@ if __name__ == "__main__":
             (result, extrainfo) = is_known_crash(lasttest, crashtrigger, function, abbreviatedbt, entirecrash, lasttestlogs, DBCONN=dbconn)
             if not result:
                 # check it in triage
-                (newid, numreports) = check_untriaged_crash(lasttest, crashtrigger, function, abbreviatedbt, entirecrash, lasttestlogs)
+                (newid, numreports) = check_untriaged_crash(lasttest, crashtrigger, function, abbreviatedbt, entirecrash, lasttestlogs, DBCONN=dbconn)
                 # 0 id means error
                 if newid is None:
                     result = "Db problem, try again sometime"
