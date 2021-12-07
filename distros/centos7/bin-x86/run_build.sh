@@ -4,7 +4,7 @@ export PATH=/usr/lib64/ccache:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/
 
 SRCLOCATION=/home/green/git/lustre-release-base
 TGTBUILD=/home/green/git/lustre-release
-KERNELVERSION=linux-3.10.0-1160.45.1.el7-debug
+KERNELVERSION=linux-3.10.0-1160.49.1.el7-debug
 ZFSVERSION=0.8.6
 KERNELDIR=/home/green/bk/${KERNELVERSION}
 OUTDIR=/tmp/out
