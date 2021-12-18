@@ -153,7 +153,7 @@ def extract_crash_from_dmesg_string(crashlog):
                     abbreviated_backtrace += '\n'
             elif not crashfunction:
                 funcresult = None
-                for regex in (r"IP: \[<\w+>\] (\w+).*\+0x", r"RIP: \d+:\[<\w+>\]  \[<\w+>\] (\w+).*\+0x", r"RIP: \d+:(\w+)\+0x", r"PC is at (\w+)\+0x"):
+                for regex in (r"IP: \[<\w+>\] (\w+).*\+0x", r"RIP: \d+:\[<\w+>\]  \[<\w+>\] (\w+).*\+0x", r"RIP: \d+:(\w+).*\+0x", r"PC is at (\w+).*\+0x"):
                     pattern = re.compile(regex)
                     result = pattern.match(line)
                     if result:
