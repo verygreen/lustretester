@@ -18,7 +18,7 @@ in grub: zswap.enabled=1
 to rc.local: echo lz4 >/sys/module/zswap/parameters/compressor
 
 faster emulation in grub:
-noibrs noibpb audit=0 pti=off spectre_v2=off l1tf=off nospec_store_bypass_disable
+mitigations=off audit=0
 
 ksmtuned - install
 service ksmtuned start
@@ -38,7 +38,7 @@ options spl spl_taskq_thread_dynamic=0
 sysctl:
 vm.swappiness=0 # to reduce swappiness as VMs use all the RAM
 
-# console on another tty:
+# guest console on another tty:
 systemctl enable serial-getty@ttyS0
 
 
@@ -59,4 +59,4 @@ chkconfig influx on
 chkconfig telegraf on
 chkconfig grafana-server on
 
-pip-2 install influxdb
+pip install influxdb
