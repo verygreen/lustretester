@@ -58,7 +58,7 @@ fi
 
 echo "${REF}" >${OUTDIR}/REF
 
-CONFIGUREHASH=$(cat LUSTRE-VERSION-GEN $(find -name "*.m4" -o -name "*.ac") | md5sum | cut -f1 -d " ")
+CONFIGUREHASH=$(cat LUSTRE-VERSION-GEN $(find -name "*.m4" -o -name "*.ac") $(find ${KERNELDIR} -name .config) | md5sum | cut -f1 -d " ")
 log "autogen.sh"
 sh autogen.sh >>${BUILDLOG} 2>&1
 
@@ -92,6 +92,9 @@ if [ $RETVAL -ne 0 ] ; then
 	make -j8 >/dev/null 2>${OUTDIR}/build${EXTRANAME}.stderr
 	PATTERN=$(echo ${TGTBUILD}/ | sed 's/\//\\\//g')
 	grep '[[:digit:]]\+:[[:digit:]]\+: ' ${OUTDIR}/build${EXTRANAME}.stderr | sed "s/^${PATTERN}//" 1>&2 # to stdout where it can be easily separated
+	cp config.h ${OUTDIR}/config.h-${EXTRANAME}
+	cp config.log ${OUTDIR}/config.log-${EXTRANAME}
+	cp config.cache ${OUTDIR}/config.cache-${EXTRANAME}-${CONFIGUREHASH}
         exit 14
 fi
 
